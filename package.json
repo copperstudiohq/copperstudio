@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "node --test infra/visit-counter/handler.test.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

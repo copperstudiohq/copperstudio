@@ -111,6 +111,10 @@ kbd { display: inline-block; font-family: inherit; min-width: 19px; text-align: 
 .footer-wordmark { font-size: 18px; letter-spacing: -.7px; }
 .footer-wordmark .brand-mark { width: 24px; height: 24px; margin-right: 0; }
 .site-footer p { color: var(--muted); font-size: 11px; margin: 0; }
+.footer-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px; }
+.visit-counter { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.visit-counter strong { color: var(--copper); font-weight: 600; font-variant-numeric: tabular-nums; }
+.visit-counter svg { flex-shrink: 0; color: var(--copper); }
 .back-top { display: flex; align-items: center; gap: 8px; font-size: 10px; }
 .back-top:hover { text-decoration: underline; text-underline-offset: 4px; }
 
@@ -171,7 +175,8 @@ kbd { display: inline-block; font-family: inherit; min-width: 19px; text-align: 
   .guide-intro p br { display: none; }
   .guide-questions { padding: 0; }
   .site-footer { flex-wrap: wrap; gap: 8px 12px; padding: 22px 0; }
-  .site-footer p { font-size: 10px; order: 3; width: 100%; padding-top: 3px; }
+  .footer-note { order: 3; width: 100%; justify-content: space-between; padding-top: 3px; }
+  .site-footer p, .visit-counter { font-size: 10px; }
   .back-top { margin-left: auto; }
 }
 @media (max-width: 380px) {

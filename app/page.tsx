@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUpRight, CloudRain, Gamepad2, Layers, Snowflake } from "lucide-react";
 import QuartzWordmark from "@/components/quartz-wordmark";
+import VisitCounter from "@/components/visit-counter";
 
 const games = [
   {
@@ -120,7 +121,7 @@ export default function Home() {
           </div>
         </section>
       </main>
-      <footer className="site-footer shell"><a className="wordmark footer-wordmark" href="#"><img className="brand-mark" src="/copper-c.svg" width="32" height="32" alt="" aria-hidden="true" /><QuartzWordmark /></a><p>A little curiosity goes a long way.</p><a className="back-top" href="#">Back to the surface <ArrowUpRight size={15} aria-hidden="true" /></a></footer>
+      <footer className="site-footer shell"><a className="wordmark footer-wordmark" href="#"><img className="brand-mark" src="/copper-c.svg" width="32" height="32" alt="" aria-hidden="true" /><QuartzWordmark /></a><div className="footer-note"><p>A little curiosity goes a long way.</p><VisitCounter /></div><a className="back-top" href="#">Back to the surface <ArrowUpRight size={15} aria-hidden="true" /></a></footer>
     </>
   );
 }
