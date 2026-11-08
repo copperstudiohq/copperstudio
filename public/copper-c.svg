@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="copper-c-title">
+  <title id="copper-c-title">Copperstudio Games copper C</title>
+  <defs>
+    <linearGradient id="copper" x1="12" y1="9" x2="53" y2="57" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#efb27c"/>
+      <stop offset=".4" stop-color="#ce8052"/>
+      <stop offset=".72" stop-color="#a75c38"/>
+      <stop offset="1" stop-color="#743e2b"/>
+    </linearGradient>
+  </defs>
+  <path d="M54.479 17.661a25 25 0 1 0 0 28.678l-9.83-6.883a13 13 0 1 1 0-14.912Z" fill="url(#copper)"/>
+  <path d="M53.55 17.688a24.25 24.25 0 1 0-35.812 32.295" fill="none" stroke="#ffe1b8" stroke-opacity=".36" stroke-width=".9" stroke-linecap="round"/>
+</svg>

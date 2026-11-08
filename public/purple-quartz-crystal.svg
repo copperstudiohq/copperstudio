@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="144" viewBox="0 0 120 144" role="img" aria-labelledby="quartz-title">
+  <title id="quartz-title">Faceted purple quartz crystal</title>
+  <defs>
+    <linearGradient id="quartz-left" x1="22" y1="39" x2="51" y2="130" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#704087"/>
+      <stop offset=".5" stop-color="#59306e"/>
+      <stop offset="1" stop-color="#382044"/>
+    </linearGradient>
+    <linearGradient id="quartz-front" x1="46" y1="48" x2="76" y2="134" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ab83be"/>
+      <stop offset=".35" stop-color="#8752a1"/>
+      <stop offset=".73" stop-color="#74418c"/>
+      <stop offset="1" stop-color="#4e285e"/>
+    </linearGradient>
+    <linearGradient id="quartz-right" x1="77" y1="47" x2="97" y2="121" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#77418f"/>
+      <stop offset=".5" stop-color="#603575"/>
+      <stop offset="1" stop-color="#40234f"/>
+    </linearGradient>
+    <linearGradient id="quartz-tip" x1="60" y1="8" x2="62" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#dcc3e8"/>
+      <stop offset="1" stop-color="#9868ad"/>
+    </linearGradient>
+  </defs>
+  <path d="M60 6 21 43 29 116 61 138 91 119 101 42Z" fill="#4e285e" stroke="#7c548d" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="m21 43 27 12 1 74-20-13Z" fill="url(#quartz-left)"/>
+  <path d="m48 55 28-3-2 78-13 8-12-9Z" fill="url(#quartz-front)"/>
+  <path d="m76 52 25-10-10 77-17 11Z" fill="url(#quartz-right)"/>
+  <path d="M60 6 21 43 48 55Z" fill="#986dad"/>
+  <path d="m60 6-12 49 28-3Z" fill="url(#quartz-tip)"/>
+  <path d="m60 6 16 46 25-10Z" fill="#76498b"/>
+  <path d="m24 51 6 63 8 6-5-64Z" fill="#b18fc0" opacity=".14"/>
+  <path d="m53 57 7-1 1 75-7-4Z" fill="#d2b4df" opacity=".13"/>
+  <path d="m83 51 6-2-8 72-3 3Z" fill="#aa80bd" opacity=".12"/>
+  <path d="m29 116 20 13 12 9-16-4Z" fill="#301a3b"/>
+  <path d="m61 138 13-8 17-11-6 12Z" fill="#361c42"/>
+  <g fill="none" stroke-linejoin="round">
+    <path d="M60 6 21 43l8 73M60 6 48 55l1 74M48 55l28-3 25-10" stroke="#e2cbea" stroke-opacity=".67" stroke-width="1.1"/>
+    <path d="m60 6 16 46-2 78M101 42l-10 77-30 19" stroke="#c5a2d4" stroke-opacity=".43" stroke-width="1"/>
+    <path d="m48 68 27-2m-27 21 26-2m-25 24 25-3m-48-36 20 8m30 18 19-8" stroke="#d0afd9" stroke-opacity=".12" stroke-width=".8"/>
+    <path d="m33 36 21-21M24 48l4 30m23-22 21-2" stroke="#f0def5" stroke-opacity=".5" stroke-width=".8"/>
+  </g>
+</svg>
