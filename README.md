@@ -54,6 +54,6 @@ Local previews intentionally cannot increment the live counter because its origi
 
 ## Game access and assets
 
-The three game links open their existing sites in a new tab. Those games keep their own hosting, sign-in, sharing settings, saved data, and multiplayer behavior; publishing this landing page does not grant access to a linked game.
+The four game links open their existing sites in a new tab. Those games keep their own hosting, sign-in, sharing settings, saved data, and multiplayer behavior; publishing this landing page does not grant access to a linked game.
 
 The supplied SVG logos, artwork, and responsive layout are preserved from the existing Copperstudio page. The DM Sans and DM Serif fonts are served locally; their SIL Open Font License texts are retained in `public/fonts/`.

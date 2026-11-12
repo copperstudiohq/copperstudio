@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUpRight, CloudRain, Gamepad2, Layers, Snowflake } from "lucide-react";
+import { ArrowDown, ArrowUpRight, CloudRain, Gamepad2, Layers, Snowflake, Swords } from "lucide-react";
 import QuartzWordmark from "@/components/quartz-wordmark";
 import VisitCounter from "@/components/visit-counter";
 
@@ -57,6 +57,24 @@ const games = [
     href: "https://wooden-room-red-carpet.davidwebstar.chatgpt.site", color: "tabletop",
     features: ["Cards", "Solo", "Online duel"], Icon: Layers,
   },
+  {
+    number: "04", name: "Tri Arena", label: "Aim. Cut. Survive.", genre: "Voxel arena combat",
+    description: [
+      "Step into the Tri Bonefields, where infected pink ground stretches between scattered bones, giant teeth, and watching eyes. This first-person voxel sword fighter brings the Tri creatures from Rain & Copper into an arena built for close combat. Aim your blade at an enemy’s body and choose horizontal or vertical cuts, then block, dash, or kick to make room for your next strike.",
+      "Survive endless waves and choose a blade, health, or dash upgrade after each clear. Every fifth wave brings one of six rotating bosses, from the Copper Giant to the Trilom Wraith. Jump into Boss Practice to learn their attacks, or push for a new personal best in the main arena. Your best wave and score are saved in this browser.",
+    ],
+    highlights: [
+      { title: "Cut where you aim", text: "Place your strikes on an enemy’s body and switch between horizontal and vertical sword cuts." },
+      { title: "Build your advantage", text: "Clear waves, choose upgrades, and combine blocking, dashes, and kicks to stay in the fight." },
+      { title: "Face the bosses", text: "Meet a rotating boss every fifth wave, or use Boss Practice to sharpen your approach." },
+    ],
+    image: "/images/tri-arena.webp",
+    alt: "First-person view of Tri Arena, with a sword facing pink Tri creatures among bones and giant teeth",
+    imageWidth: 1280, imageHeight: 720,
+    caption: "TRI ARENA / IN-GAME",
+    href: "https://tri-arena-danger-zone.davidwebstar.chatgpt.site", color: "arena",
+    features: ["Combat", "Waves", "Bosses"], Icon: Swords,
+  },
 ] as const;
 
 export default function Home() {
@@ -79,7 +97,7 @@ export default function Home() {
           <div className="hero-content">
             <h1 id="hero-title">Small games.<br /><span className="copper-text">Strange</span> worlds.</h1>
             <div className="hero-aside">
-              <p>Across the ice. Into the rain.<br /> Around the card table.<br /> Find your next adventure.</p>
+              <p>Across the ice. Into the rain.<br /> Around the table. Into the arena.<br /> Find your next adventure.</p>
               <a className="explore-link" href="#worlds">Find your world <span><ArrowDown size={18} aria-hidden="true" /></span></a>
             </div>
           </div>
@@ -87,7 +105,7 @@ export default function Home() {
           <span className="hero-crystal" aria-hidden="true"><img src="/purple-quartz-crystal.svg" width="120" height="144" alt="" /></span>
         </section>
         <section className="worlds shell" id="worlds" aria-labelledby="worlds-title">
-          <div className="section-label"><h2 id="worlds-title">CHOOSE YOUR NEXT ADVENTURE</h2><span>THREE GAMES. YOUR CALL.</span></div>
+          <div className="section-label"><h2 id="worlds-title">CHOOSE YOUR NEXT ADVENTURE</h2><span>FOUR GAMES. YOUR CALL.</span></div>
           <div className="game-grid">
             {games.map(({ Icon, ...game }) => (
               <article className={"game-card " + game.color} key={game.name} aria-labelledby={"game-title-" + game.number}>
@@ -115,9 +133,9 @@ export default function Home() {
         <section className="play-guide shell" id="how-to-play" aria-labelledby="guide-title">
           <div className="guide-intro"><span className="eyebrow">BEFORE YOU WANDER</span><h2 id="guide-title">A small field guide.</h2><p>Pick a world. Open a new tab.<br />See where you end up.</p></div>
           <div className="guide-questions">
-            <details><summary>How do I get started?<span aria-hidden="true">+</span></summary><div className="answer">Choose a game above to open it in a new tab. All three games run in your browser. The game may ask you to sign in with ChatGPT; access is managed separately for each game.</div></details>
-            <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>All three games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
-            <details><summary>Which game should I choose?<span aria-hidden="true">+</span></summary><div className="answer">Choose Croba Planet for alien wildlife, icy exploration, and deep ocean dives. Choose the Rain &amp; Copper island adventure for fishing, crafting, and strange creatures. Choose Rain &amp; Copper: The Card Game for secret hands, creature powers, and a solo or online duel across the table.</div></details>
+            <details><summary>How do I get started?<span aria-hidden="true">+</span></summary><div className="answer">Choose a game above to open it in a new tab. All four games run in your browser. The game may ask you to sign in with ChatGPT; access is managed separately for each game.</div></details>
+            <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>In Tri Arena, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and the mouse or a drag to look. Left-click to attack, hold <kbd>V</kbd> for vertical cuts, and right-click to block. Use <kbd>Shift</kbd> to dash, <kbd>Space</kbd> to kick, and <kbd>Esc</kbd> to pause.</p><p>All four games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
+            <details><summary>Which game should I choose?<span aria-hidden="true">+</span></summary><div className="answer">Choose Croba Planet for alien wildlife, icy exploration, and deep ocean dives. Choose the Rain &amp; Copper island adventure for fishing, crafting, and strange creatures. Choose Rain &amp; Copper: The Card Game for secret hands, creature powers, and a solo or online duel across the table. Choose Tri Arena for sword combat, endless waves, upgrades, and boss battles.</div></details>
           </div>
         </section>
       </main>

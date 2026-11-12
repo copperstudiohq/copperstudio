@@ -70,6 +70,7 @@ h1 > span { font-family: 'DM Serif', Georgia, serif; font-weight: 400; font-styl
 .game-card { display: flex; flex-direction: column; min-width: 0; outline-offset: 8px; --accent: #517576; }
 .game-card.copper { --accent: var(--copper); }
 .game-card.tabletop { --accent: #805a36; }
+.game-card.arena { --accent: #86516b; }
 .game-art { display: block; flex-shrink: 0; aspect-ratio: 1.55; position: relative; overflow: hidden; border-radius: 5px; background: #0b333e; isolation: isolate; }
 .game-art::after { position: absolute; content: ''; inset: 0; background: linear-gradient(180deg, #061a2028, transparent 30%, transparent 65%, #061a2075); pointer-events: none; }
 .game-art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .65s cubic-bezier(.2,.65,.3,1); }
@@ -120,7 +121,7 @@ kbd { display: inline-block; font-family: inherit; min-width: 19px; text-align: 
 
 @media (min-width: 1600px) { .hero-crystal { right: 400px; } }
 @media (min-width: 1180px) {
-  .game-grid { --game-gap: 24px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .game-grid { --game-gap: 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .game-card h3 { font-size: 30px; }
 }
 @media (min-width: 761px) and (max-width: 1179px) {
