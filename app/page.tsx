@@ -68,7 +68,7 @@ const games = [
       { title: "Build your advantage", text: "Clear waves, choose upgrades, and combine blocking, dashes, and kicks to stay in the fight." },
       { title: "Face the bosses", text: "Meet a rotating boss every fifth wave, or use Boss Practice to sharpen your approach." },
     ],
-    image: "/images/tri-arena-realistic.webp",
+    image: "/images/tri-arena-realistic-v2.webp",
     alt: "Realistic first-person concept art of a copper sword facing a pink one-eyed Tri creature with blue legs in a purple arena filled with bones and giant teeth",
     imageWidth: 1672, imageHeight: 941,
     caption: "TRI ARENA / CONCEPT ART",
