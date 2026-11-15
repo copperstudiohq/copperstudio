@@ -29,6 +29,16 @@ Configure **copperstudio.nl** as the repository's Pages custom domain before upd
 
 The prepared Route 53 change batch is in [`infra/route53-records.json`](infra/route53-records.json). Before applying it, verify that the selected public hosted zone is the zone delegated for `copperstudio.nl`, review the existing records, and preserve unrelated records.
 
+## Octo Nose chat
+
+The section below the games reuses Octo Nose's local conversation rules and original nose, Tri, and Croba dialogue from Axolotl Major, Rain & Copper, and Tri Arena. Its static portrait is rendered from Axolotl Major's original `octo-model.js`. The website adds verified guidance and links for all four games. It is a rule-based character and game guide, rather than a general-purpose language model; unsupported questions receive suggestions for things Octo can answer.
+
+All chat replies are computed in the visitor's browser. The chat has no AI API, backend, model download, microphone, dialogue bridge, or per-message service charges. It does not change the existing visit counter's billing. Updating the original games' dialogue does not automatically update the bundled website copy.
+
+Conversation memory lives only in the current page, with at most 24 visible messages and 300 characters per input. Refreshing the page or choosing **Clear chat** resets the conversation and remembered name. Messages are rendered as text and are never sent to a service or stored in cookies or local storage. The optional **Read aloud** setting starts off and uses only an English voice that the browser reports as local; it remains unavailable when there is no local voice. Text chat works either way.
+
+`lib/octo-chat.mjs` contains the standalone engine, `lib/octo-dialogue.mjs` holds the original lines, and `components/octo-nose-chat.tsx` provides the accessible interface. `npm test` covers game routing, conversational memory, input bounds, and local-only speech behavior alongside the visit counter tests.
+
 ## Shared visit counter
 
 The footer shows total website visits since the counter launched. Each tab session counts once; refreshing that tab reads the latest total without incrementing it. This measures visits rather than unique people or completed game plays. With browser session storage disabled, each page load can count again. Automated visits and deliberate repeat requests can affect the total.

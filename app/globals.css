@@ -94,6 +94,49 @@ h3 { font-size: 34px; letter-spacing: -1.4px; font-weight: 600; line-height: 1.2
 .game-tags span { font-size: 9px; border: 1px solid #d0d5c7; padding: 5px 9px; border-radius: 20px; color: #5e6b58; }
 .play-link { display: flex; gap: 7px; align-items: center; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .play-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.octo-section { padding-top: 64px; scroll-margin-top: 24px; }
+.octo-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 25px; }
+.octo-heading .eyebrow { font-size: 9px; color: var(--muted); }
+.octo-heading h2 { font-size: 38px; font-weight: 600; line-height: 1.2; letter-spacing: -1.4px; margin: 14px 0 0; }
+.octo-badge { display: inline-flex; align-items: center; gap: 9px; font-size: 11px; color: var(--muted); padding-bottom: 4px; }
+.octo-layout { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.6fr); gap: 28px; }
+.octo-profile { min-width: 0; }
+.octo-portrait { aspect-ratio: 4 / 3; overflow: hidden; border-radius: 5px; background: #243b2b; }
+.octo-portrait img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.octo-profile-label { display: block; font-size: 8px; font-weight: 600; letter-spacing: 1.3px; color: var(--copper); margin-top: 17px; }
+.octo-profile > p { font-size: 12px; line-height: 1.8; color: var(--muted); margin: 10px 0 17px; max-width: 340px; }
+.octo-prompts { display: flex; flex-wrap: wrap; gap: 7px; }
+:where(.octo-section button, .octo-section textarea) { font: inherit; }
+.octo-section button { cursor: pointer; }
+.octo-section button:focus-visible, .octo-section textarea:focus-visible, .octo-log:focus-visible { outline: 3px solid var(--copper); outline-offset: 3px; }
+.octo-prompts button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #ccd0c2; background: transparent; border-radius: 18px; padding: 7px 10px; color: var(--ink); font-size: 10px; text-align: left; }
+.octo-prompts button:hover { border-color: var(--copper); background: #ffffff50; }
+.octo-panel { min-width: 0; border: 1px solid var(--line); border-radius: 6px; background: #faf9f3; overflow: hidden; }
+.octo-panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 20px; border-bottom: 1px solid var(--line); }
+.octo-panel-header > span { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .2px; }
+.octo-clear { display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: transparent; color: var(--copper); font-size: 10px; white-space: nowrap; }
+.octo-clear:hover { text-decoration: underline; text-underline-offset: 4px; }
+.octo-log { height: 310px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #c3cab7 transparent; padding: 20px; }
+.octo-messages { list-style: none; display: grid; gap: 16px; padding: 0; margin: 0; }
+.octo-message { max-width: 93%; padding: 12px 14px; border: 1px solid #dce0d4; border-radius: 3px 12px 12px; background: #edf0e3; overflow-wrap: anywhere; }
+.octo-message-you { justify-self: end; background: #f3e8dc; border-color: #e3d3c2; border-radius: 12px 3px 12px 12px; }
+.octo-speaker { display: block; font-size: 9px; font-weight: 600; color: var(--copper); margin-bottom: 5px; }
+.octo-message p { margin: 0; font-size: 12px; line-height: 1.8; white-space: pre-wrap; }
+.octo-game-links { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 10px; }
+.octo-game-links a { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.octo-form { border-top: 1px solid var(--line); padding: 17px 20px 12px; }
+.octo-form label { display: block; font-size: 10px; font-weight: 600; margin-bottom: 8px; }
+.octo-input-row { display: flex; align-items: stretch; gap: 9px; }
+.octo-input-row textarea { min-width: 0; flex: 1; resize: vertical; min-height: 66px; max-height: 180px; border: 1px solid #cbd1c1; border-radius: 4px; padding: 10px 12px; background: #fffefa; color: var(--ink); font-size: 12px; line-height: 1.65; }
+.octo-input-row textarea::placeholder { color: #79816f; }
+.octo-send { display: flex; align-items: center; justify-content: center; gap: 8px; align-self: stretch; border: 1px solid #bed279; border-radius: 4px; background: var(--green); color: var(--ink); padding: 10px 15px; font-size: 12px; font-weight: 600; }
+.octo-send:hover:not(:disabled) { background: #cbe680; }
+.octo-send:disabled { opacity: .5; cursor: default; }
+.octo-panel-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 9px; padding: 0 20px 16px; }
+.octo-panel-footer p { margin: 0; font-size: 9px; color: var(--muted); line-height: 1.6; }
+.octo-voice { display: inline-flex; align-items: center; gap: 6px; border: 0; padding: 3px 0; background: transparent; color: var(--copper); font-size: 10px; }
+.octo-voice:disabled { cursor: default; color: var(--muted); opacity: .7; }
+.octo-voice[aria-pressed="true"] { font-weight: 600; }
 .play-guide { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding-block: 64px; }
 .guide-intro .eyebrow { font-size: 9px; color: var(--muted); }
 .guide-intro h2 { margin: 14px 0 12px; font-size: 33px; font-weight: 600; letter-spacing: -1.2px; }
@@ -134,6 +177,7 @@ kbd { display: inline-block; font-family: inherit; min-width: 19px; text-align: 
   .hero-crystal { right: 260px; top: 7px; }
   .hero-crystal img { width: 65px; height: 78px; }
   .game-grid { --game-gap: 22px; }
+  .octo-layout { grid-template-columns: minmax(200px, .8fr) minmax(0, 1.6fr); gap: 22px; }
   .game-art { aspect-ratio: 1.35; }
   .art-caption { font-size: 7px; max-width: 70%; line-height: 1.6; }
   .game-tags { gap: 4px; }
@@ -164,6 +208,17 @@ kbd { display: inline-block; font-family: inherit; min-width: 19px; text-align: 
   .hero-bottom svg { width: 13px; }
   .section-label h2, .section-label > span { font-size: 8px; letter-spacing: .9px; }
   .game-grid { grid-template-columns: 1fr; gap: 35px; }
+  .octo-section { padding-top: 42px; }
+  .octo-heading h2 { font-size: 31px; letter-spacing: -1px; }
+  .octo-layout { grid-template-columns: 1fr; gap: 22px; }
+  .octo-portrait { max-width: 360px; aspect-ratio: 16 / 9; }
+  .octo-profile > p { max-width: none; }
+  .octo-log { height: 290px; padding: 16px; }
+  .octo-panel-header { padding: 13px 16px; }
+  .octo-form { padding: 15px 16px 12px; }
+  .octo-input-row textarea { font-size: 16px; }
+  .octo-panel-footer { padding: 0 16px 14px; }
+  .octo-send { padding-inline: 12px; }
   .game-art { aspect-ratio: 1.55; }
   .art-caption { font-size: 8px; }
   .game-description p { max-width: none; }

@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUpRight, CloudRain, Gamepad2, Layers, Snowflake, Swords } from "lucide-react";
 import QuartzWordmark from "@/components/quartz-wordmark";
 import VisitCounter from "@/components/visit-counter";
+import OctoNoseChat from "@/components/octo-nose-chat";
 
 const games = [
   {
@@ -130,11 +131,12 @@ export default function Home() {
             ))}
           </div>
         </section>
+        <OctoNoseChat />
         <section className="play-guide shell" id="how-to-play" aria-labelledby="guide-title">
           <div className="guide-intro"><span className="eyebrow">BEFORE YOU WANDER</span><h2 id="guide-title">A small field guide.</h2><p>Pick a world. Open a new tab.<br />See where you end up.</p></div>
           <div className="guide-questions">
             <details><summary>How do I get started?<span aria-hidden="true">+</span></summary><div className="answer">Choose a game above to open it in a new tab. All four games run in your browser. The game may ask you to sign in with ChatGPT; access is managed separately for each game.</div></details>
-            <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>In Tri Arena, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and the mouse or a drag to look. Left-click to attack, hold <kbd>V</kbd> for vertical cuts, and right-click to block. Use <kbd>Shift</kbd> to dash, <kbd>Space</kbd> to kick, and <kbd>Esc</kbd> to pause.</p><p>All four games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
+            <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>In Tri Arena, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and the mouse or a drag to look. Left-click to attack, using <kbd>A</kbd>/<kbd>D</kbd> for horizontal cuts or holding <kbd>V</kbd> to force vertical cuts. Right-click to kick, use <kbd>E</kbd> or <kbd>K</kbd> to block, <kbd>Shift</kbd> to dash, <kbd>Space</kbd> to jump, and <kbd>Esc</kbd> to pause.</p><p>All four games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
             <details><summary>Which game should I choose?<span aria-hidden="true">+</span></summary><div className="answer">Choose Croba Planet for alien wildlife, icy exploration, and deep ocean dives. Choose the Rain &amp; Copper island adventure for fishing, crafting, and strange creatures. Choose Rain &amp; Copper: The Card Game for secret hands, creature powers, and a solo or online duel across the table. Choose Tri Arena for sword combat, endless waves, upgrades, and boss battles.</div></details>
           </div>
         </section>
