@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { createOctoChat, replyAsOcto, OCTO_GREETING, OCTO_PROMPTS } from '../lib/octo-chat.mjs';
 import { NOSE_LINES, CROBA_LINES, TRI_LINES, JOKES } from '../lib/octo-dialogue.mjs';
 
@@ -59,7 +59,7 @@ test('short follow-up control questions keep the selected game', () => {
   assert.match(answer('What does E do?', memory).reply, /E draws/);
   const howTo = answer('How do I play?', memory);
   assert.equal(howTo.links[0].href, URLS.cards);
-  assert.match(howTo.reply, /creature power|deck|Host a game/);
+  assert.match(howTo.reply, /draw.*play.*three tokens/);
 });
 
 test('name memory is original, bounded, and per conversation', () => {
@@ -119,7 +119,7 @@ test('standalone guide never executes or promises remote game actions', () => {
     assert.match(reply.reply, /cannot follow, heal, build, fight or control/);
     assert.doesNotMatch(reply.reply, /I will (?:follow|guard|build|heal|rescue)/);
   }
-  assert.match(answer('How do I build in Rain & Copper?').reply, /Chop a nearby birch/);
+  assert.match(answer('How do I build in Rain & Copper?').reply, /Crafting.*wood.*Wall Plank/);
 });
 
 test('local chat answers cost and privacy truthfully', () => {
@@ -148,7 +148,7 @@ test('multiplayer distinguishes online cards, local island and solo arena', () =
 test('game tokens and local co-op are not mistaken for chat billing or privacy', () => {
   const cards = answer('How do I win tokens in the card game?');
   assert.equal(cards.links[0].href, URLS.cards);
-  assert.match(cards.reply, /creature power|deck|Host a game/);
+  assert.match(cards.reply, /draw.*play.*three tokens/);
   assert.doesNotMatch(cards.reply, /pattern-matching/);
   const island = answer('Does Rain & Copper have local co-op?');
   assert.equal(island.links[0].href, URLS.island);
@@ -162,7 +162,7 @@ test('game tokens and local co-op are not mistaken for chat billing or privacy',
 });
 
 test('War and Survival help uses current documented modes without commanding Octo', () => {
-  assert.match(answer('War Mode').reply, /optional Player.*cannot give him battle orders/);
+  assert.match(answer('War Mode').reply, /optional Player.*spectator view/);
   const memory = createOctoChat();
   answer('Tri Arena', memory);
   assert.match(answer('Survival mode', memory).reply, /Survival/);
@@ -170,9 +170,9 @@ test('War and Survival help uses current documented modes without commanding Oct
 });
 
 test('missing game context asks a useful question and unknowns remain honest', () => {
-  assert.match(answer('What are the controls?').reply, /Which game are you playing/);
+  assert.match(answer('What are the controls?').reply, /Which game do you mean/);
   const reply = answer('Explain quantum gravity in detail');
-  assert.match(reply.reply, /nose-brain|simple fellow|puzzled/);
+  assert.match(reply.reply, /do not have a reliable answer/);
   assert.equal(reply.command, null);
   assert.deepEqual(reply.links, []);
 });
@@ -197,7 +197,7 @@ test('invalid and oversized input remain bounded without coercing objects', () =
 
 test('markup is plain input and cannot supply links or commands', () => {
   const reply = answer('<script>alert(1)</script> javascript:alert(1)');
-  assert.match(reply.reply, /nose-brain|simple fellow|puzzled/);
+  assert.match(reply.reply, /do not have a reliable answer/);
   assert.deepEqual(reply.links, []);
   assert.equal(reply.command, null);
 });
@@ -206,19 +206,20 @@ test('prototype-like malformed topics cannot become dialogue arrays or links', (
   for (const topic of ['__proto__', 'constructor', 'toString']) {
     const memory = { ...createOctoChat(), lastTopic: topic, lastGame: topic };
     const reply = answer('more', memory);
-    assert.match(reply.reply, /nose-brain|simple fellow|puzzled/);
+    assert.match(reply.reply, /do not have a reliable answer/);
     assert.deepEqual(reply.links, []);
     assert.equal(reply.command, null);
   }
 });
 
-test('production engine only imports bundled dialogue and has no network or credential access', async () => {
-  const engine = await readFile(new URL('../lib/octo-chat.mjs', import.meta.url), 'utf8');
-  const dialogue = await readFile(new URL('../lib/octo-dialogue.mjs', import.meta.url), 'utf8');
-  const imports = [...engine.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g)].map(match => match[1]);
-  assert.deepEqual(imports, ['./octo-dialogue.mjs']);
-  for (const source of [engine, dialogue]) {
+test('production chat modules only import bundled code and have no network or credential access', async () => {
+  const folder = new URL('../lib/', import.meta.url);
+  for (const file of (await readdir(folder)).filter(name => name.endsWith('.mjs'))) {
+    const source = await readFile(new URL(file, folder), 'utf8');
+    const imports = [...source.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g)].map(match => match[1]);
+    for (const dependency of imports) assert.match(dependency, /^\.\/octo-[\w-]+\.mjs$/, file);
     assert.doesNotMatch(source, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|importScripts)\s*\(/);
+    assert.doesNotMatch(source, /\bimport\s*\(/);
     assert.doesNotMatch(source, /\b(?:process\.env|localStorage|document\.|window\.|OCTO_SOURCE_TOKEN)\b/);
   }
 });

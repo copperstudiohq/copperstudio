@@ -7,6 +7,12 @@ export interface OctoMemory {
   lastQuestion: string;
   lastAnswer: string;
   lastGame: OctoGame;
+  pendingQuestion: string;
+  lastFact: string;
+  shownFacts: string[];
+  lastOptions: Exclude<OctoGame, ''>[];
+  likes: string[];
+  dislikes: string[];
 }
 
 export interface OctoReply {

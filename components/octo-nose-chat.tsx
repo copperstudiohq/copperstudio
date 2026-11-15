@@ -158,7 +158,7 @@ export default function OctoNoseChat() {
         <div className="octo-profile">
           <div className="octo-portrait"><img src="/images/octo-nose.webp" width="1280" height="720" loading="lazy" alt="Octo Nose wearing a blue-grey hood and a scarf over the face, carrying a lantern" /></div>
           <span className="octo-profile-label">OCTO NOSE / YOUR GAME GUIDE</span>
-          <p>Hints, strange creatures, and the occasional terrible joke. Ask about a game or find your next adventure.</p>
+          <p>Compare games, ask a follow-up, or tell Octo what you enjoy. Specific hints, strange creatures, and the occasional terrible joke.</p>
           <div className="octo-prompts" aria-label="Conversation starters">
             {OCTO_PROMPTS.map((prompt) => <button key={prompt} type="button" onClick={() => sendMessage(prompt)}>{prompt}<ArrowUpRight size={12} aria-hidden="true" /></button>)}
           </div>
@@ -172,7 +172,7 @@ export default function OctoNoseChat() {
           </div>
           <form className="octo-form" onSubmit={submit}>
             <label htmlFor="octo-message">Your message</label>
-            <div className="octo-input-row"><textarea id="octo-message" ref={inputRef} value={draft} maxLength={300} rows={2} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask Octo for a hint, a game, or a joke…" /><button className="octo-send" type="submit" disabled={!draft.trim()}><span>Send</span><Send size={15} aria-hidden="true" /></button></div>
+            <div className="octo-input-row"><textarea id="octo-message" ref={inputRef} value={draft} maxLength={300} rows={2} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask a question or tell Octo what you enjoy…" /><button className="octo-send" type="submit" disabled={!draft.trim()}><span>Send</span><Send size={15} aria-hidden="true" /></button></div>
           </form>
           <div className="octo-panel-footer"><p>Your chat stays in this tab. No sign-in needed.</p><button className="octo-voice" type="button" disabled={!voice.available} aria-pressed={voice.enabled} onClick={() => voice.toggle(latestReply)} title={voice.available ? "Read Octo’s replies using a voice on this device" : "No local English voice is available on this device"}><Volume2 size={14} aria-hidden="true" />{voice.available ? "Read aloud: " + (voice.enabled ? "on" : "off") : "Read aloud unavailable"}</button></div>
         </div>
