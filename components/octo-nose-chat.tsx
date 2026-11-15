@@ -156,7 +156,7 @@ export default function OctoNoseChat() {
       </div>
       <div className="octo-layout">
         <div className="octo-profile">
-          <div className="octo-portrait"><img src="/images/octo-nose.webp" width="1280" height="720" loading="lazy" alt="Octo Nose wearing a blue-grey hood and a scarf over the face, carrying a lantern" /></div>
+          <div className="octo-portrait"><img src="/images/octo-nose-rain-copper.webp" width="1280" height="720" loading="lazy" alt="Octo Nose with the pixel cloth robe and scarf from Rain & Copper, carrying a lantern" /></div>
           <span className="octo-profile-label">OCTO NOSE / YOUR GAME GUIDE</span>
           <p>Compare games, ask a follow-up, or tell Octo what you enjoy. Specific hints, strange creatures, and the occasional terrible joke.</p>
           <div className="octo-prompts" aria-label="Conversation starters">
