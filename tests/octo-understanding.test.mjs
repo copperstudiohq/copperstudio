@@ -14,7 +14,7 @@ test('does not fuzzy-correct short words or ordinary words into game topics', ()
   assert.equal(normalizeQuestion('can you control Tri Arena?'), 'can you control tri arena');
 });
 
-test('recognizes four game aliases and multiple-game comparisons', () => {
+test('recognizes game aliases and multiple-game comparisons', () => {
   assert.deepEqual(findMentionedGames('Cobra Planet vs TriAreana'), ['croba', 'arena']);
   assert.deepEqual(findMentionedGames('Rain & Copper island versus the card game'), ['island', 'cards']);
   assert.deepEqual(findMentionedGames('Rain and Copper vs the card game'), ['island', 'cards']);

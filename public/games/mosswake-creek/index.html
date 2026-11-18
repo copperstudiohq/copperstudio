@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#151211">
+  <meta name="description" content="A Rain and Copper 2D sandbox. Dig for copper and build dams around Mosswake’s birch-lined pond.">
+  <title>Rain and Copper | Mosswake Creek</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="shell masthead-inner">
+      <div class="brand"><span class="brand-icon"><canvas width="24" height="24" data-icon="brand" aria-hidden="true"></canvas></span>RAIN AND <span class="wordmark-accent">COPPER</span></div>
+      <div class="game-modes" role="group" aria-label="Game mode" data-in-game hidden>
+        <button type="button" data-game-mode="sandbox" aria-pressed="true">Sandbox</button>
+        <button type="button" data-game-mode="watch" aria-pressed="false">Creek Watch</button>
+      </div>
+      <div class="game-links" data-in-game hidden>
+        <button class="button help-button" id="menu-return" type="button">Menu</button>
+        <button class="button help-button" id="help" type="button"><span class="question" aria-hidden="true">?</span> How to play</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="start-menu" id="start-menu" aria-labelledby="menu-title">
+      <canvas class="menu-scene" id="menu-scene" width="384" height="198" aria-hidden="true"></canvas>
+      <div class="menu-content">
+        <h1 id="menu-title">Mosswake<br>Creek<span>.</span></h1>
+        <div class="menu-options" role="group" aria-label="Choose a game to play">
+          <button class="menu-option" type="button" data-menu-play="sandbox"
+              aria-labelledby="play-sandbox-title" aria-describedby="play-sandbox-detail">
+            <span class="menu-mode-icon" aria-hidden="true"><canvas width="24" height="24" data-icon="break"></canvas></span>
+            <span><strong id="play-sandbox-title">Play Sandbox</strong><small id="play-sandbox-detail">Build and break the creek, pixel by pixel.</small></span>
+            <span class="menu-arrow" aria-hidden="true">›</span>
+          </button>
+          <button class="menu-option watch-option" type="button" data-menu-play="watch"
+              aria-labelledby="play-watch-title" aria-describedby="play-watch-detail">
+            <span class="menu-mode-icon" aria-hidden="true"><canvas width="24" height="24" data-icon="signal"></canvas></span>
+            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Build defenses and survive five nights of raids.</small></span>
+            <span class="menu-arrow" aria-hidden="true">›</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <div class="game-session" data-in-game hidden>
+    <section class="heading" aria-labelledby="title">
+      <div>
+        <h1 id="title">Mosswake Creek<span>.</span></h1>
+        <p id="mode-description">Dig for copper and build dams around Mosswake’s pond.</p>
+      </div>
+      <div class="world-actions" role="group" aria-label="World controls">
+        <button class="button" type="button" id="pause" title="Pause or resume (Space)"><span class="pause-mark" aria-hidden="true"></span><span id="pause-label">Pause</span></button>
+        <button class="button" type="button" id="reset" title="Restore the starting quarry"><span class="reset-mark" aria-hidden="true">↻</span> Reset</button>
+      </div>
+    </section>
+
+    <div class="workspace">
+      <section class="world-panel" aria-label="Quarry">
+        <div class="viewport">
+          <canvas id="world" width="384" height="198" tabindex="0" aria-label="Editable quarry" aria-describedby="world-hint">This game requires Canvas support.</canvas>
+          <div class="scene-top" aria-hidden="true">
+            <span id="live" class="status-pill"><i></i><span id="live-label">LIVE</span></span>
+            <time id="timer" class="status-pill">00:00</time>
+          </div>
+        </div>
+        <div class="map-bar" role="group" aria-label="Map navigation" data-sandbox-view>
+          <div class="location"><span>Map</span><strong id="area-name" aria-live="polite">Mosswake Pond</strong></div>
+          <div class="map-actions">
+            <button class="button pan-button" id="pan-west" type="button" aria-label="Move view west" title="Move view west (A)">‹</button>
+            <input id="camera" type="range" min="0" aria-label="Map position">
+            <button class="button pan-button" id="pan-east" type="button" aria-label="Move view east" title="Move view east (D)">›</button>
+          </div>
+        </div>
+        <div class="weather-bar" data-sandbox-view>
+          <div class="rainfall">
+            <canvas width="24" height="24" data-icon="rain" aria-hidden="true"></canvas>
+            <span class="rain-label">Rainfall</span>
+            <div class="segments" role="group" aria-label="Rainfall intensity">
+              <button type="button" data-weather="off" aria-pressed="false">Off</button>
+              <button type="button" data-weather="rain" aria-pressed="true">Rain</button>
+              <button type="button" data-weather="storm" aria-pressed="false">Storm</button>
+            </div>
+          </div>
+          <div class="readouts" aria-label="Material counts">
+            <span><i class="sample sample-water"></i>Water <b id="water-count">0</b></span>
+            <span><i class="sample sample-ichor"></i>Ichor <b id="ichor-count">0</b></span>
+            <span><i class="sample sample-copper"></i>Copper <b id="copper-count">0</b></span>
+          </div>
+        </div>
+        <div class="watch-movement" role="group" aria-label="Walk across the creek" data-watch-view hidden>
+          <div>
+            <button type="button" class="button" data-watch-move="-1" aria-label="Walk left">‹ Left</button>
+            <button type="button" class="button" data-watch-move="1" aria-label="Walk right">Right ›</button>
+          </div>
+          <span>Tap the ground to walk there</span>
+        </div>
+      </section>
+
+      <aside class="toolbox" aria-labelledby="toolbox-label" data-sandbox-view>
+        <div class="toolbox-head"><h2 id="toolbox-label">Toolbox</h2><button id="clear" class="text-button" type="button">Clear world</button></div>
+        <div class="tool-palettes" role="group" aria-label="Tool variants">
+          <button class="button palette-button" data-tool-palette="normal" type="button" aria-pressed="true">Normal</button>
+          <button class="button palette-button" id="variants-toggle" data-tool-palette="tri" type="button" aria-pressed="false"><i aria-hidden="true"></i>Tri variants</button>
+        </div>
+        <div class="tool-categories" role="group" aria-label="Tool categories">
+          <button type="button" data-tool-category="materials" aria-pressed="true">Materials</button>
+          <button type="button" data-tool-category="life" aria-pressed="false">Creatures</button>
+          <button type="button" data-tool-category="scenery" aria-pressed="false">Scenery</button>
+          <button type="button" data-tool-category="bosses" aria-pressed="false">Bosses</button>
+        </div>
+        <div class="tool-group" id="materials-section">
+          <h3 class="sr-only" id="material-label">Materials</h3>
+          <div class="tool-grid" id="materials" role="group" aria-labelledby="material-label"></div>
+        </div>
+        <div class="tool-group" id="life-section" hidden>
+          <h3 class="sr-only" id="life-label">Creatures</h3>
+          <div class="tool-grid" id="life" role="group" aria-labelledby="life-label"></div>
+        </div>
+        <div class="tool-group" id="scenery-section" hidden>
+          <h3 class="sr-only" id="scenery-label">Scenery</h3>
+          <div class="tool-grid" id="scenery" role="group" aria-labelledby="scenery-label"></div>
+        </div>
+        <div class="tool-group" id="bosses-section" hidden>
+          <h3 class="sr-only" id="bosses-label">Bosses</h3>
+          <div class="tool-grid" id="bosses" role="group" aria-labelledby="bosses-label"></div>
+        </div>
+        <div class="brush-group">
+          <div class="brush-heading"><label for="brush">Brush size</label><output id="brush-size" for="brush">4 px</output></div>
+          <input id="brush" type="range" min="1" max="14" value="4">
+        </div>
+        <p id="world-hint">Drag to pour copper ore.</p>
+        <p id="world-event" class="sr-only" role="status"></p>
+      </aside>
+      <aside class="watch-panel" aria-labelledby="watch-label" data-watch-view hidden>
+        <h2 id="watch-label">Signal house</h2>
+        <p>Keep the light burning through five nights.</p>
+        <div class="watch-copper">
+          <span><i aria-hidden="true"></i>Copper</span><strong id="watch-coins">6</strong>
+        </div>
+        <label class="watch-integrity" for="watch-health">Integrity <strong id="watch-health-label">10/10</strong></label>
+        <progress id="watch-health" max="10" value="10"></progress>
+        <div class="watch-bank"><b>West bank</b><span id="watch-west">No wall · 0 guards</span></div>
+        <div class="watch-bank"><b>East bank</b><span id="watch-east">No wall · 0 guards</span></div>
+        <button class="button watch-action" id="watch-use" type="button">Begin watch</button>
+        <p id="watch-message" class="watch-message" role="status">Build palisades and hire guards before the first raid.</p>
+      </aside>
+    </div>
+
+    <footer class="controls" data-sandbox-view>
+      <span><kbd>1</kbd>–<kbd>9</kbd> Select tool</span>
+      <span><kbd>E</kbd> Eraser</span>
+      <span><kbd>B</kbd> Break</span>
+      <span><kbd>A</kbd><kbd>D</kbd> Move view</span>
+      <span><kbd>Space</kbd> Pause</span>
+    </footer>
+    <footer class="controls" id="watch-controls" data-watch-view hidden>
+      <span><kbd>A</kbd><kbd>D</kbd> Walk</span>
+      <span><kbd>E</kbd> Use station</span>
+      <span><kbd>Space</kbd> Pause</span>
+    </footer>
+    </div>
+  </main>
+
+  <dialog id="guide" aria-labelledby="guide-title">
+    <div class="dialog-heading">
+      <h2 id="guide-title">How to play</h2>
+      <form method="dialog"><button class="button close-button" type="submit" aria-label="Close">×</button></form>
+    </div>
+    <dl data-sandbox-view>
+      <div><dt>Shape the quarry</dt><dd>Pick a material, then drag or tap on the quarry. Copper and sand fall, basalt forms walls, and the eraser cuts through terrain.</dd></div>
+      <div><dt>Break pixels</dt><dd>Press B or choose Break to chip terrain, trees, buildings, creatures, and bosses into falling debris. Use a 1 px brush for single pixels.</dd></div>
+      <div><dt>Change the weather</dt><dd>Switch between Off, Rain, and Storm to change the scenery. Use the Water tool to fill the creek, cool embers, or turn wet copper green over time.</dd></div>
+      <div><dt>Explore Mosswake</dt><dd>Use the map arrows, drag the map slider, or press A and D to move the view across all five areas.</dd></div>
+      <div><dt>Add life</dt><dd>Place copperbacks or Mosswake ducks, or plant Tri on dry ground. When Tri touches a pool, it turns the water into thick, flesh-colored ichor. Erase the clump to remove its growth and clear the pool.</dd></div>
+      <div><dt>Choose a variant</dt><dd>Switch between Normal and Tri variants above Materials, Creatures, and Scenery. Place birches, huts, pumps, fences, or docks in either palette. Growing Tri converts normal scenery it reaches and produces Tri Blobs, Tri Lings, and floating Tri Brains.</dd></div>
+      <div><dt>Summon bosses</dt><dd>Place the Copper Giant on dry ground, the Lake’s Corrupt Terror over water or ichor, and the Eye of the Sky in open air. A Tri clump can summon an Eye of the Sky after four minutes of active play.</dd></div>
+      <div><dt>Play with the keyboard</dt><dd>Press 1–9 to choose a tool, E for eraser, and Space to pause. With the quarry focused, use the arrow keys to aim and Enter to place.</dd></div>
+    </dl>
+    <dl data-watch-view hidden>
+      <div><dt>Walk the banks</dt><dd>Use A/D, the arrow keys, or tap the ground. Walk over copper coins to collect them. The bridge connects both sides of the pond.</dd></div>
+      <div><dt>Prepare for the raid</dt><dd>Walk up to a wall frame to build, repair, or reinforce it. Go to a blue hiring flag to recruit guards. Press E or use the action button.</dd></div>
+      <div><dt>Keep the light burning</dt><dd>Tri raiders come from both ends at night. Guards fire on approaching raiders, leaving copper behind. Dawn brings more copper and fresh supplies. Hold the signal house through five nights.</dd></div>
+      <div><dt>Ring the dusk bell</dt><dd>Use the signal house to start a raid early when your defenses are ready. Repair the house there during the day if it took damage.</dd></div>
+    </dl>
+  </dialog>
+  <dialog id="clear-dialog" aria-labelledby="clear-title">
+    <div class="dialog-heading"><h2 id="clear-title">Clear the quarry?</h2></div>
+    <p>This removes the terrain, materials, creatures, bosses, scenery, and Tri patches and turns off the rain.</p>
+    <form method="dialog" class="dialog-actions">
+      <button class="button" value="cancel" autofocus>Cancel</button>
+      <button class="button primary" value="clear">Clear world</button>
+    </form>
+  </dialog>
+</body>
+</html>

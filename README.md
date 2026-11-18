@@ -31,7 +31,7 @@ The prepared Route 53 change batch is in [`infra/route53-records.json`](infra/ro
 
 ## Octo Nose chat
 
-The section below the games reuses Octo Nose's local conversation rules and original nose, Tri, and Croba dialogue from Axolotl Major, Rain & Copper, and Tri Arena. Its static portrait is rendered from Rain & Copper's `dist/octo-rounded-model.js` through the game's `createOctoNose()` model wrapper, preserving its original 16×16 pixel cloth texture on the robe and scarf. The lossless WebP is rendered at 2560×1440; the landing page loads only that image. A bundled library adds 38 source-checked answers about the four games, including recipes, card powers, oxygen, saves and boss strategies. Local question matching tolerates common spelling mistakes and scores specific topics rather than choosing a random tip. It is a rule-based character and game guide, rather than a general-purpose language model; unsupported questions receive honest suggestions for things Octo can answer.
+The section below the games reuses Octo Nose's local conversation rules and original nose, Tri, and Croba dialogue from Axolotl Major, Rain & Copper, and Tri Arena. Its static portrait is rendered from Rain & Copper's `dist/octo-rounded-model.js` through the game's `createOctoNose()` model wrapper, preserving its original 16×16 pixel cloth texture on the robe and scarf. The lossless WebP is rendered at 2560×1440; the landing page loads only that image. A bundled library adds source-checked answers about all five games, including recipes, card powers, oxygen, saves, bosses and Mosswake Creek's two modes. Local question matching tolerates common spelling mistakes and scores specific topics rather than choosing a random tip. It is a rule-based character and game guide, rather than a general-purpose language model; unsupported questions receive honest suggestions for things Octo can answer.
 
 Octo remembers the current game through follow-up questions and small talk. If a question needs a game name, answering that clarification continues the original question. He can compare games, recommend one from stated interests and constraints, and adjust when a preference changes. He cannot inspect live game stats or control another game.
 
@@ -66,6 +66,10 @@ Local previews intentionally cannot increment the live counter because its origi
 
 ## Game access and assets
 
-The four game links open their existing sites in a new tab. Those games keep their own hosting, sign-in, sharing settings, saved data, and multiplayer behavior; publishing this landing page does not grant access to a linked game.
+The first four game links open their existing sites in a new tab. Those games keep their own hosting, sign-in, sharing settings, saved data, and multiplayer behavior; publishing this landing page does not grant access to a linked game.
+
+**Rain & Copper: Mosswake Creek** is hosted directly at [`/games/mosswake-creek/`](https://copperstudio.nl/games/mosswake-creek/) with no sign-in. `public/games/mosswake-creek/` contains an unchanged copy of the original `copper-rain/dist/` game. It has no build step, third-party runtime dependencies, network services or persistent saves. Its Sandbox and five-night Creek Watch campaign retain separate state while the tab stays open; reloading starts over. The card image is an actual Sandbox gameplay capture.
+
+To update this copy, copy the original game's complete `dist/` contents into that public directory, keeping relative module and stylesheet paths intact. Run the source game's existing tests, build this site, and smoke-check both modes from the exported path before publishing. The original local game and its standalone HTML remain separate from this published copy.
 
 The supplied SVG logos, artwork, and responsive layout are preserved from the existing Copperstudio page. The DM Sans and DM Serif fonts are served locally; their SIL Open Font License texts are retained in `public/fonts/`.

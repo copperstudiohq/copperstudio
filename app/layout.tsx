@@ -4,12 +4,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://copperstudio.nl"),
   alternates: { canonical: "/" },
-  title: "Copperstudio Games — Croba Planet, Rain & Copper, The Card Game & Tri Arena",
-  description: "Explore Croba Planet, wander the Rain & Copper island, duel at the card table, or enter Tri Arena. Four browser games, one little collection.",
+  title: "Copperstudio Games — Croba Planet, Rain & Copper, Tri Arena & Mosswake Creek",
+  description: "Explore Croba Planet, wander the Rain & Copper island, duel at the card table, enter Tri Arena, or shape Mosswake Creek. Five browser games, one little collection.",
   openGraph: {
     url: "/",
     title: "Copperstudio Games — Small games. Strange worlds.",
-    description: "An alien glacier, a rain-soaked island, a creature card duel, or a sword fight in Tri Arena? Find your next game at Copperstudio Games.",
+    description: "An alien glacier, a rainy island, a card duel, sword combat, or a pixel sandbox at Mosswake Creek? Find your next game at Copperstudio Games.",
     type: "website",
   },
   icons: { icon: "/copper-c.svg", shortcut: "/copper-c.svg" },

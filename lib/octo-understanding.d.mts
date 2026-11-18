@@ -1,4 +1,4 @@
-export type GameId = 'croba' | 'island' | 'cards' | 'arena';
+export type GameId = 'croba' | 'island' | 'cards' | 'arena' | 'sandbox';
 export interface Knowledge { id: string; game: string; question: string; keywords: readonly string[]; answer: string }
 /** Normalizes routing text; preserve the original input when extracting names. */
 export function normalizeQuestion(input: string): string;
