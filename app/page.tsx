@@ -19,7 +19,7 @@ const games = [
     alt: "Realistic concept art of a wrecked orange spacecraft on a fractured alien glacier beside a cobalt ocean, with blue coral beneath clear water",
     imageWidth: 1561, imageHeight: 1008,
     caption: "CROBA PLANET / CONCEPT ART",
-    href: "https://croba-planet-icebound.davidwebstar.chatgpt.site", color: "ice",
+    href: "/games/croba-planet/", color: "ice",
     features: ["Explore", "Discover", "Survive"], Icon: Snowflake,
   },
   {
@@ -59,33 +59,33 @@ const games = [
     features: ["Cards", "Solo", "Online duel"], Icon: Layers,
   },
   {
-    number: "04", name: "Tri Arena", label: "Aim. Cut. Survive.", genre: "Voxel arena combat",
+    number: "04", name: "Rain Arena of Copper", label: "Aim. Cut. Survive.", genre: "Voxel arena combat",
     description: [
       "Step into the Tri Bonefields, where infected pink ground stretches between scattered bones, giant teeth, and watching eyes. This first-person voxel sword fighter brings the Tri creatures from Rain & Copper into an arena built for close combat. Aim your blade at an enemy’s body and choose horizontal or vertical cuts, then block, dash, or kick to make room for your next strike.",
-      "Survive endless waves and choose a blade, health, or dash upgrade after each clear. Every fifth wave brings one of six rotating bosses, from the Copper Giant to the Trilom Wraith. Jump into Boss Practice to learn their attacks, or push for a new personal best in the main arena. Your best wave and score are saved in this browser.",
+      "Choose Endless Waves for upgrades between fights, Survival for continuous danger, Practice to learn an opponent, or War Mode to build red and blue armies. Fight in the Tri Bonefields, the copper Colosseum, or the Drill Mine, with creatures and machines drawn from Rain & Copper. Join a War battle with the Player unit or watch your armies fight. Your best wave and score are saved in this browser.",
     ],
     highlights: [
       { title: "Cut where you aim", text: "Place your strikes on an enemy’s body and switch between horizontal and vertical sword cuts." },
-      { title: "Build your advantage", text: "Clear waves, choose upgrades, and combine blocking, dashes, and kicks to stay in the fight." },
-      { title: "Face the bosses", text: "Meet a rotating boss every fifth wave, or use Boss Practice to sharpen your approach." },
+      { title: "Choose your battle", text: "Clear waves, survive continuous attacks, practise an opponent, or build two armies in War Mode." },
+      { title: "Face the bosses", text: "Meet rotating bosses in the Bonefields and copper machines in the Colosseum and Drill Mine." },
     ],
     image: "/images/tri-arena-right-hand.webp",
     alt: "Realistic first-person concept art of a copper sword facing a pink one-eyed Tri creature with blue legs in a purple arena filled with bones and giant teeth",
     imageWidth: 1672, imageHeight: 941,
-    caption: "TRI ARENA / CONCEPT ART",
-    href: "https://tri-arena-danger-zone.davidwebstar.chatgpt.site", color: "arena",
-    features: ["Combat", "Waves", "Bosses"], Icon: Swords,
+    caption: "RAIN ARENA OF COPPER / CONCEPT ART",
+    href: "/games/tri-arena/", color: "arena",
+    features: ["Combat", "Four modes", "Bosses"], Icon: Swords,
   },
   {
     number: "05", name: "Rain & Copper: Mosswake Creek", label: "Build. Break. Make it rain.", genre: "2D sandbox & creek defense",
     description: [
       "Return to Mosswake’s birch-lined pond, with its copper-roofed hut, dock, and wandering ducks. Paint falling copper and sand, pour flowing water, build basalt dams, and chip the landscape apart pixel by pixel. Explore five connected areas, change the rain, and experiment with creatures, scenery, and the spreading Tri.",
-      "For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Collect copper, hire guards, build and repair palisades, and reinforce the banks before the night raids arrive. Keep the signal house standing through five nights, then return to your sandbox edits while the same tab stays open. Both modes play right here on Copperstudio.",
+      "Choose day, night, or an automatic sky cycle, and place Tri Portals that wake after dark. For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Travel all five areas, collect copper, hire guards, train veterans, and reinforce the banks before night raids arrive. Protect the lake bridge’s signal tower through five nights, then return to your sandbox edits while the same tab stays open.",
     ],
     highlights: [
       { title: "Build and break", text: "Pour materials, shape the water, place scenery, and chip away individual pixels with a brush as small as one pixel." },
-      { title: "Let it spread", text: "Place the Tri, watch it turn the world pink, and summon creatures and bosses from Rain & Copper." },
-      { title: "Hold the creek", text: "Switch to Creek Watch, hire guards, repair your defenses, and survive a five-night campaign." },
+      { title: "After dark", text: "Control the sky, let the Tri spread, and place portals that release Tri Blobs at night." },
+      { title: "Hold the creek", text: "Explore five areas, recruit guards, train veterans, and defend the bridge through five nights." },
     ],
     image: "/images/mosswake-creek-gameplay.webp",
     alt: "Pixel art gameplay of Mosswake Creek with a copper-roofed fishing hut, birch trees, ducks, and a pond above layers of sand and copper ore",
@@ -153,9 +153,10 @@ export default function Home() {
         <section className="play-guide shell" id="how-to-play" aria-labelledby="guide-title">
           <div className="guide-intro"><span className="eyebrow">BEFORE YOU WANDER</span><h2 id="guide-title">A small field guide.</h2><p>Pick a world. Open a new tab.<br />See where you end up.</p></div>
           <div className="guide-questions">
-            <details><summary>How do I get started?<span aria-hidden="true">+</span></summary><div className="answer">Choose a game above to open it in a new tab. All five games run in your browser. Mosswake Creek opens directly from Copperstudio. The other games may ask you to sign in with ChatGPT; access is managed separately for each game.</div></details>
-            <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>In Tri Arena, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and the mouse or a drag to look. Left-click to attack, using <kbd>A</kbd>/<kbd>D</kbd> for horizontal cuts or holding <kbd>V</kbd> to force vertical cuts. Right-click to kick, use <kbd>E</kbd> or <kbd>K</kbd> to block, <kbd>Shift</kbd> to dash, <kbd>Space</kbd> to jump, and <kbd>Esc</kbd> to pause.</p><p>In Mosswake Creek’s Sandbox, drag or tap to paint, use <kbd>1</kbd>–<kbd>9</kbd> for tools, <kbd>B</kbd> to break pixels, <kbd>E</kbd> to erase, and <kbd>A</kbd>/<kbd>D</kbd> to pan the map. <kbd>Space</kbd> pauses. In Creek Watch, use <kbd>A</kbd>/<kbd>D</kbd>, the arrow keys, or tap the ground to walk; <kbd>E</kbd> uses a nearby station.</p><p>All five games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
-            <details><summary>Which game should I choose?<span aria-hidden="true">+</span></summary><div className="answer">Choose Croba Planet for alien wildlife, icy exploration, and deep ocean dives. Choose the Rain &amp; Copper island adventure for fishing, crafting, and strange creatures. Choose Rain &amp; Copper: The Card Game for secret hands, creature powers, and a solo or online duel across the table. Choose Tri Arena for sword combat, endless waves, upgrades, and boss battles. Choose Mosswake Creek for a pixel sandbox where you can build and break the world, plus a five-night creek defense challenge.</div></details>
+            <details><summary>How do I get started?<span aria-hidden="true">+</span></summary><div className="answer">Choose a game above to open it in a new tab. All five games run in your browser. Croba Planet, Rain Arena of Copper and Mosswake Creek open directly from Copperstudio with no sign-in. The Rain &amp; Copper island and The Card Game keep their original sites and multiplayer, and may ask you to sign in with ChatGPT.</div></details>
+            <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>In Rain Arena of Copper, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and the mouse or a drag to look. Left-click to attack, using <kbd>A</kbd>/<kbd>D</kbd> for horizontal cuts or holding <kbd>V</kbd> to force vertical cuts. Right-click to kick, use <kbd>E</kbd> or <kbd>K</kbd> to block, <kbd>Shift</kbd> to dash, <kbd>Space</kbd> to jump, and <kbd>Esc</kbd> to pause.</p><p>In Mosswake Creek’s Sandbox, drag or tap to paint, use <kbd>1</kbd>–<kbd>9</kbd> for tools, <kbd>B</kbd> to break pixels, <kbd>E</kbd> to erase, and <kbd>A</kbd>/<kbd>D</kbd> to pan the map. <kbd>Space</kbd> pauses. In Creek Watch, use <kbd>A</kbd>/<kbd>D</kbd>, the arrow keys, or tap the ground to walk; <kbd>E</kbd> uses a nearby station.</p><p>All five games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
+            <details><summary>Where are my existing saves?<span aria-hidden="true">+</span></summary><div className="answer">Saves stay with the browser and website where you made them. To bring a Croba expedition here, open Saved Expeditions on the <a href="https://croba-planet-icebound.davidwebstar.chatgpt.site" target="_blank" rel="noopener noreferrer">original game</a>, export a JSON backup, then import it in Croba on Copperstudio. Arena records stay on the original site. Mosswake Creek keeps progress only while its tab stays open.</div></details>
+            <details><summary>Which game should I choose?<span aria-hidden="true">+</span></summary><div className="answer">Choose Croba Planet for alien wildlife, icy exploration, and deep ocean dives. Choose the Rain &amp; Copper island adventure for fishing, crafting, and strange creatures. Choose Rain &amp; Copper: The Card Game for secret hands, creature powers, and a solo or online duel across the table. Choose Rain Arena of Copper for sword combat, waves, upgrades, bosses and army battles. Choose Mosswake Creek for a pixel sandbox where you can build and break the world, plus a five-night creek defense challenge.</div></details>
           </div>
         </section>
       </main>

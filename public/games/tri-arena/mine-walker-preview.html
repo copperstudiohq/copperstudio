@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101c24">
+  <title>Rain Arena of Copper — Copper Mine Walker</title>
+  <meta name="application-name" content="Rain Arena of Copper">
+  <meta name="apple-mobile-web-app-title" content="Rain Arena of Copper">
+  <meta name="description" content="Inspect the Copper Mine Walker from Rain Arena of Copper: a copper spider drone with a dark control room, five computers, red lights and a climbable ladder.">
+  <meta property="og:site_name" content="Rain Arena of Copper">
+  <meta property="og:title" content="Rain Arena of Copper — Copper Mine Walker">
+  <meta name="twitter:title" content="Rain Arena of Copper — Copper Mine Walker">
+  <meta property="og:url" content="https://rain-arena-of-copper.davidwebstar.chatgpt.site/mine-walker-preview.html">
+  <link rel="canonical" href="https://rain-arena-of-copper.davidwebstar.chatgpt.site/mine-walker-preview.html">
+  <link rel="stylesheet" href="./mine-walker-preview.css">
+</head>
+<body>
+  <canvas id="model-view" tabindex="0" aria-label="Rain Arena of Copper: Copper Mine Walker model. Drag to rotate, scroll to zoom, arrow keys to orbit, plus or minus to zoom."></canvas>
+  <header>
+    <a href="./">← Rain Arena of Copper</a>
+    <p>RAIN ARENA OF COPPER · MINE BOSS</p>
+    <h1>Copper Mine Walker</h1>
+    <span>Armored spider hull · Five computers · Red interior lights</span>
+    <a class="play-ladder" href="./?practice=mine-walker-ladder">Climb the ladder →</a>
+  </header>
+  <nav aria-label="Model views">
+    <button id="view-exterior" data-view="exterior" aria-pressed="true">Whole model</button>
+    <button id="view-interior" data-view="interior" aria-pressed="false">Inside the room</button>
+    <button id="view-ladder" data-view="ladder" aria-pressed="false">Rear ladder</button>
+    <button id="view-underside" data-view="underside" aria-pressed="false">Underside guns</button>
+    <button id="toggle-walk" aria-pressed="true">Pause hovering</button>
+    <button id="toggle-cutaway" aria-pressed="false">Open cutaway</button>
+  </nav>
+  <p class="help">Drag to rotate · Scroll to zoom · Arrow keys to orbit<br>Choose “Climb the ladder” to play · W up · S down.</p>
+  <p id="model-status" role="status">Loading the model…</p>
+  <p id="model-error" role="alert" hidden></p>
+  <script type="module" src="./mine-walker-preview.js"></script>
+</body>
+</html>

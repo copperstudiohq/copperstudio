@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Rain Arena of Copper — Ultra Lava Arena</title>
+  <meta property="og:site_name" content="Rain Arena of Copper">
+  <meta property="og:title" content="Rain Arena of Copper — Ultra Lava Arena">
+  <meta name="twitter:title" content="Rain Arena of Copper — Ultra Lava Arena">
+  <link rel="canonical" href="https://rain-arena-of-copper.davidwebstar.chatgpt.site/mech-ultra-arena-preview.html"><link rel="stylesheet" href="./mine-walker-preview.css">
+  <style>
+    .entrance-controls { position:absolute; top:24px; right:28px; width:310px; padding:14px; border:1px solid #496263; border-radius:5px; background:#122029ed; font-size:12px; }
+    .entrance-controls summary { cursor:pointer; color:#f8d2a8; font-weight:600; }
+    .entrance-controls label { display:block; margin:12px 0 6px; color:#bbcdce; }
+    .entrance-controls select { width:100%; padding:8px; background:#172b31; color:#e0eceb; border:1px solid #496263; }
+    .entrance-controls input[type="range"] { width:100%; accent-color:#e3a365; }
+    .entrance-controls output { float:right; color:#e0eceb; font-variant-numeric:tabular-nums; }
+    .entrance-actions { display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+    .entrance-actions button { padding:8px 10px; }
+    .entrance-controls .follow-control { display:flex; align-items:center; gap:7px; margin-bottom:0; }
+    button:disabled { cursor:default; opacity:.45; }
+    @media (max-width:760px) {
+      .entrance-controls { top:auto; bottom:130px; left:16px; right:16px; width:auto; padding:12px; }
+      .entrance-controls label { margin-top:9px; }
+      .help { display:none; }
+      header h1 { font-size:24px; }
+      header .play-ladder { margin-top:10px; padding:8px 11px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="arena-preview" tabindex="0" aria-label="Ultra lava arena. Drag to orbit, scroll to zoom, arrow keys to rotate."></canvas>
+  <header><a href="./mech-spider-tank-ultra-preview.html">← Inspect Ultra</a><p>RAIN ARENA OF COPPER · LEVEL 50</p><h1>The lava island</h1><span>Five times larger cave · Original island · Sharp cover walls</span><a class="play-ladder" href="./?encounter=ultra">Watch the entrance →</a></header>
+  <details class="entrance-controls" open>
+    <summary>Entrance preview</summary>
+    <label for="entrance-stage">Choose a stage</label>
+    <select id="entrance-stage"></select>
+    <label for="entrance-time">Entrance time <output id="entrance-time-label" for="entrance-time"></output></label>
+    <input id="entrance-time" type="range" min="0" max="1" step="0.05" value="1">
+    <div class="entrance-actions">
+      <button id="play-entrance">Play entrance</button><button id="pause-entrance" disabled>Resume</button><button id="reset-entrance">Reset</button>
+    </div>
+    <label class="follow-control"><input id="follow-arrival" type="checkbox"> Follow arrival camera</label>
+  </details>
+  <nav aria-label="Arena views"><button id="whole-cave" aria-pressed="true">Whole cave</button><button id="island" aria-pressed="false">Island and boss</button><button id="toggle-boss" aria-pressed="true">Hide Ultra</button><button id="toggle-patrol" aria-pressed="false">Pause walking</button><a class="play-ladder" style="margin:0" href="./?practice=ultra">Fight Ultra →</a></nav>
+  <p class="help">Drag to rotate · Scroll to zoom · Arrow keys to orbit<br>The island stays 72 × 60 m. Everything beyond its edge is lava.</p><p id="model-error" role="alert" hidden></p>
+  <script type="module" src="./mech-ultra-arena-preview.js"></script>
+</body></html>

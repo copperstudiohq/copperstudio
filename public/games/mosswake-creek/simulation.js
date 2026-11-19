@@ -5,6 +5,10 @@ export const START_VIEW = VIEW_WIDTH * 2;
 export const HEIGHT = 198;
 export const POND_LEVEL = 132;
 export const TICKS_PER_SECOND = 36;
+export const DAY_TICKS = 80 * TICKS_PER_SECOND;
+export const NIGHT_TICKS = 36 * TICKS_PER_SECOND;
+export const TRI_PORTAL_OPEN_TICKS = 40;
+export const CREEK_HUTS = [122, START_VIEW + 306, 3 * VIEW_WIDTH + 208];
 
 export const EMPTY = 0;
 export const COPPER = 1;
@@ -27,6 +31,7 @@ export const SCENERY = {
   posts: { label: 'Fence', width: 12, height: 7 },
   dock: { label: 'Dock', width: 42, height: 14 }
 };
+export const TRI_PORTAL = { label: 'Tri Portal', halfWidth: 26, height: 44, limit: 8 };
 export const BOSSES = {
   'copper-giant': { label: 'Copper Giant', halfWidth: 30, above: 55, below: 0 },
   'lake-terror': { label: 'Lake’s Corrupt Terror', halfWidth: 14, above: 11, below: 11 },
@@ -35,8 +40,9 @@ export const BOSSES = {
 export const TERROR_SEGMENTS = 24;
 const TRI_BOSS_AGE = 240 * TICKS_PER_SECOND;
 const TRI_BOSS_OFFSETS = [52, -52, 80, -80];
+const TRI_BLOB_LIMIT = 14;
 const TRI_BIRTHS = [
-  { type: 'blob', first: 13, repeat: 16, max: 14 },
+  { type: 'blob', first: 13, repeat: 16, max: TRI_BLOB_LIMIT },
   { type: 'ling', first: 75, repeat: 90, max: 3 },
   { type: 'brain', first: 180, repeat: 210, max: 2 }
 ];
@@ -143,6 +149,7 @@ export class Quarry {
   creatures = [];
   bosses = [];
   scenery = [];
+  portals = [];
   triPatches = [];
   debris = [];
   tick = 0;
@@ -167,8 +174,11 @@ export class Quarry {
     this.creatures.length = 0;
     this.bosses.length = 0;
     this.scenery.length = 0;
+    this.portals.length = 0;
     this.triPatches.length = 0;
     this.tick = 0;
+    this.skyMode = 'day';
+    this.skyStartedAt = 0;
     this.weather = blank ? 'off' : 'rain';
     if (blank) return;
 
@@ -189,6 +199,31 @@ export class Quarry {
   setWeather(weather) {
     if (!Object.hasOwn(WEATHER, weather)) throw new RangeError(`Unknown rainfall setting: ${weather}`);
     this.weather = weather;
+  }
+
+  setSkyMode(mode) {
+    if (mode !== 'day' && mode !== 'auto' && mode !== 'night') throw new RangeError(`Unknown sky mode: ${mode}`);
+    if (this.skyMode === mode) return;
+    this.skyMode = mode;
+    this.skyStartedAt = this.tick;
+  }
+
+  get cycleTick() {
+    return (this.tick - this.skyStartedAt) % (DAY_TICKS + NIGHT_TICKS);
+  }
+
+  get night() {
+    return this.skyMode === 'night' || (this.skyMode === 'auto' && this.cycleTick >= DAY_TICKS);
+  }
+
+  get skyProgress() {
+    if (this.skyMode !== 'auto') return 0.5;
+    return this.night ? (this.cycleTick - DAY_TICKS) / NIGHT_TICKS : this.cycleTick / DAY_TICKS;
+  }
+
+  get portalOpening() {
+    if (!this.night) return 0;
+    return this.skyMode === 'night' ? 1 : Math.min(1, (this.cycleTick - DAY_TICKS) / TRI_PORTAL_OPEN_TICKS);
   }
 
   at(x, y) {
@@ -226,14 +261,17 @@ export class Quarry {
         if (!Object.hasOwn(TRI_CREATURE_STRIDE, animal.type)) {
           return Math.hypot(animal.x - x, animal.y - y) > radius + 2;
         }
-        const height = animal.type === 'brain' ? 26 : animal.type === 'ling' ? 15 : 8;
-        return Math.abs(animal.x - x) > radius + 6 || y + radius < animal.y - height || y - radius > animal.y + 2;
+        const height = animal.type === 'brain' ? 26 : animal.type === 'ling' ? 15 : 18;
+        const halfWidth = animal.type === 'blob' ? 11 : 6;
+        return Math.abs(animal.x - x) > radius + halfWidth || y + radius < animal.y - height || y - radius > animal.y + 2;
       });
       this.scenery = this.scenery.filter((item) => {
         const { width, height } = SCENERY[item.type];
         return Math.abs(item.x - x) > radius + width / 2 || y + radius < item.y - height
           || y - radius > item.y + (item.type === 'dock' ? 16 : 1);
       });
+      this.portals = this.portals.filter((portal) => Math.abs(portal.x - x) > radius + TRI_PORTAL.halfWidth
+        || y + radius < portal.y - TRI_PORTAL.height || y - radius > portal.y + 1);
       this.bosses = this.bosses.filter((boss) => !this.bossTouches(boss, x, y, radius));
       if (this.triPatches.length > 0) {
         this.triPatches = this.triPatches.filter((patch) => {
@@ -276,6 +314,7 @@ export class Quarry {
     this.creatures = this.creatures.filter((item) => !isShattered(item));
     this.bosses = this.bosses.filter((item) => !isShattered(item));
     this.scenery = this.scenery.filter((item) => !isShattered(item));
+    this.portals = this.portals.filter((item) => !isShattered(item));
     const count = this.triPatches.length;
     this.triPatches = this.triPatches.filter((item) => !isShattered(item));
     if (this.triPatches.length !== count) this.updateTri();
@@ -307,14 +346,14 @@ export class Quarry {
     }
   }
 
-  placeCreature(type, x, y, { converted = false, emerging = false } = {}) {
+  placeCreature(type, x, y, { converted = false, emerging = false, facing } = {}) {
     if (!Object.hasOwn(CREATURES, type) || this.creatures.length >= ANIMAL_LIMIT) return false;
     x = Math.max(2, Math.min(WIDTH - 3, x));
     y = Math.max(2, Math.min(HEIGHT - 2, y));
     let lift = 0;
     while (isSolid(this.at(x, y)) && y > 2 && lift++ < 12) y--;
     if (isSolid(this.at(x, y))) return false;
-    const direction = this.random() < 0.5 ? -1 : 1;
+    const direction = facing ?? (this.random() < 0.5 ? -1 : 1);
     const bornAt = this.tick;
     const readyAt = bornAt + (emerging ? TRI_EMERGENCE : 0);
     this.creatures.push({ type, x, y, converted, direction, phase: this.random() * 10, wait: 0, wet: false,
@@ -340,6 +379,17 @@ export class Quarry {
       Math.abs(item.x - x) < (width + SCENERY[item.type].width) / 2
       && Math.abs(item.y - ground) < Math.max(height, SCENERY[item.type].height))) return false;
     this.scenery.push({ type, x, y: ground, converted });
+    return true;
+  }
+
+  placePortal(x, y) {
+    const { halfWidth, height, limit } = TRI_PORTAL;
+    if (this.portals.length >= limit || x < halfWidth || x >= WIDTH - halfWidth) return false;
+    const ground = this.findPlacementSurface(x, y);
+    if (ground === null || ground < height || this.portals.some((portal) =>
+      Math.abs(portal.x - x) < halfWidth * 2 && Math.abs(portal.y - ground) < height)) return false;
+    const direction = x < WIDTH / 2 ? 1 : -1;
+    this.portals.push({ x, y: ground, direction, birthAt: this.tick });
     return true;
   }
 
@@ -422,6 +472,24 @@ export class Quarry {
         });
         patch.bossAt = awakened ? Infinity : this.tick + TICKS_PER_SECOND;
       }
+    }
+  }
+
+  updatePortalBirths() {
+    if (this.portalOpening < 1) return;
+    let population = this.creatures.filter(({ type }) => type === 'blob').length;
+    for (const portal of this.portals) {
+      if (population >= TRI_BLOB_LIMIT || this.creatures.length >= ANIMAL_LIMIT) break;
+      if (this.tick < portal.birthAt) continue;
+      const spawned = [10, 0].some((offset) => {
+        const x = portal.x + portal.direction * offset;
+        const y = this.findPlacementSurface(x, portal.y);
+        if (y === null || Math.abs(y - portal.y) > 5) return false;
+        if (this.creatures.some((creature) => Math.abs(creature.x - x) < 9 && Math.abs(creature.y - y) < 8)) return false;
+        return this.placeCreature('blob', x, y - 1, { converted: true, facing: portal.direction });
+      });
+      portal.birthAt = this.tick + (spawned ? 5 : 1) * TICKS_PER_SECOND;
+      if (spawned) population++;
     }
   }
 
@@ -519,6 +587,7 @@ export class Quarry {
       this.updateTri(TRI_GROWTH_PIXELS);
       this.updateTriBirths();
     }
+    if (this.portals.length > 0) this.updatePortalBirths();
   }
 
   stepGiant(boss) {

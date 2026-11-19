@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, POND_LEVEL, EMPTY, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, WEATHER, SCENERY, BOSSES, TERROR_SEGMENTS, bossPosition, quarryHeight, pixelNoise, makeRandom, triCoreScale, isLiquid, isSolid } from './simulation.js';
+import { WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, POND_LEVEL, EMPTY, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, WEATHER, SCENERY, BOSSES, CREEK_HUTS, TERROR_SEGMENTS, bossPosition, quarryHeight, pixelNoise, makeRandom, triCoreScale, isLiquid, isSolid } from './simulation.js';
 import { SpriteChipper } from './breakage.js';
 
 const SIZE = WIDTH * HEIGHT;
@@ -30,11 +30,11 @@ const PALETTES = {
   [ICHOR]: [[155, 87, 80], [177, 107, 95], [206, 140, 124], [220, 161, 143], [255, 224, 198]]
 };
 const DECORATIONS = [
-  { x: 122, type: 'hut' }, { x: 253, type: 'posts' },
+  ...CREEK_HUTS.map((x) => ({ x, type: 'hut' })),
+  { x: 253, type: 'posts' },
   { x: VIEW_WIDTH + 137, type: 'pump' }, { x: VIEW_WIDTH + 190, type: 'pump' },
-  { x: START_VIEW + 62, type: 'pump' }, { x: START_VIEW + 306, type: 'hut' },
+  { x: START_VIEW + 62, type: 'pump' },
   { x: START_VIEW + 101, type: 'posts' }, { x: START_VIEW + 351, type: 'posts' },
-  { x: 3 * VIEW_WIDTH + 208, type: 'hut' },
   { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'pump' }
 ];
 const POND_DOCK = { x: START_VIEW + 258, y: 128 };
@@ -393,6 +393,112 @@ function rect(ctx, color, x, y, w, h) {
   ctx.fillRect(x, y, w, h);
 }
 
+function sceneOval(ctx, color, x, y, rx, ry) {
+  for (let row = -ry; row <= ry; row++) {
+    const half = Math.round(rx * Math.sqrt(1 - (row / ry) ** 2));
+    rect(ctx, color, x - half, y + row, half * 2 + 1, 1);
+  }
+}
+
+export function sceneGlow(ctx, color, x, y, radius) {
+  const glow = ctx.createRadialGradient(x, y, 1, x, y, radius);
+  glow.addColorStop(0, color);
+  glow.addColorStop(1, 'transparent');
+  rect(ctx, glow, x - radius, y - radius, radius * 2, radius * 2);
+}
+
+const SCENE_STARS = Array.from({ length: 38 }, (_, index) => ({
+  x: Math.floor(pixelNoise(index, 71) * VIEW_WIDTH),
+  y: 7 + Math.floor(pixelNoise(index, 85) * 41),
+  size: index % 7 === 0 ? 2 : 1
+}));
+
+export function drawSceneSky(ctx, night, progress) {
+  const arc = Math.sin(progress * Math.PI);
+  const x = Math.round(20 + progress * (VIEW_WIDTH - 40));
+  const y = Math.round(42 - arc * 23);
+  const haze = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+  haze.addColorStop(0, night ? '#171639cf' : `rgba(90, 150, 163, ${0.24 + arc * 0.28})`);
+  haze.addColorStop(0.37, night ? '#30264b8c' : `rgba(240, 153, 104, ${0.48 - arc * 0.26})`);
+  haze.addColorStop(1, night ? '#1e143772' : '#643e3409');
+  rect(ctx, haze, 0, 0, VIEW_WIDTH, HEIGHT);
+  if (night) {
+    for (const star of SCENE_STARS) {
+      rect(ctx, star.size === 2 ? '#b7c6dfcb' : '#9caad580', star.x, star.y, star.size, 1);
+      if (star.size === 2) rect(ctx, '#a3a6d290', star.x, star.y - 1, 1, 3);
+    }
+    sceneGlow(ctx, '#a4b6fa80', x, y, 29);
+    sceneOval(ctx, '#a2acd0', x, y, 11, 11);
+    sceneOval(ctx, '#e0e5e9', x - 1, y - 1, 9, 9);
+    rect(ctx, '#b4bed4', x - 6, y - 4, 4, 3);
+    rect(ctx, '#bec6d8', x + 1, y + 2, 5, 3);
+    rect(ctx, '#a5b1d0', x + 4, y - 5, 2, 2);
+  } else {
+    sceneGlow(ctx, '#ffba7eae', x, y, 38);
+    sceneOval(ctx, '#f7ab71', x, y, 12, 12);
+    sceneOval(ctx, '#ffd78f', x, y - 1, 10, 10);
+    sceneOval(ctx, '#ffedba', x - 1, y - 2, 8, 8);
+  }
+
+  return x;
+}
+
+export function drawTriPortal(ctx, opening) {
+  const rise = Math.round(10 * opening);
+  rect(ctx, '#281e32', -25, -3, 51, 4);
+  sceneOval(ctx, '#3c243c', -2, -13 - Math.round(rise / 2), 22, 13 + Math.floor(rise / 2));
+  sceneOval(ctx, '#6d3458', -4, -15 - rise, 18, 15);
+  sceneOval(ctx, '#8e4169', 7, -12, 16, 12);
+  sceneOval(ctx, '#b75280', -7, -16 - rise, 14, 12);
+  sceneOval(ctx, '#ce6894', 3, -22 - rise, 12, 7);
+  sceneOval(ctx, '#773152', 12, -7, 10, 7);
+  rect(ctx, '#df8ab1', -12, -27 - rise, 10, 2);
+  rect(ctx, '#dd87ab', -15, -25 - rise, 4, 2);
+  rect(ctx, '#9a4c79', -17, -17, 4, 8);
+  rect(ctx, '#514777', -23, -7, 4, 5);
+  rect(ctx, '#59669c', -19, -5, 6, 2);
+  rect(ctx, '#6b6b9a', 14, -5, 5, 2);
+  rect(ctx, '#8e80b2', 21, -3, 4, 2);
+
+  const top = -17 - Math.round(opening * 5);
+  const gape = 2 + Math.round(opening * 17);
+  sceneOval(ctx, '#e579a4', 2, top, 19, gape + 2);
+  sceneOval(ctx, '#8e325d', 2, top, 17, gape);
+  sceneOval(ctx, '#25162e', 2, top, 15, Math.max(1, gape - 2));
+  if (opening > 0.35) {
+    const bottom = top + gape;
+    sceneOval(ctx, '#55224e', 2, bottom - 6, 11, 4);
+    rect(ctx, '#aa447a', -5, bottom - 5, 14, 2);
+    for (const tooth of [-10, -4, 3, 10]) {
+      const lift = Math.floor(Math.abs(tooth - 2) * gape / 36);
+      const upper = top - gape + 2 + lift;
+      const lower = bottom - 4 - lift;
+      rect(ctx, '#f2b5bb', tooth, upper, 4, 3);
+      rect(ctx, '#ffe1d6', tooth + 1, upper + 3, 2, 2);
+      rect(ctx, '#dd929f', tooth + 1, lower, 3, 2);
+      rect(ctx, '#ffc6c2', tooth + 2, lower - 1, 1, 2);
+    }
+  }
+}
+
+export function drawTriPortalAura(ctx, x, y, direction, opening, tick) {
+  if (opening <= 0) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(direction, 1);
+  sceneGlow(ctx, `rgba(216, 79, 148, ${opening * 0.55})`, 0, -22, 39);
+  if (opening > 0.35) {
+    const top = -17 - Math.round(opening * 5);
+    for (let i = 0; i < 6; i++) {
+      const age = (tick + i * 11) % 52;
+      const driftX = Math.round(age * 0.75) - 7;
+      const driftY = top + Math.round((pixelNoise(i, 87) - 0.5) * (9 + age * 0.4));
+      rect(ctx, i % 2 ? '#e881b0bb' : '#89a0debb', driftX, driftY, age < 20 ? 2 : 1, 1);
+    }
+  }
+  ctx.restore();
+}
+
 const triCssColors = new Map();
 
 function sceneBrush(ctx, converted) {
@@ -478,11 +584,11 @@ function drawScenery(ctx, type, x, y, converted) {
   }
 }
 
-function drawStructures(ctx, quarry, left, chipper) {
+function drawStructures(ctx, quarry, left, chipper, hideHuts) {
   const right = left + VIEW_WIDTH;
   for (const decoration of DECORATIONS) {
     const { x, type } = decoration;
-    if (x < left - 30 || x >= right + 30) continue;
+    if (x < left - 30 || x >= right + 30 || (hideHuts && type === 'hut')) continue;
     const y = quarryHeight(x);
     if (quarry.at(x, y) !== ROCK || (type !== 'posts' && quarry.at(x - 3, y + 3) !== ROCK)) continue;
     const converted = quarry.isTriAt(x, y);
@@ -576,12 +682,42 @@ function watcherEye(ctx, x, y, size) {
   rect(ctx, '#fff2d8', x - 1, y - 1, 1, 1);
 }
 
+export function drawTriBlob(ctx, x, y, direction, stride) {
+  const reach = stride % 2;
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(direction, 1);
+  rect(ctx, '#303d72', -7, -7, 4, 7 - reach);
+  rect(ctx, '#4a78c3', -8 + reach, -3, 5, 3 - reach);
+  rect(ctx, '#3c5291', 3, -7, 4, 6 + reach);
+  rect(ctx, '#70cbf1', 4 + reach * 2, -3 - (1 - reach), 4, 3);
+  rect(ctx, '#60304e', -7, -15 + reach, 15, 10);
+  rect(ctx, '#923e6b', -8, -13 + reach, 17, 7);
+  rect(ctx, '#d65f9c', -6, -16 + reach, 13, 9);
+  rect(ctx, '#f68dbe', -4, -18 + reach, 9, 4);
+  rect(ctx, '#fcb0d0', -5, -15 + reach, 3, 3);
+  rect(ctx, '#ac4078', -5, -8, 10, 3);
+  rect(ctx, '#4d79c8', -8, -11 + reach, 3, 5);
+  rect(ctx, '#80caf8', -9, -7 + reach, 3, 3);
+  rect(ctx, '#405399', 6, -9, 3 + reach, 4);
+  rect(ctx, '#71d0ff', 8 + reach, -7 - reach, 3, 3);
+  rect(ctx, '#733458', 0, -15 + reach, 7, 8);
+  rect(ctx, '#ffe3ec', 1, -14 + reach, 6, 6);
+  rect(ctx, '#ffe3ec', 2, -15 + reach, 4, 8);
+  rect(ctx, '#60b4e6', 4, -13 + reach, 3, 5);
+  rect(ctx, '#291d3b', 5, -13 + reach, 2, 4);
+  rect(ctx, '#fff6f9', 4, -13 + reach, 1, 1);
+  ctx.restore();
+}
+
 function drawTriAnimal(ctx, type, x, y, stride, emergence) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(1, Math.max(0.08, emergence));
   const bob = stride % 2;
-  if (type === 'brain') {
+  if (type === 'blob') {
+    drawTriBlob(ctx, 0, 0, 1, stride);
+  } else if (type === 'brain') {
     const hover = Math.round(1.2 * Math.sin(stride * 0.7));
     ctx.translate(0, hover);
     for (const offset of [-6, -2, 2, 6]) {
@@ -597,14 +733,12 @@ function drawTriAnimal(ctx, type, x, y, stride, emergence) {
     rect(ctx, '#a74584', 5, -23, 2, 6);
     watcherEye(ctx, 0, -19, 7);
   } else {
-    const rise = type === 'ling' ? 7 : bob;
-    if (type === 'ling') {
-      for (const leg of [-5, -2, 2, 5]) {
-        const step = leg % 2 === 0 ? bob : 1 - bob;
-        const bend = leg < 0 ? -step : step;
-        rect(ctx, '#4776cc', leg, -7, 2, 4);
-        rect(ctx, '#71c9ff', leg + bend, -4, 2, 4 - step);
-      }
+    const rise = 7;
+    for (const leg of [-5, -2, 2, 5]) {
+      const step = leg % 2 === 0 ? bob : 1 - bob;
+      const bend = leg < 0 ? -step : step;
+      rect(ctx, '#4776cc', leg, -7, 2, 4);
+      rect(ctx, '#71c9ff', leg + bend, -4, 2, 4 - step);
     }
     rect(ctx, '#9e3e79', -6, -5 - rise, 13, 5);
     rect(ctx, '#d75f9e', -5, -7 - rise, 11, 4);
@@ -834,24 +968,32 @@ export class QuarryRenderer {
     }
   }
 
-  draw(quarry, cursor, left) {
+  draw(quarry, cursor, left, { hideHuts = false } = {}) {
     const ctx = this.ctx;
     this.frameTick = quarry.tick;
     this.left = left;
     this.chipper.parts.length = 0;
     paintTerrain(ctx, this, quarry, left);
+    if (quarry.skyMode !== 'day') drawSceneSky(ctx, quarry.night, quarry.skyProgress);
     ctx.save();
     ctx.translate(-left, 0);
-    drawStructures(ctx, quarry, left, this.chipper);
+    drawStructures(ctx, quarry, left, this.chipper, hideHuts);
+    const opening = quarry.portalOpening;
+    for (const portal of quarry.portals) {
+      const { x, y, direction } = portal;
+      if (x < left - 40 || x >= left + VIEW_WIDTH + 40) continue;
+      drawTriPortalAura(ctx, x, y, direction, opening, quarry.tick);
+      this.chipper.draw(ctx, portal, 0, x, y, direction, 1, (sprite) => drawTriPortal(sprite, opening));
+    }
     drawTri(ctx, quarry, left, this.chipper);
     for (const creature of quarry.creatures) {
-      if (creature.x < left - 8 || creature.x >= left + VIEW_WIDTH + 8) continue;
+      if (creature.x < left - 12 || creature.x >= left + VIEW_WIDTH + 12) continue;
       const stride = Math.floor(quarry.tick / 5 + creature.phase);
       const duration = creature.readyAt - creature.bornAt;
       const emergence = duration ? Math.min(1, (quarry.tick - creature.bornAt) / duration) : 1;
       const { type, x, y, wet } = creature;
       const converted = creature.converted || quarry.isTriAt(x, y);
-      const direction = type === 'lizard' || type === 'duck' ? creature.direction : 1;
+      const direction = type === 'ling' || type === 'brain' ? 1 : creature.direction;
       this.chipper.draw(ctx, creature, 0, x, y, direction, Math.max(0.08, emergence),
         (sprite) => drawAnimal(sprite, type, 0, 0, 1, stride, wet, converted));
     }
@@ -889,6 +1031,10 @@ export function drawToolIcon(canvas, type, converted = false) {
     ctx.translate(12, type === 'brain' ? 22 : 19);
     if (type === 'brain') ctx.scale(0.78, 0.78);
     drawTriAnimal(ctx, type, 0, 0, 0, 1);
+  } else if (type === 'portal') {
+    ctx.translate(12, 22);
+    ctx.scale(0.42, 0.42);
+    drawTriPortal(ctx, 1);
   } else if (Object.hasOwn(BOSSES, type)) {
     if (type === 'copper-giant') {
       ctx.translate(12, 22);

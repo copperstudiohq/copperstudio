@@ -78,6 +78,9 @@ button, input[type="range"] { cursor: pointer; }
 .status-pill.paused i { background: var(--copper); box-shadow: none; }
 .weather-bar { min-height: 65px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 11px 16px; padding: 11px 15px; border-top: 1px solid #4a3731; }
 .rainfall, .readouts, .readouts span { display: flex; align-items: center; gap: 8px; }
+.sky-controls { display: flex; align-items: center; gap: 4px; }
+.sky-controls > span { font-size: 13px; font-weight: 650; }
+.sky-controls [data-sky-mode="night"][aria-pressed="true"] { color: #e3dcff; background: #403556; box-shadow: inset 0 0 0 1px #62547e; }
 .rainfall canvas { width: 25px; height: 25px; image-rendering: pixelated; }
 .rain-label { font-size: 13px; font-weight: 650; }
 .segments { display: flex; padding: 3px; gap: 2px; margin-left: 5px; border: 1px solid #3b332f; border-radius: 7px; background: #161719; }
@@ -116,6 +119,15 @@ button, input[type="range"] { cursor: pointer; }
 .watch-action:hover { background: #38584e; }
 .watch-action:disabled { opacity: .58; cursor: default; }
 .watch-panel .watch-message { min-height: 37px; margin-top: 11px; }
+.watch-map { display: grid; gap: 9px; padding: 10px 13px; border-top: 1px solid var(--line); }
+.watch-map-label { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; }
+#watch-portal-state { color: var(--muted); font-size: 11px; }
+#watch-portal-state[data-open="true"] { color: #f4a5ca; }
+.watch-route { position: relative; height: 5px; margin: 3px 5px; border-radius: 3px; background: repeating-linear-gradient(to right, #705449 0 calc(20% - 2px), #242120 calc(20% - 2px) 20%); }
+#watch-position { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; border: 1px solid #e8f5d1; border-radius: 50%; background: #8ac3ab; transform: translate(-50%, -50%); }
+.watch-destinations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.watch-destinations .button { min-height: 32px; padding: 4px; white-space: normal; font-size: 11px; }
+.watch-destinations button:disabled { opacity: .55; cursor: default; }
 .watch-movement { min-height: 55px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 7px; padding: 8px 13px; border-top: 1px solid var(--line); }
 .watch-movement div { display: flex; gap: 6px; }
 .watch-movement .button { min-height: 33px; }

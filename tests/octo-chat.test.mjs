@@ -5,10 +5,10 @@ import { createOctoChat, replyAsOcto, OCTO_GREETING, OCTO_PROMPTS } from '../lib
 import { NOSE_LINES, CROBA_LINES, TRI_LINES, JOKES } from '../lib/octo-dialogue.mjs';
 
 const URLS = {
-  croba: 'https://croba-planet-icebound.davidwebstar.chatgpt.site',
+  croba: 'https://copperstudio.nl/games/croba-planet/',
   island: 'https://rain-and-copper-island.davidwebstar.chatgpt.site',
   cards: 'https://wooden-room-red-carpet.davidwebstar.chatgpt.site',
-  arena: 'https://tri-arena-danger-zone.davidwebstar.chatgpt.site',
+  arena: 'https://copperstudio.nl/games/tri-arena/',
   sandbox: 'https://copperstudio.nl/games/mosswake-creek/',
 };
 const answer = (text, memory = createOctoChat()) => replyAsOcto(memory, text);

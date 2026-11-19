@@ -58,7 +58,7 @@ test('specific game facts cover materials, Tri, bosses and the five-night defens
     ['How do I use Break precisely in Mosswake Creek?', 'sandbox-break-scenery', /1 px.*original colors/],
     ['How does Tri spread ichor in Mosswake Creek?', 'sandbox-tri-growth', /six map pixels.*13 seconds.*75 seconds.*three minutes/],
     ['How do I summon bosses in Mosswake Creek?', 'sandbox-summon-bosses', /dry ground.*water or ichor.*open air/],
-    ['How do I win Creek Watch?', 'sandbox-creek-watch', /five nights.*signal.*palisades.*dawn/],
+    ['How do I win Creek Watch?', 'sandbox-creek-watch', /five nights.*signal.*palisades.*dawn/i],
   ];
   for (const [question, id, fact] of queries) {
     assert.equal(rankKnowledge(question, OCTO_KNOWLEDGE, 'sandbox')[0]?.entry.id, id, question);

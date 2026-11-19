@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#071516">
+  <meta name="description" content="Rain Arena of Copper: fight six Tri species and six bosses in the Bonefields, or battle robots with swords and shields alongside Copper Tron 1000 and the Copper Giant in the Colosseum. Endless rain, first-person voxel combat, upgrades, Survival and Practice.">
+  <title>Rain Arena of Copper</title>
+  <meta name="application-name" content="Rain Arena of Copper">
+  <meta name="apple-mobile-web-app-title" content="Rain Arena of Copper">
+  <meta property="og:site_name" content="Rain Arena of Copper">
+  <meta property="og:title" content="Rain Arena of Copper">
+  <meta name="twitter:title" content="Rain Arena of Copper">
+  <meta property="og:url" content="https://copperstudio.nl/games/tri-arena/">
+  <link rel="canonical" href="https://copperstudio.nl/games/tri-arena/">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <canvas id="arena" aria-label="Rain Arena of Copper. First-person arena combat under endless rain. Click to capture your mouse. WASD moves, mouse looks, left click cuts vertically, strafe with A or D for horizontal cuts, right click kicks, Shift dashes, Space jumps, E blocks, and Escape releases the mouse and pauses." tabindex="0"></canvas>
+  <div class="screen-grain" aria-hidden="true"></div>
+  <div id="interface">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Rain Arena of Copper home"><span class="brand-mark" aria-hidden="true">△</span><strong class="brand-name">RAIN ARENA <span>OF COPPER</span></strong><span class="brand-sub">ENDLESS ARENA COMBAT</span></a>
+      <div class="wave-display"><span class="live-dot"></span><span class="wave-details"><span id="wave-label">ENDLESS ARENA ONLINE</span><small id="next-boss">BOSS EVERY FIFTH WAVE</small></span><span class="wave-pips" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
+      <nav class="top-actions" aria-label="Game settings"><label class="camera-setting"><span>VIEW</span><select id="camera-mode" aria-label="Camera view"><option value="first-person">First person</option><option value="third-person">Third person</option></select></label><button id="sound-button" class="icon-button" aria-label="Enable sound" aria-pressed="false"><span id="sound-icon">♫</span><span id="sound-label">SOUND OFF</span></button><button id="pause-button" class="icon-button" aria-label="Pause game" hidden><span>Ⅱ</span><span>ESC</span></button><button id="ultra-camera" class="icon-button" hidden aria-label="Toggle Ultra entrance follow camera">FOLLOW ENTRANCE · C</button></nav>
+    </header>
+    <div class="objective" id="objective"><span class="eyebrow" id="arena-name">THE TRI BONEFIELDS</span><p id="objective-text">ENDLESS WAVES. A BOSS EVERY FIFTH.</p></div>
+    <div class="arena-coordinate" aria-hidden="true"><span id="arena-sector">SECTOR 07</span><span id="arena-dimensions">64 × 48 M BATTLEFIELD</span></div>
+    <section id="boss-hud" class="boss-hud" hidden aria-label="Boss health"><div class="boss-caption"><span id="boss-name">BOSS</span><span id="boss-status">EXPOSED</span></div><div id="boss-meter" class="boss-track" role="meter" aria-label="Boss health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="boss-fill"></div></div></section>
+    <div id="overlay">
+      <section class="panel menu-panel mode-menu" id="menu-panel" aria-labelledby="menu-title">
+        <div class="menu-introduction">
+          <span class="eyebrow"><span class="small-rule"></span> ARENA COMBAT // ALWAYS RAINING</span>
+          <h1 id="menu-title">RAIN ARENA<br>OF <em>COPPER</em></h1>
+          <p class="panel-intro">Choose your fight. Choose your ground.<br>Then let the copper fall where it may.</p>
+          <div class="combat-brief"><span class="eyebrow">FEEL EVERY IMPACT</span><p>Aim at the part you want to cut. Kick to make space. Keep moving as bodies and broken pieces fall.</p><small>WASD MOVE · MOUSE AIM · CLICK SLICE<br>RMB KICK · SHIFT DASH · SPACE JUMP</small></div>
+          <div class="run-records"><span>BEST WAVE <strong id="best-wave">000</strong></span><span>BEST SCORE <strong id="best-score">000000</strong></span><small>ENDLESS RECORDS</small></div>
+        </div>
+        <div class="menu-selection">
+          <span id="menu-step-label" class="eyebrow" role="status" aria-live="polite">01 / MODE SELECT</span>
+          <div id="mode-step">
+            <h2 id="mode-choice-heading">Choose your mode.</h2>
+            <div class="mode-choices" role="group" aria-labelledby="mode-choice-heading">
+              <button id="mode-endless" class="choice-card" data-mode-choice="endless" aria-pressed="true"><span class="choice-symbol" aria-hidden="true">∞</span><span><strong>Endless Waves</strong><p>Clear each wave and install an upgrade. Fight the opponents of your chosen arena.</p><small>9 PERMANENT MODULES + FIELD REPAIR</small></span></button>
+              <button id="mode-survival" class="choice-card" data-mode-choice="survival" aria-pressed="false"><span class="choice-symbol" aria-hidden="true">⌁</span><span><strong>Survival</strong><p>Enemies keep spawning. Choose an upgrade every 30 seconds as danger rises.</p><small>TIME PAUSES WHILE YOU CHOOSE</small></span></button>
+              <button id="mode-practice" class="choice-card" data-mode-choice="practice" aria-pressed="false"><span class="choice-symbol" aria-hidden="true">⊕</span><span><strong>Practice</strong><p>Choose an opponent. Ultra keeps its factories active; other opponents fight alone.</p><small>ULTRA CAN BUILD REINFORCEMENTS</small></span></button>
+              <button id="mode-war" class="choice-card" data-mode-choice="war" aria-pressed="false"><span class="choice-symbol" aria-hidden="true">⚑</span><span><strong>War Mode</strong><p>Build two armies and watch them fight. Add a Player to join with every permanent upgrade maxed.</p><small>BLUE VS RED · OPTIONAL PLAYER</small></span></button>
+            </div>
+            <button id="menu-next" class="primary-button" aria-controls="arena-step"><span>CHOOSE ARENA</span><span aria-hidden="true">↗</span></button>
+          </div>
+          <div id="arena-step" hidden>
+            <h2 id="arena-choice-heading">Choose your arena.</h2>
+            <div class="arena-choices" role="group" aria-labelledby="arena-choice-heading">
+              <button id="arena-bonefields" class="choice-card arena-choice" data-arena-choice="bonefields" aria-pressed="true"><span class="arena-card-code">SECTOR 07 / INFECTED GROUND</span><strong>Tri Bonefields</strong><p>Six Tri species and six bosses among pink corruption, ancient bones and blue veins.</p><small>64 × 48 M BATTLEFIELD</small></button>
+              <button id="arena-colosseum" class="choice-card arena-choice" data-arena-choice="colosseum" aria-pressed="false"><span class="arena-card-code">SECTOR 08 / COPPER COLOSSEUM</span><strong>Colosseum</strong><p>Copper floors, towering arches and robotic opponents. Robot armies and recurring copper bosses. The colossal Copper Mega Drill joins level 30. Later encounters vary between waves.</p><small>64 × 48 M BATTLEFIELD</small></button>
+              <button id="arena-drill-mine" class="choice-card arena-choice" data-arena-choice="drill-mine" aria-pressed="false"><span class="arena-card-code">SECTOR 09 / COPPER EXCAVATION</span><strong>Drill Mine</strong><p>A huge pixel-rock cavern with towering walls. Miner bots, drill worms and drill hounds emerge from the tunnels.</p><small>96 × 80 M · 120 M HIGH · MEGA DRILL EVERY 10 WAVES</small></button>
+            </div>
+            <section id="colosseum-controls" class="colosseum-controls" hidden aria-labelledby="colosseum-choice-heading"><h3 id="colosseum-choice-heading">ROBOTS FIGHT TOGETHER</h3><p>Sword robots and robots with shields share the battlefield. Each shield pixel takes two hits to break.</p><small>TRON: EVERY 3 LEVELS · GIANT: EVERY 5 WAVES / 60s SURVIVAL<br>FORTRESS: WAVES / THREATS 10, 20, 30…<br>MEGA DRILL: LEVEL / THREAT 30 · 1,000,000 HP<br>DRILL WORM + HEAD CATAPULT: WAVE / THREAT 11<br>DRILL HOUND: WAVE / THREAT 15 · RARE ROBOT RIDERS</small><div id="copper-practice-controls" class="copper-practice-controls" hidden><label for="copper-practice-choice">COLOSSEUM PRACTICE OPPONENT</label><div class="practice-row"><select id="copper-practice-choice" aria-label="Choose a Colosseum practice opponent"><option value="copper-robot" selected>Robot</option><option value="knight">Robot with shield</option><option value="copper-drill-worm">Copper Drill Worm</option><option value="copper-head-catapult">Copper Head Catapult</option><option value="copper-drill-hound">Copper Drill Hound</option><option value="copper-repair-drone">Copper Repair Drone</option><option value="copper-tron-1000">Copper Tron 1000</option><option value="copper-giant">Copper Giant</option><option value="copper-fortress">Copper Fortress</option><option value="copper-mega-drill">Copper Mega Drill</option></select></div></div></section>
+            <section id="drill-mine-controls" class="colosseum-controls" hidden aria-labelledby="drill-mine-heading"><h3 id="drill-mine-heading">WATCH THE TUNNELS</h3><p>Groups of ten Miner Bots emerge from each of the four tunnels in Endless and Survival. Drill worms and drill hounds join the assault. The upper tunnels are inactive.</p><small>SPIDER DRONE: EVERY WAVE / THREAT FROM 4<br>MINE WALKER: EVERY WAVE / THREAT FROM 6<br>MEGA DRILL: WAVES / THREATS 10, 20, 30…<br>MECH SPIDER TANK ULTRA: FINAL LEVEL 50</small><div id="mine-practice-controls" class="copper-practice-controls" hidden><label for="mine-practice-choice">DRILL MINE PRACTICE OPPONENT</label><div class="practice-row"><select id="mine-practice-choice" aria-label="Choose a Drill Mine practice opponent"><option value="miner-bot" selected>Miner Bot</option><option value="copper-drill-worm">Copper Drill Worm</option><option value="copper-drill-hound">Copper Drill Hound</option><option value="copper-spider-drone">Copper Spider Drone</option><option value="copper-mine-walker">Copper Mine Walker</option><option value="copper-mega-drill">Copper Mega Drill</option><option value="mech-spider-tank-ultra">Mech Spider Tank Ultra — enemies enabled</option></select></div></div><a class="mine-model-link" href="./mine-walker-preview.html" target="_blank" rel="noopener">Inspect the Mine Walker model ↗</a><a class="mine-model-link" href="./mech-spider-tank-ultra-preview.html" target="_blank" rel="noopener">Inspect Mech Spider Tank Ultra ↗</a><a class="mine-model-link" href="./?encounter=ultra">Watch Ultra’s entrance ↗</a></section>
+            <div id="practice-controls" class="boss-practice" hidden><label for="boss-choice">CHOOSE YOUR PRACTICE OPPONENT</label><div class="practice-row"><select id="boss-choice" aria-label="Choose a creature or boss to practice"><optgroup label="Tri creatures"><option value="blob" selected>Tri Blob</option><option value="ling">Tri Ling</option><option value="brain">Tri Brain</option><option value="gardener">Gardener</option><option value="trider">Trider</option><option value="spreader">Tri Spreader</option></optgroup><optgroup label="Bosses"><option value="copper-giant">Copper Giant</option><option value="lake-terror">The Lake’s Corrupt Terror</option><option value="frost-triram">Frost Triram</option><option value="sky-eye">Eye of the Sky</option><option value="trilom-leader">Trilom Leader</option><option value="trilom-wraith">Trilom Wraith</option></optgroup></select><button id="boss-practice" hidden>PRACTICE</button></div></div>
+            <p id="war-menu-note" class="war-menu-note" hidden>Build armies from the full opponent catalog. The Spider Drone and Mine Walker are exclusive to the Drill Mine. Add one optional Player to fight with all permanent upgrades maxed.</p>
+            <p id="match-summary" class="match-summary">ENDLESS WAVES // TRI BONEFIELDS</p>
+            <div class="menu-navigation"><button id="menu-back" class="menu-back" aria-controls="mode-step">← BACK TO MODES</button><button class="primary-button" id="start-button"><span id="start-label">ENTER THE ARENA</span><span aria-hidden="true">↗</span></button></div>
+          </div>
+        </div>
+      </section>
+      <section class="panel compact-panel" id="pause-panel" hidden aria-labelledby="pause-title">
+        <span class="eyebrow">TAKE A BREATH</span><h2 id="pause-title">ARENA <em>PAUSED.</em></h2>
+        <p class="panel-intro" id="pause-description">Inspect your installed modules. Resume when ready.</p>
+        <div class="loadout-summary"><span class="eyebrow" id="pause-upgrades-title">UPGRADES INSTALLED</span><div id="installed-upgrades"></div><div id="pause-stats" class="pause-stats"></div><details id="tri-field-guide" class="tri-field-guide"><summary id="tri-guide-toggle">TRI FIELD GUIDE <span id="tri-species-count">6 SPECIES</span></summary><div id="tri-species-list" class="tri-species-list"></div></details></div>
+        <button class="primary-button" id="resume-button"><span>BACK TO THE FIGHT</span><span aria-hidden="true">↗</span></button><button id="pause-menu" class="menu-return">BACK TO MENU</button>
+      </section>
+      <section class="panel upgrade-panel" id="upgrade-panel" hidden role="dialog" aria-modal="true" aria-labelledby="upgrade-title" aria-describedby="upgrade-instruction">
+        <div class="upgrade-heading"><span class="eyebrow" id="upgrade-eyebrow">WAVE CLEARED</span><h2 id="upgrade-title">EVOLVE YOUR <em>ADVANTAGE.</em></h2><p class="panel-intro" id="upgrade-instruction">Choose one module, then return to the fight.</p><span class="upgrade-help">CLICK A MODULE OR PRESS 1–9 / 0 <i>9 PERMANENT UPGRADES + FIELD REPAIR</i></span></div>
+        <div id="upgrade-options" class="upgrade-options"></div>
+      </section>
+      <section class="panel compact-panel" id="end-panel" hidden aria-labelledby="end-title"><span class="eyebrow" id="end-eyebrow">SYSTEM FAILURE</span><h2 id="end-title">THE TRI<br><em>PREVAIL.</em></h2><p class="panel-intro" id="end-description"></p><div class="end-stats"><div><span>SCORE</span><strong id="end-score">0</strong></div><div><span>DEFEATED</span><strong id="end-kills">0</strong></div><div><span>SURVIVED</span><strong id="end-time">0:00</strong></div></div><button class="primary-button" id="retry-button"><span>ENTER AGAIN</span><span aria-hidden="true">↗</span></button><button id="end-menu" class="menu-return">BACK TO MENU</button></section>
+    </div>
+    <section id="war-setup" class="war-panel" hidden aria-labelledby="war-title">
+      <div class="war-setup-scroll">
+      <span class="eyebrow">WAR MODE // DEPLOYMENT</span><h2 id="war-title">BUILD YOUR <em>ARMIES.</em></h2>
+      <p class="war-instruction">Blue left, red right. Place units by clicking their side or using Add to side. Add one Player to join with all permanent upgrades maxed.</p>
+      <div class="war-team-choices" role="group" aria-label="Army to place"><button id="war-team-blue" class="war-team blue" aria-pressed="true"><span>BLUE ARMY</span><strong id="war-blue-count">0</strong></button><button id="war-team-red" class="war-team red" aria-pressed="false"><span>RED ARMY</span><strong id="war-red-count">0</strong></button></div>
+      <label class="war-select-label" for="war-unit">CHOOSE AN OPPONENT</label><select id="war-unit" aria-describedby="war-unit-help"></select><p id="war-unit-help" class="war-unit-help"></p>
+      <div class="war-add-actions"><button id="war-add" class="war-action">+ ADD TO SIDE</button><button id="war-clear" class="war-action subtle">CLEAR SIDE</button></div>
+      <div class="war-roster-heading"><span id="war-roster-title">BLUE ARMY</span><span id="war-capacity">0 PLACED</span></div><ul id="war-roster" class="war-roster" aria-label="Placed army"></ul>
+      </div><p id="war-ready" class="war-ready" role="status" aria-live="polite">Place at least one opponent on each side.</p><button id="war-fight" class="primary-button" disabled><span>LET THEM FIGHT</span><span aria-hidden="true">↗</span></button><button id="war-setup-menu" class="menu-return">BACK TO MENU</button>
+    </section>
+    <section id="war-battle-hud" class="war-battle-hud" hidden aria-label="Army battle status"><div class="blue"><span>BLUE ARMY</span><strong id="war-blue-alive">0</strong></div><div class="war-battle-time"><span id="war-battle-label">BATTLE IN PROGRESS</span><strong id="war-time">0:00</strong></div><div class="red"><span>RED ARMY</span><strong id="war-red-alive">0</strong></div></section>
+    <section id="war-result" class="war-panel war-result" hidden role="dialog" aria-modal="true" aria-labelledby="war-result-title"><span class="eyebrow">THE BATTLE IS OVER</span><h2 id="war-result-title">BLUE ARMY <em>WINS.</em></h2><p id="war-result-description" class="war-instruction"></p><button id="war-rematch" class="primary-button"><span>REMATCH</span><span aria-hidden="true">↗</span></button><button id="war-edit" class="menu-return">EDIT ARMIES</button><button id="war-result-menu" class="menu-return">BACK TO MENU</button></section>
+    <div id="war-spectator-help" class="war-spectator-help" hidden>WATCH THE ARMIES FIGHT · DRAG TO ORBIT · SCROLL TO ZOOM · ESC PAUSE</div>
+    <div id="octo-controls" class="octo-controls" hidden aria-label="Octo Nose controls"><button id="octo-talk">TALK TO OCTO · T</button><button id="octo-voice" aria-pressed="true">Octo voice: on</button></div>
+    <section id="octo-caption" class="octo-caption" hidden role="log" aria-live="polite" aria-atomic="true" aria-label="Octo Nose dialogue"><span id="octo-caption-speaker" class="eyebrow">OCTO NOSE</span><p id="octo-caption-text"></p></section>
+    <section id="octo-chat" class="octo-chat" hidden role="dialog" aria-modal="true" aria-labelledby="octo-chat-title" aria-describedby="octo-chat-tip"><div class="octo-chat-panel"><div class="octo-chat-heading"><div><span id="octo-chat-team" class="eyebrow">OCTO NOSE // LOCAL CHAT</span><h2 id="octo-chat-title">Talk with <em>Octo Nose.</em></h2></div><button id="octo-chat-close" aria-label="Close Octo chat">×</button></div><div id="octo-chat-log" class="octo-chat-log" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Conversation with Octo Nose"></div><form id="octo-chat-form"><label for="octo-chat-input">SAY SOMETHING TO OCTO</label><div class="octo-chat-compose"><input id="octo-chat-input" maxlength="300" autocomplete="off" placeholder="Hello Octo! Tell me a joke."><button id="octo-chat-send" type="submit">SEND ↗</button></div></form><p id="octo-chat-tip">Try “my name is…”, “tell me a joke”, “Croba Planet”, or “follow me”. The battle pauses while you chat. Esc closes.</p></div></section>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="crosshair" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
+    <div id="capture-hint"><span>CLICK ARENA TO CAPTURE MOUSE</span><small>MOVE MOUSE TO LOOK · ESC TO RELEASE / PAUSE</small></div>
+    <footer class="bottom-hud">
+      <div class="vitals"><div class="vital-caption"><span id="health-label">FIGHTER 01</span><strong><span id="hp-value">100</span><span class="muted"> / </span><span id="max-hp-value">100</span></strong></div><div class="health-track"><div id="health-fill"></div></div><div class="energy-row"><span>ENERGY</span><div class="energy-track"><div id="energy-fill"></div></div></div></div>
+      <div class="controls-bar" aria-label="Combat controls"><div><kbd>W A S D</kbd><span>MOVE</span></div><div><kbd>MOUSE</kbd><span>AIM CUT</span></div><div><kbd>LMB</kbd><span>VERTICAL CUT</span></div><div><kbd>A/D + LMB</kbd><span>SIDE CUT</span></div><div><kbd>E</kbd><span>BLOCK</span></div><div><kbd>SPACE</kbd><span>JUMP</span></div><div class="ability" id="dash-ability"><kbd>SHIFT</kbd><span>DASH</span><i id="dash-fill"></i></div><div class="ability" id="kick-ability"><kbd>RMB</kbd><span>KICK</span><i id="kick-fill"></i></div></div>
+      <div class="score"><span class="eyebrow">SALVAGE SCORE</span><strong id="score-value">000000</strong><span class="score-note"><span id="kill-value">0</span> <span id="kill-label">TRI ELIMINATED</span></span></div>
+    </footer>
+    <div class="mobile-controls"><div id="joystick" aria-label="Movement joystick"><div class="joystick-stick"></div></div><span class="mobile-look-hint">DRAG RIGHT SIDE TO AIM YOUR CUT</span><div class="mobile-actions"><button data-mobile="cut-mode" aria-label="Toggle horizontal and vertical cuts" aria-pressed="false">H / V</button><button data-mobile="jump" aria-label="Jump">JUMP</button><button data-mobile="kick" aria-label="Kick">KICK</button><button data-mobile="dash" aria-label="Dash">DASH</button><button data-mobile="attack" aria-label="Slice" class="mobile-slash">SLICE</button></div></div>
+    <span class="build-label" aria-hidden="true">RAIN ARENA OF COPPER // ENDLESS ARENA COMBAT</span>
+  </div>
+  <noscript>This game needs JavaScript. Enable JavaScript to enter Rain Arena of Copper.</noscript>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

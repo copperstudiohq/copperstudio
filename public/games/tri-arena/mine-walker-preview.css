@@ -1,0 +1,28 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; color: #e0eceb; background: #101c24; }
+* { box-sizing: border-box; }
+body { margin: 0; overflow: hidden; }
+canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+canvas:focus-visible { outline: 2px solid #c49a6d; outline-offset: -3px; }
+header { position: absolute; top: 24px; left: 28px; pointer-events: none; text-shadow: 0 2px 15px #000; }
+header a { pointer-events: auto; color: #b5ddd9; font-size: 13px; text-underline-offset: 4px; }
+header p { margin: 24px 0 6px; font-size: 10px; letter-spacing: 2px; color: #c49a6d; }
+h1 { margin: 0 0 8px; font-size: clamp(22px, 3.2vw, 42px); font-weight: 650; }
+header span { font-size: 12px; color: #bbcdce; }
+.play-ladder { display: block; width: fit-content; margin-top: 16px; padding: 11px 15px; border: 1px solid #d6a776; border-radius: 4px; background: #3c3028ed; color: #f8d2a8; text-decoration: none; }
+nav { position: absolute; left: 28px; bottom: 30px; display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100vw - 56px); }
+button { border: 1px solid #496263; border-radius: 4px; padding: 11px 15px; color: #dcebea; background: #12252ced; font: inherit; font-size: 12px; cursor: pointer; }
+button[aria-pressed="true"] { border-color: #d6a776; color: #f8d2a8; background: #3c3028ed; }
+button:hover { border-color: #b8deda; }
+button:focus-visible, a:focus-visible { outline: 2px solid #e7bb81; outline-offset: 4px; }
+.help { position: absolute; bottom: 90px; left: 28px; color: #9eb7bb; font-size: 11px; line-height: 1.8; pointer-events: none; }
+#model-status { position: absolute; right: 26px; bottom: 92px; color: #a8c5c8; font-size: 11px; pointer-events: none; }
+#model-error { position: absolute; top: 45%; left: 10%; right: 10%; padding: 20px; border: 1px solid #cb9773; background: #241d1b; }
+@media (max-width: 760px) {
+  header { top: 16px; left: 16px; right: 16px; }
+  header p { margin-top: 18px; }
+  header span { display: block; max-width: 300px; line-height: 1.7; }
+  nav { left: 16px; bottom: 18px; max-width: calc(100vw - 32px); gap: 6px; }
+  button { padding: 10px; }
+  .help { left: 16px; bottom: 164px; }
+  #model-status { right: 16px; bottom: 210px; }
+}

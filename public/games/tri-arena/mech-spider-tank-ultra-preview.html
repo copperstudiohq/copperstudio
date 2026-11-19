@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rain Arena of Copper — Mech Spider Tank Ultra</title>
+  <meta property="og:site_name" content="Rain Arena of Copper">
+  <meta property="og:title" content="Rain Arena of Copper — Mech Spider Tank Ultra">
+  <meta name="twitter:title" content="Rain Arena of Copper — Mech Spider Tank Ultra">
+  <link rel="canonical" href="https://rain-arena-of-copper.davidwebstar.chatgpt.site/mech-spider-tank-ultra-preview.html">
+  <meta name="application-name" content="Rain Arena of Copper">
+  <link rel="stylesheet" href="./mine-walker-preview.css">
+  <style>
+    header p { color:#ff8a60; } .ultra-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+    .ultra-links a {margin:0;} .room-picker {position:absolute;right:24px;top:24px;max-width:245px;background:#12252cee;border:1px solid #496263;padding:12px;border-radius:4px;font-size:12px;}
+    .room-picker label{display:block;margin-bottom:7px;color:#bbcdce;} .room-picker select{width:100%;background:#172b31;color:#e0eceb;padding:8px;border:1px solid #496263;}
+    @media(max-width:760px){
+      header span{max-width:330px}
+      .room-picker{top:246px;left:16px;right:auto;max-width:245px}
+      .model-controls{position:absolute;left:16px;right:16px;bottom:18px;display:grid;gap:14px;pointer-events:none}
+      .model-notes{display:grid;gap:8px}
+      .model-controls nav,.model-controls .help,.model-controls #model-status{position:static;margin:0;max-width:100%}
+      .model-controls nav{pointer-events:auto}
+    }
+  </style>
+</head>
+<body>
+  <canvas id="model-view" tabindex="0" aria-label="Mech Spider Tank Ultra from Rain Arena of Copper. Drag to rotate; scroll to zoom; arrow keys to orbit."></canvas>
+  <header>
+    <a href="./">← Rain Arena of Copper</a><p>FINAL MINE BOSS · LEVEL 50</p>
+    <h1>Mech Spider Tank Ultra</h1><span>999,999,999 health · Eleven rooms · Drill and fabrication arms</span>
+    <div class="ultra-links"><a class="play-ladder" href="./?encounter=ultra">Watch the entrance →</a><a class="play-ladder" href="./?practice=ultra">Fight Ultra →</a><a class="play-ladder" href="./mech-ultra-arena-preview.html">Arena overview →</a></div>
+  </header>
+  <div class="room-picker"><label for="room-choice">INSPECT A CONNECTED ROOM</label><select id="room-choice"><option value="">Choose a room…</option></select></div>
+  <footer class="model-controls">
+    <div class="model-notes">
+      <p id="model-status" role="status">Loading Ultra…</p>
+      <p class="help">Drag to rotate · Scroll to zoom · Arrow keys to orbit<br>Dodge the marked slam, then board its arm during the five-second opening.</p>
+    </div>
+    <nav aria-label="Model views">
+    <button id="view-exterior" data-view="exterior" aria-pressed="true">Whole boss</button>
+    <button id="view-interior" data-view="interior" aria-pressed="false">Inside the head</button>
+    <button id="view-drill" data-view="drill" aria-pressed="false">Drill arm</button>
+    <button id="view-hand" data-view="hand" aria-pressed="false">Spider hand</button>
+    <button id="lower-arm" aria-pressed="false">Lower drill arm</button>
+    <button id="toggle-cutaway" aria-pressed="false">Open cutaway</button>
+    </nav>
+  </footer>
+  <p id="model-error" role="alert" hidden></p>
+  <script type="module" src="./mech-spider-tank-ultra-preview.js"></script>
+</body>
+</html>

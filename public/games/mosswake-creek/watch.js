@@ -1,20 +1,31 @@
-import { START_VIEW, VIEW_WIDTH, TICKS_PER_SECOND, quarryHeight } from './simulation.js';
+import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS, TRI_PORTAL_OPEN_TICKS, CREEK_HUTS, quarryHeight } from './simulation.js';
 
 export const WATCH_NIGHTS = 5;
-export const WATCH_SIGNAL = START_VIEW + 84;
 export const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
-export const WATCH_BOUNDS = { left: START_VIEW - 205, right: START_VIEW + 505 };
-export const WATCH_HEALTH = 10;
-const WATCH_DAY = 32 * TICKS_PER_SECOND;
-const WATCH_NIGHT = 27 * TICKS_PER_SECOND;
-const WATCH_USE_RANGE = 19;
-const WATCH_SPEED = 1.65;
-const WATCH_CACHES = [-150, -108, -67, -18, 18, 74, 138, 210, 254, 304, 358]
-  .map((offset) => WATCH_SIGNAL + offset);
-const WATCH_POSTS = [
-  { side: -1, name: 'West', wallX: START_VIEW + 28, campX: START_VIEW - 32 },
-  { side: 1, name: 'East', wallX: START_VIEW + 322, campX: START_VIEW + 276 }
+export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
+export const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
+export const WATCH_PORTALS = [
+  { side: -1, x: WATCH_BOUNDS.left + 26 },
+  { side: 1, x: WATCH_BOUNDS.right - 26 }
 ];
+export const WATCH_HEALTH = 10;
+export const WATCH_DAY = DAY_TICKS;
+export const WATCH_NIGHT = NIGHT_TICKS;
+const WATCH_GUARD_LIMIT = 3;
+const WATCH_GUARD_STATS = [
+  { range: 88, damage: 1, cooldown: 22 },
+  { range: 112, damage: 2, cooldown: 19 }
+];
+const WATCH_USE_RANGE = 19;
+const WATCH_SPEED = 2.05;
+const WATCH_POSTS = [
+  { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44, campX: WATCH_BRIDGE.left - 95 },
+  { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44, campX: WATCH_BRIDGE.right + 95 }
+];
+export const WATCH_CAMPS = [...WATCH_POSTS.map(({ campX }) => campX), ...CREEK_HUTS]
+  .map((x) => ({ x, side: Math.sign(x - WATCH_SIGNAL) }));
+const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
+  .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
 
 export function watchGround(x) {
   if (x >= WATCH_BRIDGE.left && x <= WATCH_BRIDGE.right) return WATCH_BRIDGE.y;
@@ -58,15 +69,23 @@ export class CreekWatch {
     return Math.max(0, Math.ceil((this.duration - this.phaseTick) / TICKS_PER_SECOND));
   }
 
+  get phaseProgress() {
+    return Math.min(1, this.phaseTick / this.duration);
+  }
+
+  get portalOpening() {
+    return this.phase === 'night' ? Math.min(1, this.phaseTick / TRI_PORTAL_OPEN_TICKS) : 0;
+  }
+
   get camera() {
-    return Math.round(Math.max(WATCH_BOUNDS.left - 12,
-      Math.min(WATCH_BOUNDS.right - VIEW_WIDTH + 12, this.player.x - VIEW_WIDTH / 2)));
+    return Math.round(Math.max(WATCH_BOUNDS.left,
+      Math.min(WIDTH - VIEW_WIDTH, this.player.x - VIEW_WIDTH / 2)));
   }
 
   start() {
     if (this.status !== 'ready') return false;
     this.status = 'running';
-    this.message = 'Walk over copper coins to pick them up.';
+    this.message = 'Collect copper and visit a blue-banner camp to recruit guards.';
     return true;
   }
 
@@ -75,20 +94,27 @@ export class CreekWatch {
     const player = this.player.x;
     const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
     if (atSignal && this.phase === 'day') {
-      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal house', cost: 3 };
+      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower', cost: 3 };
       return { kind: 'bell', label: 'Ring the dusk bell', cost: 0 };
     }
-    for (const post of this.posts) {
-      if (Math.abs(player - post.wallX) <= WATCH_USE_RANGE) {
-        if (!post.health) return { kind: 'build', post, label: `Build ${post.name.toLowerCase()} palisade`, cost: 4 };
-        if (post.health < this.maxWall(post)) return { kind: 'repair', post, label: 'Repair palisade', cost: 2 };
-        if (post.tier === 1) return { kind: 'reinforce', post, label: 'Reinforce palisade', cost: 5 };
-      }
-      if (Math.abs(player - post.campX) <= WATCH_USE_RANGE && post.guards.length < 3) {
-        return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
-      }
+    const camp = WATCH_CAMPS.find(({ x }) => Math.abs(player - x) <= WATCH_USE_RANGE);
+    const wall = this.posts.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE);
+    if (wall && (!camp || Math.abs(player - wall.wallX) <= Math.abs(player - camp.x))) {
+      if (!wall.health) return { kind: 'build', post: wall, label: `Build ${wall.name.toLowerCase()} palisade`, cost: 4 };
+      if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: 2 };
+      if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
     }
+    if (camp) return this.getCampAction(camp);
     return null;
+  }
+
+  getCampAction(camp) {
+    const post = this.posts[camp.side === -1 ? 0 : 1];
+    if (post.guards.length < WATCH_GUARD_LIMIT) {
+      return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
+    }
+    const guard = post.guards.find((unit) => unit.rank === 0);
+    return guard ? { kind: 'train', post, guard, label: `Train ${post.name.toLowerCase()} veteran`, cost: 4 } : null;
   }
 
   maxWall(post) {
@@ -99,7 +125,7 @@ export class CreekWatch {
     if (this.status === 'ready') return this.start();
     const action = this.getAction();
     if (!action) {
-      if (this.status === 'running') this.message = 'Walk up to a palisade, hiring lantern, or the signal house.';
+      if (this.status === 'running') this.message = 'Walk up to a camp, palisade, or the signal tower. Each bank can hold three veterans.';
       return false;
     }
     if (this.coins < action.cost) {
@@ -114,11 +140,15 @@ export class CreekWatch {
         return true;
       case 'signal':
         this.signal = WATCH_HEALTH;
-        this.message = 'Signal house repaired. Ring the bell when you’re ready.';
+        this.message = 'Signal tower repaired. Ring the bell when you’re ready.';
         break;
       case 'hire':
-        post.guards.push({ fireAt: this.tick + 10 + post.guards.length * 8 });
-        this.message = `${post.name} guard hired.`;
+        post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: -Infinity });
+        this.message = `Guard hired and sent to the ${post.name.toLowerCase()} bank.`;
+        break;
+      case 'train':
+        action.guard.rank = 1;
+        this.message = `${post.name} veteran trained. Veterans shoot farther and deal double damage.`;
         break;
       case 'repair':
         post.health = this.maxWall(post);
@@ -143,24 +173,24 @@ export class CreekWatch {
     this.phaseTick = 0;
     this.queue = [];
     for (let index = 0; index < this.day + 1; index++) {
-      for (const post of this.posts) {
-        this.queue.push({ side: post.side, due: 44 + index * 46 + (post.side === 1 ? 22 : 0) });
+      for (const portal of WATCH_PORTALS) {
+        this.queue.push({ portal, due: TRI_PORTAL_OPEN_TICKS + 4 + index * 46 + (portal.side === 1 ? 22 : 0) });
       }
     }
-    this.message = `Night ${this.day}. Tri raiders are approaching both banks.`;
+    this.message = `Night ${this.day}. Both portals are opening. Tri Blobs are heading for the tower.`;
   }
 
   finishNight() {
     this.raiders.length = 0;
     this.queue.length = 0;
+    this.phase = 'day';
+    this.phaseTick = 0;
     if (this.day === WATCH_NIGHTS) {
       this.status = 'won';
       this.message = 'The signal stayed lit through all five nights.';
       return;
     }
     this.day++;
-    this.phase = 'day';
-    this.phaseTick = 0;
     this.coins += 3;
     this.stockCaches();
     this.message = `Dawn of day ${this.day}. You earned 3 copper. Repair and prepare for the next raid.`;
@@ -183,12 +213,14 @@ export class CreekWatch {
     this.shots = this.shots.filter(({ end }) => end > this.tick);
     if (this.phase === 'day') {
       if (this.phaseTick >= WATCH_DAY) this.startNight();
+      else if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
+        this.message = 'Dusk in 10 seconds. The edge portals are about to open.';
+      }
       return;
     }
     while (this.queue[0]?.due <= this.phaseTick) {
-      const { side } = this.queue.shift();
-      this.raiders.push({ side, x: side === -1 ? WATCH_BOUNDS.left + 2 : WATCH_BOUNDS.right - 2,
-        hp: this.day < 3 ? 2 : 3, attackAt: 0 });
+      const { portal } = this.queue.shift();
+      this.raiders.push({ side: portal.side, x: portal.x, stride: 0, hp: this.day < 3 ? 2 : 3, attackAt: 0 });
     }
     for (const raider of this.raiders) this.moveRaider(raider);
     if (this.signal <= 0) {
@@ -213,7 +245,9 @@ export class CreekWatch {
     const target = blocked ? post.wallX : WATCH_SIGNAL;
     const distance = Math.abs(raider.x - target);
     if (distance > 5) {
-      raider.x += Math.sign(target - raider.x) * Math.min(distance - 5, 1.12 + this.day * 0.13);
+      const speed = distance > 115 ? 2.45 + this.day * 0.12 : 1.12 + this.day * 0.13;
+      raider.x += Math.sign(target - raider.x) * Math.min(distance - 5, speed);
+      raider.stride++;
     } else if (this.tick >= raider.attackAt) {
       raider.attackAt = this.tick + (blocked ? 38 : 31);
       if (blocked) {
@@ -234,11 +268,21 @@ export class CreekWatch {
       post.guards.forEach((guard, index) => {
         if (guard.fireAt > this.tick) return;
         const from = this.guardX(post, index);
-        const target = this.raiders.find((raider) =>
-          raider.side === post.side && raider.hp > 0 && Math.abs(raider.x - from) < 61);
+        const { range, damage, cooldown } = WATCH_GUARD_STATS[guard.rank];
+        let target;
+        let closest = Infinity;
+        for (const raider of this.raiders) {
+          if (raider.hp <= 0 || raider.side !== post.side || Math.abs(raider.x - from) > range) continue;
+          const distance = Math.abs(raider.x - WATCH_SIGNAL);
+          if (distance >= closest) continue;
+          target = raider;
+          closest = distance;
+        }
         if (!target) return;
-        target.hp--;
-        guard.fireAt = this.tick + 27;
+        target.hp -= damage;
+        guard.direction = Math.sign(target.x - from) || guard.direction;
+        guard.shotAt = this.tick;
+        guard.fireAt = this.tick + cooldown;
         this.shots.push({ from, to: target.x, end: this.tick + 9 });
       });
     }

@@ -66,10 +66,20 @@ Local previews intentionally cannot increment the live counter because its origi
 
 ## Game access and assets
 
-The first four game links open their existing sites in a new tab. Those games keep their own hosting, sign-in, sharing settings, saved data, and multiplayer behavior; publishing this landing page does not grant access to a linked game.
+Croba Planet, **Rain Arena of Copper** (also known as Tri Arena), and Mosswake Creek run directly from this GitHub Pages site with no sign-in or game backend. Their files are served from `public/games/croba-planet/`, `public/games/tri-arena/`, and `public/games/mosswake-creek/`. No paid service is added for these games. The landing page's existing AWS visit counter is separate and unchanged.
+
+The Rain & Copper island and The Card Game retain their original hosted sites and multiplayer services. Their sign-in, sharing settings, saved data and multiplayer behavior stay with those sites; publishing this landing page does not grant access to them.
+
+The Croba export preserves the original client game and uses local DM Sans and Space Grotesk variable fonts, with their OFL licenses in `assets/fonts/`. The Arena export excludes its generated `server/` Worker and substitutes a no-network `octo-dialogue-sync.js` compatibility module. Octo keeps his bundled lines and local chat; updates from the private cross-game dialogue bridge are unavailable on this static copy. The game's menu-linked model viewers remain included. Arena canonical metadata points to its Copperstudio URL.
+
+Browser saves belong to their website origin. Croba expeditions on the old Site can be exported as JSON in **Saved Expeditions** and imported on Copperstudio. Neither Croba saves nor Arena records/preferences transfer automatically; the original sites keep their existing browser data.
 
 **Rain & Copper: Mosswake Creek** is hosted directly at [`/games/mosswake-creek/`](https://copperstudio.nl/games/mosswake-creek/) with no sign-in. `public/games/mosswake-creek/` contains an unchanged copy of the original `copper-rain/dist/` game. It has no build step, third-party runtime dependencies, network services or persistent saves. Its Sandbox and five-night Creek Watch campaign retain separate state while the tab stays open; reloading starts over. The card image is an actual Sandbox gameplay capture.
 
-To update this copy, copy the original game's complete `dist/` contents into that public directory, keeping relative module and stylesheet paths intact. Run the source game's existing tests, build this site, and smoke-check both modes from the exported path before publishing. The original local game and its standalone HTML remain separate from this published copy.
+The current Creek copy includes Sandbox **Day / Night / Auto** sky controls (80-second days and 36-second nights) and placeable Tri Portals that spawn creatures after dark. Creek Watch spans all five areas with its signal tower on the lake bridge. Blue-banner camps hire guards for 3 copper; after filling three positions on a bank, 4 copper trains a veteran with greater range and double damage.
+
+To update Mosswake Creek, copy the original game's complete `dist/` contents into its public directory, keeping relative module and stylesheet paths intact. For Croba and Arena, exclude generated backend output and deployment metadata; retain Croba's local font declarations/assets and Arena's no-network dialogue adapter when refreshing the client files. Run the source game's relevant tests, this repository's export tests, the site build and browser smoke checks before publishing. Source projects and original hosted versions remain separate from these published copies.
+
+The initial Croba export retains four failing assertions in the original source's controller tests (jump timing and fixed-step frame timing); it does not modify gameplay to satisfy those assertions. The selected source suite passed 101 of 105 tests. Browser checks confirmed toolbar-focused jumping and pause/resume on the exported game. Creek's 25 source tests and Arena's 68 selected source tests passed.
 
 The supplied SVG logos, artwork, and responsive layout are preserved from the existing Copperstudio page. The DM Sans and DM Serif fonts are served locally; their SIL Open Font License texts are retained in `public/fonts/`.

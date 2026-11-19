@@ -40,7 +40,7 @@
           <button class="menu-option watch-option" type="button" data-menu-play="watch"
               aria-labelledby="play-watch-title" aria-describedby="play-watch-detail">
             <span class="menu-mode-icon" aria-hidden="true"><canvas width="24" height="24" data-icon="signal"></canvas></span>
-            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Build defenses and survive five nights of raids.</small></span>
+            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Defend the lake tower from five nights of Tri raids.</small></span>
             <span class="menu-arrow" aria-hidden="true">›</span>
           </button>
         </div>
@@ -91,6 +91,27 @@
             <span><i class="sample sample-ichor"></i>Ichor <b id="ichor-count">0</b></span>
             <span><i class="sample sample-copper"></i>Copper <b id="copper-count">0</b></span>
           </div>
+          <div class="sky-controls">
+            <span>Sky</span>
+            <div class="segments" role="group" aria-label="Time of day">
+              <button type="button" data-sky-mode="day" aria-pressed="true">Day</button>
+              <button type="button" data-sky-mode="auto" aria-pressed="false">Auto</button>
+              <button type="button" data-sky-mode="night" aria-pressed="false">Night</button>
+            </div>
+            <output class="sr-only" id="sandbox-sky-phase" aria-label="Current sky phase">Day</output>
+          </div>
+        </div>
+        <div class="watch-map" data-watch-view hidden>
+          <div class="watch-map-label">
+            <div class="location"><span>Map</span><strong id="watch-area">Mosswake Pond</strong></div>
+            <span id="watch-portal-state">Portals dormant</span>
+          </div>
+          <div class="watch-route" aria-hidden="true"><i id="watch-position"></i></div>
+          <div class="watch-destinations" role="group" aria-label="Walk to a landmark">
+            <button class="button" type="button" data-watch-destination="west">West portal</button>
+            <button class="button" type="button" data-watch-destination="tower">Signal tower</button>
+            <button class="button" type="button" data-watch-destination="east">East portal</button>
+          </div>
         </div>
         <div class="watch-movement" role="group" aria-label="Walk across the creek" data-watch-view hidden>
           <div>
@@ -137,7 +158,7 @@
         <p id="world-event" class="sr-only" role="status"></p>
       </aside>
       <aside class="watch-panel" aria-labelledby="watch-label" data-watch-view hidden>
-        <h2 id="watch-label">Signal house</h2>
+        <h2 id="watch-label">Signal tower</h2>
         <p>Keep the light burning through five nights.</p>
         <div class="watch-copper">
           <span><i aria-hidden="true"></i>Copper</span><strong id="watch-coins">6</strong>
@@ -174,7 +195,8 @@
     <dl data-sandbox-view>
       <div><dt>Shape the quarry</dt><dd>Pick a material, then drag or tap on the quarry. Copper and sand fall, basalt forms walls, and the eraser cuts through terrain.</dd></div>
       <div><dt>Break pixels</dt><dd>Press B or choose Break to chip terrain, trees, buildings, creatures, and bosses into falling debris. Use a 1 px brush for single pixels.</dd></div>
-      <div><dt>Change the weather</dt><dd>Switch between Off, Rain, and Storm to change the scenery. Use the Water tool to fill the creek, cool embers, or turn wet copper green over time.</dd></div>
+      <div><dt>Change the sky</dt><dd>Pick Day or Night to hold the sky, or Auto for a moving sun and moon. Rainfall has its own Off, Rain, and Storm controls.</dd></div>
+      <div><dt>Place a Tri Portal</dt><dd>Choose Tri Portal under Scenery and place it on dry ground. It opens into a mouth and releases Tri Blobs at night. Use Eraser or Break to remove it.</dd></div>
       <div><dt>Explore Mosswake</dt><dd>Use the map arrows, drag the map slider, or press A and D to move the view across all five areas.</dd></div>
       <div><dt>Add life</dt><dd>Place copperbacks or Mosswake ducks, or plant Tri on dry ground. When Tri touches a pool, it turns the water into thick, flesh-colored ichor. Erase the clump to remove its growth and clear the pool.</dd></div>
       <div><dt>Choose a variant</dt><dd>Switch between Normal and Tri variants above Materials, Creatures, and Scenery. Place birches, huts, pumps, fences, or docks in either palette. Growing Tri converts normal scenery it reaches and produces Tri Blobs, Tri Lings, and floating Tri Brains.</dd></div>
@@ -182,10 +204,10 @@
       <div><dt>Play with the keyboard</dt><dd>Press 1–9 to choose a tool, E for eraser, and Space to pause. With the quarry focused, use the arrow keys to aim and Enter to place.</dd></div>
     </dl>
     <dl data-watch-view hidden>
-      <div><dt>Walk the banks</dt><dd>Use A/D, the arrow keys, or tap the ground. Walk over copper coins to collect them. The bridge connects both sides of the pond.</dd></div>
-      <div><dt>Prepare for the raid</dt><dd>Walk up to a wall frame to build, repair, or reinforce it. Go to a blue hiring flag to recruit guards. Press E or use the action button.</dd></div>
-      <div><dt>Keep the light burning</dt><dd>Tri raiders come from both ends at night. Guards fire on approaching raiders, leaving copper behind. Dawn brings more copper and fresh supplies. Hold the signal house through five nights.</dd></div>
-      <div><dt>Ring the dusk bell</dt><dd>Use the signal house to start a raid early when your defenses are ready. Repair the house there during the day if it took damage.</dd></div>
+      <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
+      <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Use blue-banner camps to hire guards for that bank. Once a bank has three guards, camps can train them into veterans. Press E or use the action button.</dd></div>
+      <div><dt>Keep the light burning</dt><dd>After 80 seconds of daylight, both edge portals open and release Tri Blobs. Guards fire on approaching Blobs. Dawn brings more copper and fresh supplies. Hold the tower through five nights.</dd></div>
+      <div><dt>Ring the dusk bell</dt><dd>Use the tower in the middle of the bridge to start a raid early. Repair it there during the day if it took damage.</dd></div>
     </dl>
   </dialog>
   <dialog id="clear-dialog" aria-labelledby="clear-title">

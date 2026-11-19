@@ -1,6 +1,6 @@
-import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_SECOND, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, ERASE, CREATURES, SCENERY, BOSSES } from './simulation.js';
+import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_SECOND, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, ERASE, CREATURES, SCENERY, BOSSES, TRI_PORTAL } from './simulation.js';
 import { QuarryRenderer, drawToolIcon } from './art.js';
-import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS } from './watch.js';
+import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_PORTALS, WATCH_SIGNAL } from './watch.js';
 import { drawCreekWatch } from './watch-art.js';
 
 function sceneryHint(entity, label) {
@@ -31,11 +31,12 @@ const TOOLS = [
   ...Object.entries(SCENERY).map(([entity, { label }]) => ({
     entity, scenery: true, label, hint: sceneryHint(entity, label)
   })),
+  { entity: 'portal', scenery: true, label: TRI_PORTAL.label, hint: 'Place on dry ground. Tri Portals open and release Blobs at night.' },
   ...Object.entries(BOSSES).map(([entity, { label }]) => ({ entity, boss: true, label, hint: BOSS_HINTS[entity] }))
 ];
 const TRI_TOOLS = [
   ...TOOLS.map((tool) => {
-    if (tool.material === ERASE || tool.breaker || tool.entity === 'tri' || tool.boss) return tool;
+    if (tool.material === ERASE || tool.breaker || tool.entity === 'tri' || tool.entity === 'portal' || tool.boss) return tool;
     if (tool.material === WATER) {
       return { ...tool, material: ICHOR, label: 'Ichor', hint: 'Drag to pour glossy, slow-flowing ichor.' };
     }
@@ -78,6 +79,8 @@ const toolGroups = new Map(['materials', 'life', 'scenery', 'bosses'].map((group
   section: document.querySelector(`#${group}-section`), list: document.querySelector(`#${group}`)
 }]));
 const weatherButtons = Array.from(document.querySelectorAll('[data-weather]'));
+const skyButtons = document.querySelectorAll('[data-sky-mode]');
+const skyPhase = document.querySelector('#sandbox-sky-phase');
 const modeButtons = Array.from(document.querySelectorAll('[data-game-mode]'));
 const menu = document.querySelector('#start-menu');
 const menuCanvas = document.querySelector('#menu-scene');
@@ -94,7 +97,11 @@ const watchCoins = document.querySelector('#watch-coins');
 const watchHealth = document.querySelector('#watch-health');
 const watchHealthLabel = document.querySelector('#watch-health-label');
 const watchBankLabels = [document.querySelector('#watch-west'), document.querySelector('#watch-east')];
-const watchMoveButtons = Array.from(document.querySelectorAll('[data-watch-move]'));
+const watchArea = document.querySelector('#watch-area');
+const watchPosition = document.querySelector('#watch-position');
+const watchPortalState = document.querySelector('#watch-portal-state');
+const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
+const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
 const watchMoveKeys = { a: -1, d: 1, arrowleft: -1, arrowright: 1 };
 const quarry = new Quarry();
 const renderer = new QuarryRenderer(world);
@@ -213,6 +220,12 @@ function syncWeather() {
   }
 }
 
+function syncSkyMode() {
+  for (const button of skyButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.skyMode === quarry.skyMode));
+  }
+}
+
 function updateReadouts() {
   const stats = quarry.getStats();
   waterCount.textContent = formatter.format(stats.water);
@@ -220,8 +233,11 @@ function updateReadouts() {
   copperCount.textContent = formatter.format(stats.copper);
   const seconds = Math.floor(quarry.tick / FPS);
   const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
-  timer.textContent = `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+  const phase = quarry.night ? 'Night' : 'Day';
+  const prefix = quarry.skyMode === 'day' ? '' : `${phase.toUpperCase()} · `;
+  timer.textContent = `${prefix}${minutes}:${String(seconds % 60).padStart(2, '0')}`;
   timer.dateTime = `PT${seconds}S`;
+  if (skyPhase.textContent !== phase) skyPhase.textContent = phase;
   lastReadoutTick = quarry.tick;
 }
 
@@ -241,6 +257,7 @@ function resetWorld(blank) {
   renderer.resetDamage();
   if (!blank) setCamera(START_VIEW, true);
   syncWeather();
+  syncSkyMode();
   setPaused(false);
   updateReadouts();
   cursor = null;
@@ -258,7 +275,7 @@ function switchMode(mode) {
   for (const element of watchView) element.hidden = !monitoring;
   document.body.classList.toggle('watch-active', monitoring);
   headingTitle.firstChild.nodeValue = monitoring ? 'Creek Watch' : 'Mosswake Creek';
-  modeDescription.textContent = monitoring ? 'Gather copper by day. Defend Mosswake by night.'
+  modeDescription.textContent = monitoring ? 'Gather copper by day. Defend the lake tower by night.'
     : 'Dig for copper and build dams around Mosswake’s pond.';
   resetButton.title = monitoring ? 'Start a new Creek Watch campaign' : 'Restore the starting quarry';
   world.setAttribute('aria-label', monitoring ? 'Creek Watch playfield' : 'Editable quarry');
@@ -308,20 +325,28 @@ function drawWatchMode() {
   }
   watchQuarry.tick = watch.tick;
   watchQuarry.weather = watch.phase === 'night' ? 'storm' : 'rain';
-  watchRenderer.draw(watchQuarry, null, watch.camera);
+  watchRenderer.draw(watchQuarry, null, watch.camera, { hideHuts: true });
   drawCreekWatch(watchRenderer.ctx, watch);
   const active = watch.status === 'running';
   const finished = watch.status === 'won' || watch.status === 'lost';
   setWatchText(liveLabel, paused ? 'PAUSED' : active ? 'LIVE' : finished ? (watch.status === 'won' ? 'HELD' : 'LOST') : 'READY');
   setWatchText(timer, `${watch.phase === 'day' ? 'DAY' : 'NIGHT'} ${watch.day} · ${watch.secondsLeft}s`);
   timer.dateTime = `PT${watch.secondsLeft}S`;
+  setWatchText(watchArea, WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
+  const position = `${(watch.player.x / WATCH_BOUNDS.right * 100).toFixed(2)}%`;
+  if (watchPosition.style.left !== position) watchPosition.style.left = position;
+  const night = watch.phase === 'night';
+  const portalStatus = night ? (watch.portalOpening < 1 ? 'Portals opening' : 'Portals open') : 'Portals dormant';
+  if (watchPortalState.dataset.open !== String(night)) watchPortalState.dataset.open = String(night);
+  setWatchText(watchPortalState, portalStatus);
   setWatchText(watchCoins, watch.coins);
   watchHealth.value = watch.signal;
   setWatchText(watchHealthLabel, `${watch.signal}/${WATCH_HEALTH}`);
   watch.posts.forEach((post, index) => {
     const wall = post.health ? `Wall ${post.health}/${watch.maxWall(post)}` : 'No wall';
     const guards = `${post.guards.length} ${post.guards.length === 1 ? 'guard' : 'guards'}`;
-    setWatchText(watchBankLabels[index], `${wall} · ${guards}`);
+    const veterans = post.guards.filter(({ rank }) => rank === 1).length;
+    setWatchText(watchBankLabels[index], `${wall} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}`);
   });
   const action = watch.getAction();
   const cost = action?.cost ? ` · ${action.cost} copper` : '';
@@ -385,17 +410,30 @@ document.querySelector('#menu-return').addEventListener('click', () => {
 });
 watchAction.addEventListener('click', useWatchStation);
 for (const button of watchMoveButtons) {
-  button.addEventListener('click', () => walkWatchTo((walkTarget ?? watch.player.x) + Number(button.dataset.watchMove) * 47));
+  button.addEventListener('click', () => {
+    const target = watchDestinations[button.dataset.watchDestination]
+      ?? (walkTarget ?? watch.player.x) + Number(button.dataset.watchMove) * 47;
+    walkWatchTo(target);
+  });
 }
 
 brush.addEventListener('input', updateBrush);
 updateBrush();
 syncWeather();
+syncSkyMode();
 updateReadouts();
 for (const button of weatherButtons) {
   button.addEventListener('click', () => {
     quarry.setWeather(button.dataset.weather);
     syncWeather();
+    dirty = true;
+  });
+}
+for (const button of skyButtons) {
+  button.addEventListener('click', () => {
+    quarry.setSkyMode(button.dataset.skyMode);
+    syncSkyMode();
+    updateReadouts();
     dirty = true;
   });
 }
@@ -469,6 +507,7 @@ function applyAt(point) {
         failure = selected.hint;
       }
     } else if (selected.entity === 'tri') placed = quarry.placeTri(point.x, point.y);
+    else if (selected.entity === 'portal') placed = quarry.placePortal(point.x, point.y);
     else if (selected.scenery) placed = quarry.placeScenery(selected.entity, point.x, point.y, { converted: selected.converted });
     else placed = quarry.placeCreature(selected.entity, point.x, point.y, { converted: selected.converted });
     hint.textContent = placed ? selected.hint : failure;

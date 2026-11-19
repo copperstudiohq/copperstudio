@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#102c37" />
+    <meta
+      name="description"
+      content="Dive through Croba’s blue seaweed and sculpted underwater terrain, from an Arctic wreck to a dark blue ocean 100 meters deep and a violet spruce coast."
+    />
+    <title>Croba Planet — Above the ice. Beneath the surface.</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="preload" href="./images/croba-concept-realistic.webp" as="image" fetchpriority="high" />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./survival.css" />
+    <link rel="stylesheet" href="./backpack.css" />
+    <link rel="stylesheet" href="./crafting.css" />
+    <link rel="stylesheet" href="./building.css" />
+    <link rel="stylesheet" href="./bestiary.css" />
+  </head>
+  <body>
+    <section id="loading-screen" class="loading-screen" aria-label="Loading Croba Planet" aria-busy="true" hidden>
+      <img id="loading-art" class="loading-art" src="./images/croba-concept-realistic.webp" width="1561" height="1008" fetchpriority="high" decoding="async" alt="Concept art of a wrecked spacecraft beside Croba’s fractured glaciers and blue ocean" />
+      <div class="loading-shade" aria-hidden="true"></div>
+      <div class="loading-copy">
+        <span class="loading-eyebrow">AN EXPEDITION INTO THE UNKNOWN</span>
+        <h1>CROBA <span>PLANET</span></h1>
+        <p role="status">Preparing your expedition…</p>
+        <progress aria-label="Loading the world"></progress>
+      </div>
+      <span class="loading-credit">CROBA PLANET · CONCEPT ART</span>
+    </section>
+    <canvas
+      id="world"
+      aria-label="Croba Planet first-person exploration. WASD to move, mouse or drag to look, Space to jump or swim up, C or Shift to dive, and E to record a discovery."
+    ></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+    <div id="squid-encounter" class="squid-encounter hidden" aria-hidden="true">
+      <div id="encounter-iris" class="encounter-iris"></div>
+      <div class="encounter-panel">
+        <span id="encounter-tag" class="encounter-tag">BLUE OCEAN · 30 m ADULT</span>
+        <h2 id="encounter-title">TENTACLE GRIP</h2>
+        <p id="encounter-subtitle">Pulled toward the adult Artic Crobonic Squid</p>
+        <span id="encounter-copy">A claw-tipped tentacle of the adult has caught you.</span>
+      </div>
+    </div>
+    <span id="encounter-announcement" class="sr-only" role="status" aria-live="assertive"></span>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Croba Planet home"
+        ><svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <circle
+            cx="20"
+            cy="20"
+            r="12"
+            stroke="currentColor"
+            stroke-width="1.5"
+          />
+          <path
+            d="M9 15c-8 5-8 10-4 12 5 3 20-2 28-8 7-6 5-10-1-10M14 10l4 5-5 6 4 3-1 7m10-22-3 8 6 5"
+            stroke="currentColor"
+            stroke-width="1.5"
+          /></svg
+        ><span>CROBA <b>PLANET</b></span></a
+      >
+      <div class="coordinates">
+        <span class="live-dot"></span> <span id="biome-value">ARCTIC</span>
+        <span class="coordinate-value">74° N · 018° E</span>
+      </div>
+      <div class="top-actions">
+        <span class="temperature"
+          ><svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path
+              d="M8 11V4a2 2 0 0 1 4 0v7a4 4 0 1 1-4 0Z"
+              stroke="currentColor"
+              stroke-width="1.4"
+            />
+            <path d="M10 6v8" stroke="currentColor" stroke-width="1.4" />
+          </svg>
+          <b id="temperature-value">−32°</b><span>C</span></span
+        ><button
+          id="sound"
+          class="icon-button"
+          aria-label="Turn sound on"
+          aria-pressed="false"
+          title="Sound"
+        >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="m11 5-5 4H3v6h3l5 4V5Zm5 4 5 6m0-6-5 6"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg></button
+        ><button
+          id="help"
+          class="icon-button"
+          aria-label="How to play"
+          title="How to play"
+        >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              stroke="currentColor"
+              stroke-width="1.5"
+            />
+            <path
+              d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-1 .4-1 1.2-1 2.2m0 3h.01"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg></button
+        ><button id="backpack-toggle" class="icon-button text-control" title="Backpack (I)" aria-label="Open backpack">BAG</button><button id="crafting-toggle" class="icon-button text-control" title="Crafting (K)" aria-label="Open crafting">CRAFT</button><button id="building-toggle" class="icon-button text-control" title="Build menu (V)" aria-label="Open build menu">BUILD</button><button id="saves-toggle" class="icon-button text-control" aria-label="Saved expeditions">SAVES</button><button id="bestiary-toggle" class="icon-button bestiary-toggle" aria-label="Open bestiary, 0 of 15 creatures identified" aria-controls="bestiary" aria-expanded="false" title="Bestiary (B)">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 4h11a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4V4Zm0 12c0-2 2-3 4-3h11M9 5v8" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="m12 9 2-2 2 2-2 2-2-2Z" fill="currentColor"/></svg>
+          <span id="bestiary-badge" class="bestiary-badge" aria-hidden="true">0/15</span>
+        </button><button
+          id="pause"
+          class="icon-button hidden"
+          aria-label="Pause game"
+          title="Pause (Esc)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="2" />
+          </svg>
+        </button>
+      </div>
+    </header>
+    <main>
+      <div id="main-menu-backdrop" class="main-menu-backdrop" aria-hidden="true"><img src="./images/croba-concept-realistic.webp" alt="" /><div></div></div>
+      <section id="intro" class="intro" aria-labelledby="title">
+        <div class="eyebrow">
+          <span></span> MAIN MENU / CROBA EXPEDITION
+        </div>
+        <h1 id="title">
+          CROBA<br /><span>PLANET</span
+          ><span class="title-star" aria-hidden="true">✳</span>
+        </h1>
+        <h2>Return to the ice.</h2>
+        <p>
+          Your ship lies broken on an alien glacier.<br />Blue seaweed below.
+          A vast purple spruce forest.<br />Evade the hunter. Dive 100 meters down.
+        </p>
+        <nav class="main-menu-actions" aria-label="Main menu">
+          <button id="main-continue" class="secondary-menu-button" disabled>Continue expedition <span aria-hidden="true">↗</span></button>
+          <button id="start" class="primary-button">New expedition <span aria-hidden="true">＋</span></button>
+          <button id="main-saves" class="secondary-menu-button">Saved expeditions <span aria-hidden="true">↗</span></button>
+          <button id="main-guide" class="secondary-menu-button">Field guide &amp; controls <span aria-hidden="true">↗</span></button>
+        </nav>
+        <div class="render-distance-setting">
+          <label for="main-render-distance">Render distance</label>
+          <select id="main-render-distance" data-render-distance aria-describedby="main-render-distance-help">
+            <option value="40">Short · 40 m</option>
+            <option value="80" selected>Balanced · 80 m</option>
+            <option value="140">Far · 140 m</option>
+          </select>
+          <p id="main-render-distance-help">Lower distance can improve performance.</p>
+        </div>
+        <p id="main-menu-status" class="main-menu-status" role="status">Start a new expedition or load a saved journey.</p>
+        <div class="intro-footnote">
+          <span class="tiny-cross">+</span> Your eyes. Your footsteps. A whole
+          new world. Play with keyboard or touch. Saves stay on this device.
+        </div>
+      </section>
+      <div id="crosshair" class="crosshair hidden" aria-hidden="true">
+        <span></span>
+      </div>
+      <div id="look-hint" class="look-hint hidden">
+        Click or drag the world to look around
+      </div>
+      <section
+        id="mission"
+        class="mission hidden"
+        aria-label="Expedition status"
+      >
+        <div class="eyebrow">
+          YOUR EXPEDITION <span id="part-count">0 / 3</span>
+        </div>
+        <h2 id="mission-title">Beneath the ice</h2>
+        <p id="mission-copy">
+          Record the wreck, glacier, and seabed. Violet Spruce Forest lies southeast.
+        </p>
+        <div class="parts">
+          <span data-part="wreck"><i></i> WRECK</span
+          ><span data-part="glacier"><i></i> GLACIER</span
+          ><span data-part="seabed"><i></i> SEABED</span>
+        </div>
+        <div class="biome-header"><span>BIOME</span><b id="field-biome">ARCTIC</b><span id="field-temperature" class="field-temperature">−32°C</span></div>
+        <div class="depth-header">
+          <span id="water-mode">ON THE ICE</span
+          ><span>DEPTH <b id="depth-value">0.0 m</b><small id="ocean-depth" class="hidden"> / 100 m</small></span>
+        </div>
+        <div id="dive-mode" class="dive-mode hidden">
+          <strong>DEEP DIVE</strong><span>12 m/s · 500 s FULL TANK</span>
+        </div>
+        <div class="oxygen-header">
+          <span>SUIT OXYGEN</span><span id="oxygen-value">100%</span>
+        </div>
+        <div
+          id="oxygen-track"
+          class="oxygen-track"
+          role="progressbar"
+          aria-label="Suit oxygen"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="100"
+        >
+          <div id="oxygen-fill"></div>
+        </div>
+        <div class="warmth-header">
+          <span>SUIT WARMTH</span><span id="warmth-value">100%</span>
+        </div>
+        <div
+          class="warmth-track"
+          role="progressbar"
+          aria-label="Suit warmth"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="100"
+        >
+          <div id="warmth-fill"></div>
+        </div>
+        <div class="health-header">
+          <span>SUIT INTEGRITY</span><span id="health-value">100%</span>
+        </div>
+        <div
+          id="health-track"
+          class="health-track"
+          role="progressbar"
+          aria-label="Suit integrity"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="100"
+        >
+          <div id="health-fill"></div>
+        </div>
+        <div id="hunger-header" class="hunger-header"><span>HUNGER</span><span id="hunger-value">100%</span></div>
+        <div id="hunger-track" class="health-track" role="progressbar" aria-label="Hunger" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div id="hunger-fill"></div></div>
+        <small id="save-indicator">Not saved · choose Saves</small>
+      </section>
+      <aside id="threat" class="threat hidden" aria-label="Wildlife danger">
+        <span class="threat-symbol" aria-hidden="true">!</span>
+        <div><strong id="threat-message">ICE CENTIPEDE HUNTING</strong>
+          <span><span id="threat-advice">Reach the water</span> <b id="threat-distance"></b></span></div>
+      </aside>
+      <span id="threat-announcement" class="sr-only" role="status" aria-live="polite"></span>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      <div id="interaction" class="interaction hidden">
+        <kbd>E</kbd><span></span>
+      </div>
+      <button
+        id="map-toggle"
+        class="map-toggle"
+        aria-label="Open expedition map"
+        aria-expanded="false"
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Zm6-3v15m6-12v15"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linejoin="round"
+          /></svg
+        ><span>SECTOR MAP</span><kbd>M</kbd>
+      </button>
+      <section id="map-panel" class="map-panel hidden" aria-label="Sector map">
+        <div class="eyebrow">CROBA <span>TEN BIOMES · EXPANDED WORLD</span></div>
+        <canvas
+          id="minimap"
+          width="280"
+          height="220"
+          aria-label="Expanded map showing Arctic ice, Violet Spruce Forest, Shell Field, the northern arch to Sulfuric Land, Salt Cave halls and both entrances, Blue Ocean, your position, discoveries and alien wildlife"
+        ></canvas>
+        <div class="map-legend">
+          <span><i class="you"></i> YOU</span
+          ><span><i class="salvage"></i> DISCOVERIES</span
+          ><span><i class="ship-dot"></i> WRECK</span>
+          <span><i class="forest-dot"></i> VIOLET FOREST</span>
+          <span><i class="shell-field-dot"></i> SHELL FIELD</span>
+          <span><i class="salt-cave-dot"></i> SALT CAVE</span>
+          <span><i class="crab-dot"></i> RED ROOT CRABS</span>
+          <span><i class="isopod-dot"></i> GOLD ROCK BUGS</span>
+          <span><i class="isopod-dot squid-dot"></i> ARTIC CROBONIC SQUID</span>
+          <span><i class="hunter-dot"></i> ADULT SQUID</span>
+          <span><i class="hunter-dot"></i> HUNTERS</span>
+        </div>
+        <p class="map-tip">The forest reaches the eastern and southern borders.
+          Shell Field lies across the ocean from the forest, along the northern edge: a bright armored shelf descending to 40 m. Its northern yellow arch leads into Sulfuric Land.</p>
+      </section>
+      <div id="touch-controls" class="touch-controls">
+        <div class="dpad">
+          <button data-dir="up" aria-label="Move forward">↑</button
+          ><button data-dir="left" aria-label="Strafe left">←</button
+          ><button data-dir="down" aria-label="Move backward">↓</button
+          ><button data-dir="right" aria-label="Strafe right">→</button>
+          <button id="movement-stick" class="movement-stick" aria-label="Drag to move in any direction; arrow buttons are also available">
+            <span id="movement-knob" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="touch-actions">
+          <button id="touch-jump">JUMP</button
+          ><button id="touch-use" aria-label="Hold to use equipped item">USE</button><button id="touch-dive" aria-label="Hold to dive down">DIVE</button
+          ><button id="touch-interact" aria-label="Record a nearby discovery">USE</button>
+        </div>
+      </div>
+    </main>
+    <footer class="footer">
+      <div class="controls">
+        <span
+          ><kbd>W</kbd
+          ><span class="wasd-bottom"
+            ><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span
+          ></span
+        ><span>MOVE</span><span class="footer-separator"></span
+        ><kbd class="space-key">SPACE</kbd><span>JUMP</span
+        ><span class="footer-separator"></span><kbd>E</kbd
+        ><span>INTERACT</span> <span class="footer-separator"></span><kbd>C</kbd
+        ><span>DIVE</span><span class="footer-separator look-separator"></span
+        ><span class="look-controls">MOUSE / DRAG TO LOOK</span>
+      </div>
+      <div class="planet-status">
+        <span class="live-dot"></span>
+        <span id="sector-size">90 ICE ISLANDS</span>
+        <span class="footer-separator"></span> DAY 01
+      </div>
+    </footer>
+    <dialog id="bestiary" class="menu bestiary" aria-labelledby="bestiary-title" aria-describedby="bestiary-intro">
+      <div class="bestiary-header">
+        <button id="close-bestiary" class="close-button" aria-label="Close bestiary" autofocus>×</button>
+        <div class="eyebrow">CROBA FIELD NOTES</div>
+        <h2 id="bestiary-title">Life on Croba.</h2>
+        <p id="bestiary-intro">A field guide to the lives around you. Approach within 10 m to record a species and reveal its field notes.</p>
+        <div class="bestiary-summary"><span id="bestiary-progress">0 of 15 creatures identified</span><span>10 m AUTOLOG</span></div>
+        <div id="bestiary-meter" class="bestiary-meter" role="progressbar" aria-label="Species identified" aria-valuemin="0" aria-valuemax="15" aria-valuenow="0"><i id="bestiary-meter-fill"></i></div>
+      </div>
+      <div class="bestiary-tools">
+        <label class="bestiary-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="bestiary-search" type="search" aria-label="Search identified creatures" placeholder="Search your field notes…" autocomplete="off" spellcheck="false"/></label>
+        <select id="bestiary-filter" aria-label="Show bestiary entries"><option value="all">All species</option><option value="identified">Identified</option><option value="unidentified">Unidentified</option></select>
+      </div>
+      <div class="bestiary-cards" role="region" tabindex="0" aria-label="Creature catalog">
+        <article id="catalog-woodlon" class="bestiary-card locked" aria-labelledby="catalog-woodlon-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 01</span><span id="catalog-woodlon-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/woodlon.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-woodlon-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-woodlon-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-woodlon-name">Unidentified creature</h3>
+            <p id="catalog-woodlon-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-woodlon-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-three-eye-penguin" class="bestiary-card locked" aria-labelledby="catalog-three-eye-penguin-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 02</span><span id="catalog-three-eye-penguin-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/three-eye-penguin.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-three-eye-penguin-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-three-eye-penguin-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-three-eye-penguin-name">Unidentified creature</h3>
+            <p id="catalog-three-eye-penguin-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-three-eye-penguin-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-coral-crab" class="bestiary-card locked" aria-labelledby="catalog-coral-crab-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 03</span><span id="catalog-coral-crab-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/coral-crab.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-coral-crab-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-coral-crab-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-coral-crab-name">Unidentified creature</h3>
+            <p id="catalog-coral-crab-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-coral-crab-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-ice-isopod" class="bestiary-card locked" aria-labelledby="catalog-ice-isopod-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 04</span><span id="catalog-ice-isopod-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/ice-isopod.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-ice-isopod-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-ice-isopod-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-ice-isopod-name">Unidentified creature</h3>
+            <p id="catalog-ice-isopod-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-ice-isopod-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-tundra-hogwong" class="bestiary-card locked" aria-labelledby="catalog-tundra-hogwong-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 05</span><span id="catalog-tundra-hogwong-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/tundra-hogwong.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-tundra-hogwong-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-tundra-hogwong-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-tundra-hogwong-name">Unidentified creature</h3>
+            <p id="catalog-tundra-hogwong-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-tundra-hogwong-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-void-fish" class="bestiary-card locked" aria-labelledby="catalog-void-fish-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 06</span><span id="catalog-void-fish-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/void-fish.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-void-fish-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-void-fish-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-void-fish-name">Unidentified creature</h3>
+            <p id="catalog-void-fish-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-void-fish-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-frost-hound" class="bestiary-card locked" aria-labelledby="catalog-frost-hound-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 07</span><span id="catalog-frost-hound-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/frost-hound.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-frost-hound-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-frost-hound-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-frost-hound-name">Unidentified creature</h3>
+            <p id="catalog-frost-hound-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-frost-hound-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-lantern-jellyfish" class="bestiary-card locked" aria-labelledby="catalog-lantern-jellyfish-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 08</span><span id="catalog-lantern-jellyfish-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/lantern-jellyfish.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-lantern-jellyfish-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-lantern-jellyfish-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-lantern-jellyfish-name">Unidentified creature</h3>
+            <p id="catalog-lantern-jellyfish-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-lantern-jellyfish-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-arctic-squid" class="bestiary-card locked" aria-labelledby="catalog-arctic-squid-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 09</span><span id="catalog-arctic-squid-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/arctic-squid.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-arctic-squid-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-arctic-squid-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-arctic-squid-name">Unidentified creature</h3>
+            <p id="catalog-arctic-squid-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-arctic-squid-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-ice-centipede" class="bestiary-card locked" aria-labelledby="catalog-ice-centipede-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 10</span><span id="catalog-ice-centipede-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/ice-centipede.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-ice-centipede-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-ice-centipede-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-ice-centipede-name">Unidentified creature</h3>
+            <p id="catalog-ice-centipede-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-ice-centipede-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-tree-stalker" class="bestiary-card locked" aria-labelledby="catalog-tree-stalker-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 11</span><span id="catalog-tree-stalker-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/tree-stalker.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-tree-stalker-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-tree-stalker-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-tree-stalker-name">Unidentified creature</h3>
+            <p id="catalog-tree-stalker-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-tree-stalker-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-red-fish" class="bestiary-card locked" aria-labelledby="catalog-red-fish-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 12</span><span id="catalog-red-fish-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/red-fish.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-red-fish-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-red-fish-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-red-fish-name">Unidentified creature</h3>
+            <p id="catalog-red-fish-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-red-fish-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-tuskjaw-shark" class="bestiary-card locked" aria-labelledby="catalog-tuskjaw-shark-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 13</span><span id="catalog-tuskjaw-shark-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/tuskjaw-shark.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-tuskjaw-shark-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-tuskjaw-shark-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-tuskjaw-shark-name">Unidentified creature</h3>
+            <p id="catalog-tuskjaw-shark-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-tuskjaw-shark-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-sulfur-maw-lizard" class="bestiary-card locked" aria-labelledby="catalog-sulfur-maw-lizard-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 14</span><span id="catalog-sulfur-maw-lizard-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/sulfur-maw-lizard.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-sulfur-maw-lizard-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-sulfur-maw-lizard-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-sulfur-maw-lizard-name">Unidentified creature</h3>
+            <p id="catalog-sulfur-maw-lizard-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-sulfur-maw-lizard-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <article id="catalog-sulfur-sand-worm" class="bestiary-card locked" aria-labelledby="catalog-sulfur-sand-worm-name">
+          <div class="bestiary-art">
+            <span class="bestiary-index">SPECIMEN 15</span><span id="catalog-sulfur-sand-worm-disposition" class="bestiary-status">Unrecorded</span>
+            <img src="./bestiary-models/sulfur-sand-worm.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <span id="catalog-sulfur-sand-worm-size" class="bestiary-size">???</span>
+          </div>
+          <div class="bestiary-card-copy">
+            <span id="catalog-sulfur-sand-worm-habitat" class="bestiary-habitat">AWAITING ENCOUNTER</span><h3 id="catalog-sulfur-sand-worm-name">Unidentified creature</h3>
+            <p id="catalog-sulfur-sand-worm-description">Approach within 10 m to automatically identify this creature.</p>
+            <div class="bestiary-note"><span>FIELD OBSERVATION</span><p id="catalog-sulfur-sand-worm-note">Field notes unlock after a close encounter.</p></div>
+          </div>
+        </article>
+        <div id="bestiary-empty" class="bestiary-empty" hidden><h3>No field notes found.</h3><p>Try a different search, or return to all species.</p><button id="bestiary-clear" type="button">Clear filters</button></div>
+      </div>
+      <div class="bestiary-footer"><p id="bestiary-results" role="status" aria-live="polite">15 of 15 entries shown</p><button id="bestiary-back" class="primary-button">Back to Croba <span aria-hidden="true">↗</span></button></div>
+    </dialog>
+    <div id="quick-slots" class="quick-slots" role="group" aria-label="Five quick slots"><button id="quick-slot-0" type="button" aria-label="Quick slot 1"><kbd>1</kbd><span id="quick-slot-icon-0"></span><small id="quick-slot-count-0"></small></button><button id="quick-slot-1" type="button" aria-label="Quick slot 2"><kbd>2</kbd><span id="quick-slot-icon-1"></span><small id="quick-slot-count-1"></small></button><button id="quick-slot-2" type="button" aria-label="Quick slot 3"><kbd>3</kbd><span id="quick-slot-icon-2"></span><small id="quick-slot-count-2"></small></button><button id="quick-slot-3" type="button" aria-label="Quick slot 4"><kbd>4</kbd><span id="quick-slot-icon-3"></span><small id="quick-slot-count-3"></small></button><button id="quick-slot-4" type="button" aria-label="Quick slot 5"><kbd>5</kbd><span id="quick-slot-icon-4"></span><small id="quick-slot-count-4"></small></button></div>
+    <p id="equipped-hint" role="status" hidden></p>
+    <div id="building-actions" class="building-actions" role="group" aria-label="Builder controls" hidden><button id="building-change" type="button">Blueprints <kbd>V</kbd></button><button id="building-rotate" type="button">Rotate <kbd>R</kbd></button><button id="building-remove" type="button">Reclaim <kbd>Q</kbd></button></div>
+    <dialog id="building" class="menu survival-dialog building-dialog" aria-labelledby="building-title">
+      <button id="close-building" class="close-button" aria-label="Close build menu">×</button>
+      <header class="building-header"><div class="eyebrow">CROBA / HABITAT BUILDER</div><h2 id="building-title">Make it your home.</h2><p>Choose a blueprint. Fit out your shelter with reinforced furniture built from recovered salvage.</p></header>
+      <div class="building-layout"><section class="building-library" aria-label="Blueprint library"><div id="building-categories" class="building-categories" role="group" aria-label="Blueprint categories"></div><div id="building-plans" class="building-plans" role="group" aria-label="Building blueprints"></div></section>
+      <aside class="building-inspection" aria-label="Selected blueprint"><div id="building-preview-icon" class="building-preview-icon"></div><h3 id="building-name"></h3><p id="building-description"></p><p id="building-dimensions" class="building-dimensions"></p><ul id="building-materials" class="building-materials"></ul><p id="building-requirement" class="building-requirement"></p><button id="building-select" type="button">Preview build</button></aside></div>
+      <p class="building-controls">Choose a blueprint, then <kbd>F</kbd> / USE to place · <kbd>R</kbd> / ROTATE to turn · <kbd>Q</kbd> / RECLAIM to recover nearby furniture.</p>
+      <p id="building-status" class="building-status" role="status" aria-live="polite">Your blueprint preview shows whether the location is clear. Furniture belongs inside a Universal Base.</p>
+    </dialog>
+    <dialog id="crafting" class="menu survival-dialog" aria-labelledby="crafting-title">
+      <button id="close-crafting" class="close-button" aria-label="Close crafting">×</button>
+      <div class="eyebrow">CROBA / SALVAGE &amp; ASSEMBLY</div><h2 id="crafting-title">Make something useful.</h2>
+      <p>Recover small debris with E / Interact. Frozen leaves from the Icy Basin bind your first hammer. Tools stay in your pack when used for crafting.</p>
+      <div class="crafting-toolbar"><span id="crafting-station">HAND CRAFTING</span><button id="crafting-open-bag" type="button">Open backpack</button></div>
+      <div id="crafting-recipes"></div>
+      <p id="crafting-status" class="crafting-status" role="status" aria-live="polite">Build a workbench on land, then stand beside it for advanced recipes.</p>
+      <p>Find the Identifier in the truck wreck and the Builder Tool inside the basin cargo crate. Equip the Builder Tool and use 8 debris to construct a reinforced 12 × 16 m Universal Base on clear land.</p>
+    </dialog>
+    <dialog id="backpack" class="menu survival-dialog backpack-dialog" aria-labelledby="backpack-title" aria-describedby="backpack-intro">
+      <button id="close-backpack" class="close-button" aria-label="Close backpack">×</button>
+      <header class="backpack-header"><div class="eyebrow">CROBA / EXPEDITION SUPPLIES</div>
+        <h2 id="backpack-title">Your field pack.</h2>
+        <p id="backpack-intro">A few supplies for the journey ahead. Select a space to inspect what you are carrying.</p>
+      </header>
+      <div class="backpack-layout">
+        <section class="backpack-bag" aria-labelledby="bag-grid-title">
+          <div class="backpack-section-heading"><h3 id="bag-grid-title">BACKPACK</h3><span id="bag-capacity">0 / 24 items</span></div>
+          <div id="bag-capacity-meter" class="backpack-capacity" role="meter" aria-label="Backpack capacity" aria-valuemin="0" aria-valuemax="24" aria-valuenow="0"></div>
+          <div id="backpack-grid" class="backpack-grid" role="group" aria-label="Backpack, 24 item spaces"></div>
+          <p class="backpack-grid-note">24 spaces. Each space holds one item.</p>
+          <p id="bag-empty-hint" class="backpack-empty-hint">Your next edible leaf or Crobon Bird egg will go here.</p>
+        </section>
+        <aside class="backpack-inspection" aria-labelledby="bag-inspection-title">
+          <div class="backpack-section-heading"><h3 id="bag-inspection-title">SELECTED SUPPLY</h3><span id="bag-selected-slot" class="backpack-selected-slot">SPACE 01</span></div>
+          <div class="backpack-selection">
+              <section id="bag-detail-ration" class="backpack-detail" aria-label="Emergency ration" hidden>
+                <div id="bag-icon-ration" class="backpack-detail-icon"></div>
+                <h4>Emergency ration</h4><span class="backpack-nutrition">+35 hunger</span>
+                <p><strong id="food-count-ration">0</strong> in backpack</p>
+                <button id="eat-ration" class="backpack-eat" type="button">Eat emergency ration</button>
+              </section>
+              <section id="bag-detail-glassroot-leaf" class="backpack-detail" aria-label="Glassroot leaf" hidden>
+                <div id="bag-icon-glassroot-leaf" class="backpack-detail-icon"></div>
+                <h4>Glassroot leaf</h4><span class="backpack-nutrition">+18 hunger</span>
+                <p><strong id="food-count-glassroot-leaf">0</strong> in backpack</p>
+                <button id="eat-glassroot-leaf" class="backpack-eat" type="button">Eat glassroot leaf</button>
+              </section>
+              <section id="bag-detail-kelp-leaf" class="backpack-detail" aria-label="Azure kelp leaf" hidden>
+                <div id="bag-icon-kelp-leaf" class="backpack-detail-icon"></div>
+                <h4>Azure kelp leaf</h4><span class="backpack-nutrition">+22 hunger</span>
+                <p><strong id="food-count-kelp-leaf">0</strong> in backpack</p>
+                <button id="eat-kelp-leaf" class="backpack-eat" type="button">Eat azure kelp leaf</button>
+              </section>
+              <section id="bag-detail-crown-frond" class="backpack-detail" aria-label="Crown fern frond" hidden>
+                <div id="bag-icon-crown-frond" class="backpack-detail-icon"></div>
+                <h4>Crown fern frond</h4><span class="backpack-nutrition">+20 hunger</span>
+                <p><strong id="food-count-crown-frond">0</strong> in backpack</p>
+                <button id="eat-crown-frond" class="backpack-eat" type="button">Eat crown fern frond</button>
+              </section>
+              <section id="bag-detail-frost-leaf" class="backpack-detail" aria-label="Frozen basin leaf" hidden>
+                <div id="bag-icon-frost-leaf" class="backpack-detail-icon"></div>
+                <h4>Frozen basin leaf</h4><span class="backpack-nutrition">+15 hunger</span>
+                <p><strong id="food-count-frost-leaf">0</strong> in backpack</p>
+                <button id="eat-frost-leaf" class="backpack-eat" type="button">Eat frozen basin leaf</button>
+              </section>
+              <section id="bag-detail-penguin-egg" class="backpack-detail" aria-label="Crobon Bird egg" hidden>
+                <div id="bag-icon-penguin-egg" class="backpack-detail-icon"></div>
+                <h4>Crobon Bird egg</h4><span class="backpack-nutrition">+30 hunger</span>
+                <p><strong id="food-count-penguin-egg">0</strong> in backpack</p>
+                <button id="eat-penguin-egg" class="backpack-eat" type="button">Eat crobon bird egg</button>
+              </section>
+              <section id="bag-detail-croban-mango" class="backpack-detail" aria-label="Croban mango" hidden>
+                <div id="bag-icon-croban-mango" class="backpack-detail-icon"></div>
+                <h4>Croban mango</h4><span class="backpack-nutrition">+26 hunger</span>
+                <p>A blue fruit from a frozen underground bonsai.</p>
+                <p><strong id="food-count-croban-mango">0</strong> in backpack</p>
+                <button id="eat-croban-mango" class="backpack-eat" type="button">Eat croban mango</button>
+              </section>
+            <section id="bag-detail-copper-yoyo" class="backpack-detail" aria-label="Copper yo-yo" hidden><div id="bag-icon-copper-yoyo" class="backpack-detail-icon"></div><h4>Copper yo-yo</h4><span class="backpack-nutrition">SOLID COPPER · PERSONAL CARGO</span><p><strong id="gear-count-copper-yoyo">0</strong> in backpack</p><p>An old copper yo-yo with worn metal rims. Hold F / USE to keep it extended; release to reel it in.</p><button id="equip-copper-yoyo" class="backpack-eat" type="button">Equip in selected quick slot</button></section>
+            <section id="bag-detail-tool" class="backpack-detail" hidden><div id="bag-icon-tool" class="backpack-detail-icon"></div><h4 id="bag-tool-name"></h4><span id="bag-tool-kind" class="backpack-nutrition"></span><p><strong id="bag-tool-count">0</strong> in backpack</p><p id="bag-tool-description"></p><button id="equip-tool" class="backpack-eat" type="button">Equip in selected quick slot</button></section>
+            <div class="bag-quick-assign" role="group" aria-label="Assign selected item to quick slot"><span>ASSIGN QUICK SLOT</span><button id="bag-quick-0" type="button">1</button><button id="bag-quick-1" type="button">2</button><button id="bag-quick-2" type="button">3</button><button id="bag-quick-3" type="button">4</button><button id="bag-quick-4" type="button">5</button></div>
+            <div id="bag-selection-empty" class="backpack-selection-empty"><span aria-hidden="true">✧</span><h4>Empty space</h4><p>Select a supply from your pack to inspect it.</p></div>
+          </div>
+          <div class="backpack-hunger"><span>HUNGER</span><span id="bag-hunger-value">100%</span></div><div class="backpack-hunger-track" aria-hidden="true"><span id="bag-hunger-fill"></span></div>
+        </aside>
+      </div>
+      <button id="bag-open-crafting" type="button">Open crafting</button>
+      <p id="bag-status" class="backpack-status" role="status" aria-live="polite">Select an item to eat it or assign it to a quick slot.</p>
+      <p class="backpack-help"><kbd>E</kbd> / Interact gathers edible leaves, nest eggs and cargo. Taking an egg alerts its colony. Assign items to five quick slots; <kbd>1–5</kbd> selects, <kbd>F</kbd> / USE activates. Hunger pauses while your pack is open. Close with <kbd>I</kbd>, <kbd>Esc</kbd> or ×.</p>
+    </dialog>
+    <dialog id="expeditions" class="menu survival-dialog" aria-labelledby="expeditions-title">
+      <button id="close-expeditions" class="close-button" aria-label="Close saved expeditions">×</button><div class="eyebrow">CROBA / SAVE SELECT</div>
+      <h2 id="expeditions-title">Your expeditions.</h2><p>Saves stay in this browser on this device. Export a backup to move or keep an expedition. Wildlife returns to its prepared homes when loaded.</p>
+      <div id="expedition-list"></div><label for="expedition-name">Expedition name (also used by Rename)</label>
+      <input id="expedition-name" maxlength="32" value="Croba expedition" autocomplete="off" />
+      <div class="slot-actions"><button id="create-expedition">Save in new slot</button><button id="save-expedition">Save current slot</button></div>
+      <label class="backup-import">Import backup<input id="import-expedition" type="file" accept="application/json,.json" /></label>
+      <section id="delete-expedition-confirm" hidden><p id="delete-expedition-label"></p><button id="delete-expedition-cancel">Keep expedition</button><button id="delete-expedition-accept">Delete expedition</button></section>
+      <p id="expedition-status" role="status" aria-live="polite">Up to 12 named expeditions. Active slots autosave every 30 seconds of play.</p>
+    </dialog>
+    <dialog id="menu" class="menu" aria-labelledby="menu-title">
+      <button id="close-menu" class="close-button" aria-label="Close dialog">
+        ×
+      </button>
+      <div class="eyebrow">CROBA FIELD GUIDE</div><div class="slot-actions"><button id="menu-saves">Saved expeditions</button><button id="menu-crafting" type="button">Crafting</button><button id="menu-backpack">Backpack</button></div>
+      <h2 id="menu-title">A small step into<br />the unknown.</h2>
+      <p id="graphics-notice" class="graphics-notice hidden" role="alert" tabindex="-1"></p>
+      <p><strong>Salvage and building.</strong> Pick up small crashed-cargo debris with E / Interact. Open CRAFT or press K: three debris and two frozen basin leaves make a Broken Hammer. Keep the hammer and use six debris to craft a Workbench. Equip its kit in one of your five quick slots and press F / USE on dry land to place it. Stand within four meters to craft a Rusty Copper Knife or Rock Chipper. The knife cuts edible leaves; the chipper removes loose seabed rocks for debris. Recover the Identifier in the truck wreck cabin to identify debris, and the Builder Tool inside the original basin cargo crate. The builder uses eight debris for a reinforced 12 × 16 meter Universal Base. Its fitted poles and automatic stairs adapt to clear land; white walls with smooth gray stripes, rounded dark blue edge trim and a flat gray hexagon floor with dark blue patterns sit beneath a 4.5 meter ceiling. The roof is mostly blue with white accents. Four dimmed sky lights illuminate the interior. Open BUILD or press V to choose a base, workbench, chair, table, bunk, cabinet or planter. Furniture fits inside a Universal Base. Select a blueprint, rotate with R or ROTATE, then F / USE places it. The preview turns red when obstructed; materials are spent only on successful placement. Q / RECLAIM removes nearby furniture and recovers its debris when your pack has room. Equipment, furniture and construction stay in your expedition save.</p>
+      <div class="render-distance-setting">
+        <label for="menu-render-distance">Render distance</label>
+        <select id="menu-render-distance" data-render-distance aria-describedby="menu-render-distance-help">
+          <option value="40">Short · 40 m</option>
+          <option value="80" selected>Balanced · 80 m</option>
+          <option value="140">Far · 140 m</option>
+        </select>
+        <p id="menu-render-distance-help">Lower distance can improve performance.</p>
+      </div>
+      <p>
+        Explore your
+        <strong
+          >shattered ship, the glacier underside, and the sandy seabed</strong
+        >. Record each discovery with E. You can keep exploring after your field
+        log is complete. Blue hollow tube coral grows on the Arctic seabed.
+        Glowing purple plants hang beneath glaciers, and every ice island has
+        a spiky underside. <strong>Blue seaweed, or cobalt ribbon kelp,</strong>
+        sways above sediment channels and rocky underwater terraces. Dive into the northern
+        <strong>Blue Kelp Forest</strong> or the southern <strong>Orange Grass Field</strong>
+        beneath the Arctic open water. Four-eyed, horned Frost Hounds hunt among the orange grass. Black Void Fish patrol in packs near the deepest blue-ocean floor. Purple lantern jellyfish drift throughout the blue ocean. Keep clear of the giant lanterns’ pale pink trailing stingers.
+      </p>
+      <p class="world-guide">
+        <strong>Cliff Biome.</strong> The original central islands share the same bare snow and blue ice as the other islands outside the Icy Basin. Their old water gaps remain open. Dive below to enter deep branching cracks in the sandy seabed. <strong>Icy Basin</strong> now extends far north beyond Croba’s former border. The northern basin lies across the water beyond the iceberg northeast of the wreck.
+        Explore the massive new plateau, snowy peaks, and valleys. Beaked, four-eyed Tundra Hogwongs graze on the land. Look for its white map highlight, snow-covered ground and frozen white plants. Natural ice walls form winding passages through the basin; the ice centipede stays outside.
+        Open Backpack (I) to eat rations, leaves and Crobon Bird eggs, or assign items to five quick slots. Keys 1–5 select a slot; F / USE activates it. Find the COPPERSTUDIO trunk on the original Icy Basin island: open it and collect its solid copper yo-yo. A Rain and Copper concept-art T-shirt, copper wire and ingots remain as decorations. Hold F, the left mouse button, or touch USE to keep the yo-yo extended; release to reel it back. Groups of one to three peaceful, one-eyed Woodlons draw nutrients from every bone pile and bone nest in the Basins. Warmth-beacon-style wall lamps mark old cave visits. A huge crashed cargo hauler lies on the large protected glacier east of your original crash site. Its truck-like cab leads a rear flatbed with shipping boxes still strapped in place. E rips edible leaves or steals a nearby nest egg, provoking its parents. Older island colonies have two nests; Icy Basin colonies have four. Swim into openings in the Basin ice to find breathable caverns. All four mainland passages connect through a central chamber; hold Dive to leave through a low entrance. Crobon Birds take turns nesting, lay replacement eggs after 45 seconds of sitting, and hatch eggs after 60 seconds of brooding. White furry chicks stay on their own island or ship wing and grow into blue-gray adults over 150 seconds of nearby play. Hunger drains during exploration; eating restores it. Croba saves your location, vitals, backpack, discoveries, harvested plants, eggs, incubation and chick growth in named browser slots, with export/import backups.
+        Croba is one prepared world. Every reload, new game, and restart returns
+        you to the same map and wildlife starting positions. Learn its routes;
+        the animals still move and react as you explore.
+      </p>
+      <p class="forest-guide">
+        Follow the ice and ocean coast <strong>southeast from the wreck</strong>
+        to <strong>Violet Spruce Forest</strong>, Croba’s woodland biome. Purple spruce, ferns, lavender
+        flowers, and grasses grow above a mossy orange shoreline. Walk around
+        solid trunks, rocks, and fallen logs along the trail to the ocean overlook.
+        Forest soil fades into sandy beaches, darker wet sand, and shallow rocky
+        shelves. Softer foam follows the waterline between the rocky headlands.
+        Enter by the low beach at its northwestern tip; swim up the gentle shore.
+        The expanded world is twice as wide and twice as tall. The forest reaches
+        the eastern and southern stone borders, with clear weather, purple grass,
+        and woodland hills. The low beach still leads onto the inland trail. Your field log
+        still has three discoveries. The bestiary records fifteen creature species.
+        A bark-skinned Tree Stalker hides among the spruce. It creeps toward you
+        after spotting you, then sprints when it closes within 10 m. Break its
+        sight behind terrain or reach water to escape.
+        If it catches you, its claws lift you toward a mosquito-like feeding tube;
+        your view fades to black before your rescue tether returns you to the wreck.
+        With sound on, soft wind and footsteps accompany forest walks.
+      </p>
+      <details class="botany-guide">
+        <summary>Plants of Croba <span>9 species · 3 habitats</span></summary>
+        <div class="botany-guide-copy">
+          <h3>Beneath the Arctic ice</h3>
+          <div class="botany-specimens">
+            <figure>
+              <img src="./botany/frost-feather.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Frost Feather</strong><span>Fine ice-blue feather fronds.</span></figcaption>
+            </figure>
+            <figure>
+              <img src="./botany/brine-bell.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Brine Bell</strong><span>Blue-white cups with small lights inside.</span></figcaption>
+            </figure>
+            <figure>
+              <img src="./botany/glassroot-bloom.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Glassroot Bloom</strong><span>Low blue rosettes with violet tips.</span></figcaption>
+            </figure>
+          </div>
+          <h3>Clear blue ocean</h3>
+          <div class="botany-specimens">
+            <figure>
+              <img src="./botany/azure-sail-kelp.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Azure Sail Kelp</strong><span>Broad cobalt sails on the shelves.</span></figcaption>
+            </figure>
+            <figure>
+              <img src="./botany/tideglass-rosette.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Tideglass Rosette</strong><span>Curled teal leaves and amber seed pods.</span></figcaption>
+            </figure>
+            <figure>
+              <img src="./botany/abyss-lantern-reed.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Abyss Lantern Reed</strong><span>Cyan and violet lights below 65 m.</span></figcaption>
+            </figure>
+          </div>
+          <h3>Violet Spruce Forest</h3>
+          <div class="botany-specimens">
+            <figure>
+              <img src="./botany/violet-pitcher.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Violet Pitcher</strong><span>Purple cups beneath green rims.</span></figcaption>
+            </figure>
+            <figure>
+              <img src="./botany/crown-fern.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Crown Fern</strong><span>Green fronds with violet tips.</span></figcaption>
+            </figure>
+            <figure>
+              <img src="./botany/moonbell-bloom.png" width="192" height="192" alt="" loading="lazy" decoding="async" />
+              <figcaption><strong>Moonbell Bloom</strong><span>Pale violet bells above the moss.</span></figcaption>
+            </figure>
+          </div>
+          <p>Portraits are not to scale. The softer growth is passable, with leaves moving in the wind or current.</p>
+        </div>
+      </details>
+      <p class="wildlife-guide">
+        <strong>Red Root Crabs</strong> live underwater across the kelp forest, orange grass fields and blue-ocean floor, carrying golden spiral shells with small marine plants growing from their ridges.
+        <strong>Gold Rock Bugs</strong> climb seabed rocks and ice, curling into crevices with flexing, gold-edged red armor, fourteen tucked legs, two mouth tentacles and one large embedded gold eye that follows nearby explorers.
+      </p>
+      <p class="wildlife-guide">
+        <strong>Juvenile Artic Crobonic Squid.</strong> Eight peaceful juveniles live across the Arctic, kelp, grass fields and blue ocean. They are
+        3 meters long, with round blue heads, four yellow eyes
+        with black outlines spaced toward the sides, a beak lower on the face,
+        peach underside armor, and eight smooth dark gray tentacles with blue bands.
+        Their pupils follow swimmers within 10 m.
+        They swim quickly in all directions, turning, pitching, and banking
+        their whole bodies as the tentacles follow. Swimmers can push them;
+        look for their blue circles on the map.
+      </p>
+      <p class="wildlife-guide">
+        <strong>Adult Artic Crobonic Squids.</strong> Three 30 m hunters patrol the blue ocean.
+        Their oval, flat-sided blue heads measure 8 m across, with four small yellow squid eyes and folded blinking lids,
+        armored blue sides, a central blue stripe reaching the rear siphons, and skin-colored bellies. Short, sharp blue mandibles curve inward from the cheeks around the exposed beak. Adults have no side fins; juveniles keep theirs.
+        Each of their eight tentacles ends in a hooked pincer. Their swimming strokes become faster and stronger when they spot prey. They can grab and eat other creatures, which return after a short delay. Keep clear when they notice you.
+      </p>
+      <p class="wildlife-guide">
+        <strong>Ice Centipede.</strong> One hunts across the ice islands: <strong>60 meters long</strong>,
+        with a white underside and a gray, spiked back. It crosses gaps and climbs
+        island edges, so island hopping may not break its chase. One bite is fatal:
+        its jaws close in a brief eating sequence before the rescue tether returns
+        you to the wreck. Find its red map marker and reach the water before it strikes.
+      </p>
+      <p class="biome-guide">
+        Swim east to the <strong>dark blue ocean, 100 meters deep</strong>.
+        Sediment channels and stepped coastal rock lead into the abyss, where
+        submerged outcrops rise above the deep basin. Your suit
+        automatically enters <strong>deep-dive mode</strong> here: hold C or Shift
+        to descend at 12 m/s and Space to ascend at the same speed. A full oxygen
+        tank lasts 500 seconds in the blue ocean and 100 seconds in the Arctic.
+        Swim up to clear steep underwater rock faces.
+        A permanent snowstorm blows above the Arctic. The blue ocean has no snowstorm,
+        with thin ice fragments drifting on its surface. Icebergs border the Arctic, while
+        orange stone cliffs surround the ocean. A yellow-marked arch in Shell Field’s
+        northern rock border opens into Sulfuric Land. Follow its shallow ramp to
+        warm mineral hills, basalt ridges, geyser ponds and steaming fumaroles. Four-eyed Sulfur Maw Lizards bask nearby. The biome extends five times its original area, with the Crobonic Artic Sulfur Worm: 100 metres long and 9 metres wide, leaping through its open mineral flats. Its four mouth shields open as it breaches. Jumping on this land alerts it. Listen for approaching rumbles and dodge sideways when the ground swells. A fatal strike draws you into its mouth before the four shields close and the rescue tether returns you. Return through
+        the same arch to reach the ocean. A second salt-crusted opening deeper in
+        Shell Field’s northern cliff enters the flooded <strong>Salt Cave</strong>.
+        Two looping side halls and a smaller gallery have scorched stone,
+        sulfur-stained salt crystals, murky yellow water and sparse withered plants.
+        Bubbling hot sulfur seeps burn your suit nearby; swim higher or go around them.
+        Mini armored sand worms swim through the cave halls with flexible bodies
+        and four opening mouth shields. They are adapted to this mineral water.
+        Barnacle colonies cling to the walls and floor, filtering the water with
+        small moving feelers. Related colonies grow on submerged seabed shelves throughout the ocean,
+        kelp forest and grass fields. Barnacles remain underwater, away from dry land
+        and the tops of the ice islands. Swim up the shaft
+        to emerge through the salt-ringed geyser pond, or return through the cliff.
+        Pale pink lines on the sector map show the halls and both entrances.
+      </p>
+      <p class="touch-guide">
+        <strong>On a phone:</strong> drag the center of the left pad to move,
+        or hold its arrow buttons. Drag the world with your right thumb to look
+        at the same time. Hold JUMP / UP to jump or rise, DIVE to descend, and
+        tap USE beside a discovery. Map and pause remain available during play.
+      </p>
+      <dl>
+        <div>
+          <dt>WASD</dt>
+          <dd>Move in the direction you face</dd>
+        </div>
+        <div>
+          <dt>Mouse / Drag / Arrows</dt>
+          <dd>Look around</dd>
+        </div>
+        <div>
+          <dt>Space</dt>
+          <dd>Jump on land / swim up</dd>
+        </div>
+        <div>
+          <dt>C / Shift</dt>
+          <dd>Swim down beneath the surface</dd>
+        </div>
+        <div>
+          <dt>E</dt>
+          <dd>Record a nearby discovery</dd>
+        </div>
+        <div>
+          <dt>M / B</dt>
+          <dd>Open the map / creature bestiary</dd>
+        </div>
+        <div>
+          <dt>Esc</dt>
+          <dd>Release the mouse and pause</dd>
+        </div>
+      </dl>
+      <p class="menu-tip">
+        Enter the water to escape an ice centipede. Watch your oxygen underwater
+        and surface to refill it. Swim up beside an ice edge to climb out.
+        A centipede bite is fatal; the rescue tether returns you after its eating
+        sequence. Approach wildlife within 10 m to
+        record it automatically in your bestiary. Open the field book or press B.
+      </p>
+      <button id="resume" class="primary-button">
+        Ready to explore <span>↗</span></button
+      ><button id="restart" class="text-button">Restart expedition</button><button id="return-main-menu" class="text-button">Main menu</button>
+    </dialog>
+    <div id="error" class="fatal-error hidden" role="alert">
+      <h2>The expedition couldn’t start.</h2>
+      <p id="startup-error-message">
+        Croba could not finish loading. Reload the game to try again.
+      </p>
+      <button onclick="location.reload()">Reload game</button>
+    </div>
+    <noscript
+      ><div class="fatal-error">
+        Please enable JavaScript to play Croba Planet.
+      </div></noscript
+    >
+    <script type="module" src="./bootstrap.js"></script>
+  </body>
+</html>
