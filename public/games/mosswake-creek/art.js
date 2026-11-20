@@ -682,7 +682,7 @@ function watcherEye(ctx, x, y, size) {
   rect(ctx, '#fff2d8', x - 1, y - 1, 1, 1);
 }
 
-export function drawTriBlobEye(ctx, x, y) {
+function drawTriBlobEye(ctx, x, y) {
   rect(ctx, '#733458', x, y, 7, 8);
   rect(ctx, '#ffe3ec', x + 1, y + 1, 6, 6);
   rect(ctx, '#ffe3ec', x + 2, y, 4, 8);

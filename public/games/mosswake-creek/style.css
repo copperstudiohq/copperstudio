@@ -124,8 +124,13 @@ button, input[type="range"] { cursor: pointer; }
 .watch-map-label { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; }
 #watch-portal-state { color: var(--muted); font-size: 11px; }
 #watch-portal-state[data-open="true"] { color: #f4a5ca; }
-.watch-route { position: relative; height: 5px; margin: 3px 5px; border-radius: 3px; background: repeating-linear-gradient(to right, #705449 0 calc(20% - 2px), #242120 calc(20% - 2px) 20%); }
-#watch-position { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; border: 1px solid #e8f5d1; border-radius: 50%; background: #8ac3ab; transform: translate(-50%, -50%); }
+.watch-route { position: relative; height: 27px; margin-inline: 10px; }
+.watch-route::before { content: ""; position: absolute; inset: 11px 0 auto; height: 5px; border-radius: 3px; background: repeating-linear-gradient(to right, #705449 0 calc(20% - 2px), #242120 calc(20% - 2px) 20%); }
+.watch-camp-marker { position: absolute; top: 50%; width: 32px; height: 27px; padding: 0; border: 0; border-radius: 4px; background: transparent; transform: translate(-50%, -50%); }
+.watch-camp-marker::before { content: ""; display: block; width: 16px; height: 13px; margin: auto; background: #e4b27e; clip-path: polygon(49% 0, 100% 100%, 64% 100%, 63% 59%, 39% 59%, 39% 100%, 0 100%); }
+.watch-camp-marker:hover::before { background: #ffe0b0; }
+.watch-camp-marker:disabled { opacity: .55; cursor: default; }
+#watch-position { position: absolute; z-index: 1; left: 50%; top: 50%; width: 9px; height: 9px; border: 1px solid #e8f5d1; border-radius: 50%; background: #8ac3ab; transform: translate(-50%, -50%); pointer-events: none; }
 .watch-destinations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .watch-destinations .button { min-height: 32px; padding: 4px; white-space: normal; font-size: 11px; }
 .watch-destinations button:disabled { opacity: .55; cursor: default; }

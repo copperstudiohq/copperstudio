@@ -1,6 +1,6 @@
 import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_SECOND, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, ERASE, CREATURES, SCENERY, BOSSES, TRI_PORTAL } from './simulation.js';
 import { QuarryRenderer, drawToolIcon } from './art.js';
-import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_PORTALS, WATCH_SIGNAL } from './watch.js';
+import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_PORTALS, WATCH_SIGNAL } from './watch.js';
 import { listWatchSlots, loadWatchSlot, saveWatchSlot, WATCH_SAVE_NAME_LIMIT } from './watch-saves.js';
 import { drawCreekWatch } from './watch-art.js';
 
@@ -101,8 +101,20 @@ const watchBankLabels = [document.querySelector('#watch-west'), document.querySe
 const watchArea = document.querySelector('#watch-area');
 const watchPosition = document.querySelector('#watch-position');
 const watchPortalState = document.querySelector('#watch-portal-state');
-const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
 const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
+for (const camp of WATCH_CAMPS) {
+  const marker = document.createElement('button');
+  const destination = `camp-${camp.x}`;
+  marker.type = 'button';
+  marker.className = 'watch-camp-marker';
+  marker.dataset.watchDestination = destination;
+  marker.style.left = `${camp.x / WATCH_BOUNDS.right * 100}%`;
+  marker.title = 'Walk to the recruiting camp beside the lake bridge';
+  marker.setAttribute('aria-label', marker.title);
+  watchDestinations[destination] = camp.x;
+  watchPosition.before(marker);
+}
+const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
 const watchMoveKeys = { a: -1, d: 1, arrowleft: -1, arrowright: 1 };
 const watchSavesDialog = document.querySelector('#watch-saves');
 const watchSaveForm = document.querySelector('#watch-save-form');

@@ -80,7 +80,7 @@ const games = [
     number: "05", name: "Rain & Copper: Mosswake Creek", label: "Build. Break. Make it rain.", genre: "2D sandbox & creek defense",
     description: [
       "Return to Mosswake’s birch-lined pond, with its copper-roofed hut, dock, and wandering ducks. Paint falling copper and sand, pour flowing water, build basalt dams, and chip the landscape apart pixel by pixel. Explore five connected areas, change the rain, and experiment with creatures, scenery, and the spreading Tri.",
-      "Choose day, night, or an automatic sky cycle, and place Tri Portals that wake after dark. For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Travel all five areas, collect copper, hire guards, train veterans, and reinforce the banks before night raids arrive. Protect the lake bridge’s signal tower through endless raids, and save your watch in named slots in this browser. Your Sandbox edits stay in the current tab.",
+      "Choose day, night, or an automatic sky cycle, and place Tri Portals that wake after dark. For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Travel all five areas, collect copper, and hire guards at one camp near the signal tower. Each new guard takes the opposite bank from the last recruit. Train veterans, fortify the banks, and protect the tower through endless raids. Save your watch in named slots in this browser; your Sandbox edits stay in the current tab.",
     ],
     highlights: [
       { title: "Build and break", text: "Pour materials, shape the water, place scenery, and chip away individual pixels with a brush as small as one pixel." },

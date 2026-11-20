@@ -134,8 +134,13 @@ button, input[type="range"] { cursor: pointer; }
 .watch-map-label { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; }
 #watch-portal-state { color: var(--muted); font-size: 11px; }
 #watch-portal-state[data-open="true"] { color: #f4a5ca; }
-.watch-route { position: relative; height: 5px; margin: 3px 5px; border-radius: 3px; background: repeating-linear-gradient(to right, #705449 0 calc(20% - 2px), #242120 calc(20% - 2px) 20%); }
-#watch-position { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; border: 1px solid #e8f5d1; border-radius: 50%; background: #8ac3ab; transform: translate(-50%, -50%); }
+.watch-route { position: relative; height: 27px; margin-inline: 10px; }
+.watch-route::before { content: ""; position: absolute; inset: 11px 0 auto; height: 5px; border-radius: 3px; background: repeating-linear-gradient(to right, #705449 0 calc(20% - 2px), #242120 calc(20% - 2px) 20%); }
+.watch-camp-marker { position: absolute; top: 50%; width: 32px; height: 27px; padding: 0; border: 0; border-radius: 4px; background: transparent; transform: translate(-50%, -50%); }
+.watch-camp-marker::before { content: ""; display: block; width: 16px; height: 13px; margin: auto; background: #e4b27e; clip-path: polygon(49% 0, 100% 100%, 64% 100%, 63% 59%, 39% 59%, 39% 100%, 0 100%); }
+.watch-camp-marker:hover::before { background: #ffe0b0; }
+.watch-camp-marker:disabled { opacity: .55; cursor: default; }
+#watch-position { position: absolute; z-index: 1; left: 50%; top: 50%; width: 9px; height: 9px; border: 1px solid #e8f5d1; border-radius: 50%; background: #8ac3ab; transform: translate(-50%, -50%); pointer-events: none; }
 .watch-destinations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .watch-destinations .button { min-height: 32px; padding: 4px; white-space: normal; font-size: 11px; }
 .watch-destinations button:disabled { opacity: .55; cursor: default; }
@@ -271,7 +276,7 @@ dialog dd { margin: 2px 0 0; }
           <button class="menu-option watch-option" type="button" data-menu-play="watch"
               aria-labelledby="play-watch-title" aria-describedby="play-watch-detail">
             <span class="menu-mode-icon" aria-hidden="true"><canvas width="24" height="24" data-icon="signal"></canvas></span>
-            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Defend the lake tower through endless Tri raids.</small></span>
+            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Defend the lake tower through endless waves of wisps.</small></span>
             <span class="menu-arrow" aria-hidden="true">›</span>
           </button>
         </div>
@@ -339,7 +344,7 @@ dialog dd { margin: 2px 0 0; }
             <div class="location"><span>Map</span><strong id="watch-area">Mosswake Pond</strong></div>
             <span id="watch-portal-state">Portals dormant</span>
           </div>
-          <div class="watch-route" aria-hidden="true"><i id="watch-position"></i></div>
+          <div class="watch-route" role="group" aria-label="Recruiting camp"><i id="watch-position" aria-hidden="true"></i></div>
           <div class="watch-destinations" role="group" aria-label="Walk to a landmark">
             <button class="button" type="button" data-watch-destination="west">West portal</button>
             <button class="button" type="button" data-watch-destination="tower">Signal tower</button>
@@ -438,8 +443,8 @@ dialog dd { margin: 2px 0 0; }
     </dl>
     <dl data-watch-view hidden>
       <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
-      <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Use blue-banner camps to hire guards for that bank. Once a bank has three guards, camps can train them into veterans. Press E or use the action button.</dd></div>
-      <div><dt>Keep the light burning</dt><dd>At dusk, Tri Raiders walk out of both portals and attack your defenses. Each dawn starts a new day until the tower falls.</dd></div>
+      <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Select the tent marker to walk to the one recruiting camp beside the lake bridge. Press E or use the action button there to hire guards for 3 copper each. They appear at the west and east banks in turn, starting west, up to three on each bank. Once both banks are full, train veterans for 4 copper each.</dd></div>
+      <div><dt>Keep the light burning</dt><dd>At dusk, Ichor Wisps walk out of both portals and strike your defenses with pulses of light. Each dawn starts a new day until the tower falls.</dd></div>
       <div><dt>Ring the dusk bell</dt><dd>Use the tower in the middle of the bridge to start a raid early. Repair it there during the day if it took damage.</dd></div>
       <div><dt>Save the watch</dt><dd>Open Save slots to create a named save or update one. Load a slot to return to the day or raid you saved.</dd></div>
     </dl>
@@ -2408,6 +2413,7 @@ const WATCH_DAY = DAY_TICKS;
 const WATCH_NIGHT = NIGHT_TICKS;
 const WATCH_GUARD_LIMIT = 3;
 const WATCH_RAIDER_LIMIT = 12;
+const WATCH_WISP_REACH = 12;
 const WATCH_NO_ACTION = -TICKS_PER_SECOND;
 const WATCH_GUARD_STATS = [
   { range: 88, damage: 1, cooldown: 22 },
@@ -2416,17 +2422,21 @@ const WATCH_GUARD_STATS = [
 const WATCH_USE_RANGE = 19;
 const WATCH_SPEED = 2.05;
 const WATCH_POSTS = [
-  { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44, campX: WATCH_BRIDGE.left - 95 },
-  { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44, campX: WATCH_BRIDGE.right + 95 }
+  { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44 },
+  { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44 }
 ];
-const WATCH_CAMPS = [...WATCH_POSTS.map(({ campX }) => campX), ...CREEK_HUTS]
-  .map((x) => ({ x, side: Math.sign(x - WATCH_SIGNAL) }));
+const WATCH_CAMPS = [{ x: WATCH_BRIDGE.left - 86, side: -1 }];
 const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
   .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
 
 function watchGround(x) {
   if (x >= WATCH_BRIDGE.left && x <= WATCH_BRIDGE.right) return WATCH_BRIDGE.y;
   return quarryHeight(Math.round(x));
+}
+
+function watchWispWall(wisp, posts) {
+  const post = posts[wisp.side === -1 ? 0 : 1];
+  return post.health > 0 && (wisp.x - post.wallX) * wisp.side >= 0 ? post : null;
 }
 
 class CreekWatch {
@@ -2482,7 +2492,7 @@ class CreekWatch {
   start() {
     if (this.status !== 'ready') return false;
     this.status = 'running';
-    this.message = 'Collect copper and visit a blue-banner camp to recruit guards.';
+    this.message = 'The tent marker leads to the camp beside the lake bridge. Guards alternate west and east.';
     return true;
   }
 
@@ -2501,17 +2511,25 @@ class CreekWatch {
       if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: 2 };
       if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
     }
-    if (camp) return this.getCampAction(camp);
+    if (camp) return this.getCampAction();
     return null;
   }
 
-  getCampAction(camp) {
-    const post = this.posts[camp.side === -1 ? 0 : 1];
-    if (post.guards.length < WATCH_GUARD_LIMIT) {
+  getCampAction() {
+    // Guards stay in the roster, so their saved count also preserves the next bank.
+    const count = this.posts.reduce((total, post) => total + post.guards.length, 0);
+    const next = this.posts[count % this.posts.length];
+    // Older saves may have filled one bank first. Keep its cap and fill the other.
+    const post = next.guards.length < WATCH_GUARD_LIMIT ? next
+      : this.posts.find((bank) => bank.guards.length < WATCH_GUARD_LIMIT);
+    if (post) {
       return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
     }
-    const guard = post.guards.find((unit) => unit.rank === 0);
-    return guard ? { kind: 'train', post, guard, label: `Train ${post.name.toLowerCase()} veteran`, cost: 4 } : null;
+    for (const bank of this.posts) {
+      const guard = bank.guards.find((unit) => unit.rank === 0);
+      if (guard) return { kind: 'train', post: bank, guard, label: `Train ${bank.name.toLowerCase()} veteran`, cost: 4 };
+    }
+    return null;
   }
 
   maxWall(post) {
@@ -2522,7 +2540,7 @@ class CreekWatch {
     if (this.status === 'ready') return this.start();
     const action = this.getAction();
     if (!action) {
-      if (this.status === 'running') this.message = 'Walk up to a camp, palisade, or the signal tower. Each bank can hold three veterans.';
+      if (this.status === 'running') this.message = 'Walk up to the camp, a palisade, or the signal tower. Each bank can hold three veterans.';
       return false;
     }
     if (this.coins < action.cost) {
@@ -2577,7 +2595,7 @@ class CreekWatch {
       }
     }
     this.queue.sort((a, b) => a.due - b.due);
-    this.message = `Night ${this.day}. Tri Raiders are coming through both portals.`;
+    this.message = `Night ${this.day}. Ichor Wisps are coming through both portals.`;
   }
 
   finishNight() {
@@ -2622,7 +2640,7 @@ class CreekWatch {
     for (const raider of this.raiders) this.moveRaider(raider);
     if (this.signal <= 0) {
       this.status = 'lost';
-      this.message = 'The raiders extinguished the signal. Start a new watch to try again.';
+      this.message = 'The wisps extinguished the signal. Start a new watch to try again.';
       return;
     }
     this.fireGuards();
@@ -2636,21 +2654,19 @@ class CreekWatch {
   }
 
   moveRaider(raider) {
-    const post = this.posts[raider.side === -1 ? 0 : 1];
-    const outsideWall = (raider.x - post.wallX) * raider.side >= 0;
-    const blocked = outsideWall && post.health > 0;
-    const target = blocked ? post.wallX : WATCH_SIGNAL;
+    const post = watchWispWall(raider, this.posts);
+    const target = post?.wallX ?? WATCH_SIGNAL;
     const distance = Math.abs(raider.x - target);
-    if (distance > 5) {
-      const speed = distance > 115 ? 1.72 : 0.96;
-      raider.x += Math.sign(target - raider.x) * Math.min(distance - 5, speed);
+    if (distance > WATCH_WISP_REACH) {
+      const speed = 1.58 + 0.18 * Math.sin(this.tick / 16 + raider.x / 36);
+      raider.x += Math.sign(target - raider.x) * Math.min(distance - WATCH_WISP_REACH, speed);
       raider.stride++;
     } else if (this.tick >= raider.attackAt) {
       raider.struckAt = this.tick;
-      raider.attackAt = this.tick + (blocked ? 38 : 31);
-      if (blocked) {
+      raider.attackAt = this.tick + (post ? 44 : 36);
+      if (post) {
         post.health--;
-        if (post.health === 0) this.message = `${post.name} palisade fell. Raiders are heading for the signal.`;
+        if (post.health === 0) this.message = `${post.name} palisade fell. Wisps are heading for the signal.`;
       } else {
         this.signal = Math.max(0, this.signal - 1);
       }
@@ -2901,27 +2917,55 @@ function drawWatchPost(ctx, post) {
 
 function drawWatchCamp(ctx, camp, tick) {
   const { x, side } = camp;
-  const y = watchGround(x);
-  watchRect(ctx, '#352c35', x - 17, y - 3, 34, 3);
-  watchRect(ctx, '#493c45', x - 12, y - 16, 25, 15);
-  watchRect(ctx, '#756254', x - 11, y - 15, 10, 13);
-  watchRect(ctx, '#2c394d', x + 1, y - 16, 11, 14);
-  watchRect(ctx, '#a68265', x - 9, y - 12, 5, 7);
-  watchRect(ctx, '#f1b279', x - 8, y - 11, 3, 5);
-  for (let layer = 0; layer < 5; layer++) {
-    watchRect(ctx, layer % 2 ? '#576b86' : '#465770',
-      x - 16 + layer * 3, y - 17 - layer * 2, 32 - layer * 6, 2);
+  const flicker = (tick >> 3) % 2;
+  ctx.save();
+  ctx.translate(x, watchGround(x));
+  ctx.scale(-side, 1);
+  watchRect(ctx, '#2b252cb8', -31, -2, 67, 3);
+  sceneGlow(ctx, '#ec9e627e', 29, -7, 17 + flicker);
+
+  // A ripped strip of canvas hangs from the remaining sticks.
+  for (let row = 0; row < 21; row++) {
+    const y = row - 22;
+    const spread = Math.floor(row * .81);
+    const left = -14 - spread;
+    watchRect(ctx, '#353031', left, y, spread + 2, 1);
+    const hem = row < 13 ? -7 + Math.floor(row / 4) : -14 - Math.floor((row - 12) / 2);
+    if (row < 18) watchRect(ctx, row % 4 ? '#756952' : '#8e7e5d', left + 2, y, hem - left - 1, 1);
+    watchRect(ctx, '#b08a61', left, y, 2, 1);
+    if (row < 10 || row > 14) watchRect(ctx, row < 10 ? '#a27a58' : '#80593f', -12 + spread, y, 2, 1);
   }
-  watchRect(ctx, '#91acbc', x - 5, y - 26, 10, 1);
-  watchRect(ctx, '#b08b68', x + 15 * side, y - 32, 2, 32);
-  watchRect(ctx, '#467496', x + 15 * side - 6, y - 31, 14, 8);
-  watchRect(ctx, '#74bad8', x + 15 * side - 4, y - 30, 10, 2);
-  watchRect(ctx, '#d7e9d1', x + 15 * side, y - 28, 3, 3);
-  const fire = x - 21 * side;
-  sceneGlow(ctx, '#f6a76188', fire, y - 4, 9 + ((tick >> 3) % 2));
-  watchRect(ctx, '#55474a', fire - 4, y - 2, 8, 2);
-  watchRect(ctx, '#cb704e', fire - 3, y - 5, 6, 3);
-  watchRect(ctx, '#ffcd84', fire - 1, y - 6 - ((tick >> 3) % 2), 2, 4);
+  watchRect(ctx, '#b48c68', -14, -26, 2, 5);
+  watchRect(ctx, '#8b654a', -12, -25, 3, 2);
+  watchRect(ctx, '#d9b588', -14, -22, 5, 2);
+  watchRect(ctx, '#524138', -27, -4, 15, 2);
+  watchRect(ctx, '#a77850', -13, -3, 9, 2);
+  watchRect(ctx, '#704b35', -5, -2, 8, 2);
+
+  // Bark and end grain frame the seated recruit's bent legs.
+  watchRect(ctx, '#382b2b', 7, -7, 16, 7);
+  watchRect(ctx, '#77513a', 8, -7, 14, 5);
+  watchRect(ctx, '#382c2a', 11, -4, 8, 2);
+  watchRect(ctx, '#bd9066', 7, -6, 5, 5);
+  watchRect(ctx, '#7e543e', 8, -5, 3, 3);
+  watchRect(ctx, '#bf8b5d', 9, -4, 1, 1);
+  watchRect(ctx, '#333039', 12, -10, 9, 4);
+  watchRect(ctx, '#56535b', 18, -9, 4, 7);
+  watchRect(ctx, '#9e7158', 20, -3, 5, 3);
+  watchRect(ctx, '#393a39', 10, -18, 7, 9);
+  watchRect(ctx, '#637567', 11, -17, 5, 7);
+  watchRect(ctx, '#abb199', 13, -15, 4, 3);
+  watchRect(ctx, '#cfa183', 16, -13, 4, 2);
+  watchRect(ctx, '#b98265', 12, -22, 7, 5);
+  watchRect(ctx, '#e4b189', 15, -21, 4, 3);
+  watchRect(ctx, '#4b3b3b', 11, -23, 7, 3);
+  watchRect(ctx, '#514342', 17, -20, 1, 1);
+
+  watchRect(ctx, '#706059', 25, -2, 10, 2);
+  watchRect(ctx, '#d9784e', 27, -5, 6, 4);
+  watchRect(ctx, '#ffc680', 29, -7 - flicker, 2, 5);
+  watchRect(ctx, '#f6d2a191', 30 + flicker, -10 - flicker, 1, 1);
+  ctx.restore();
 }
 
 function drawWatchGuard(ctx, x, y, guard, tick) {
@@ -2982,56 +3026,75 @@ function drawWatchPlayer(ctx, x, y, direction, hemSway) {
   ctx.restore();
 }
 
-function drawWatchRaider(ctx, raider, tick) {
-  const stride = Math.floor(raider.stride / 7) % 4;
-  const swing = [0, 2, 0, -2][stride];
-  const strike = Math.max(0, 2 - (tick - raider.struckAt));
-  const bob = stride % 2;
+function drawWispLeg(ctx, x, ground, direction, hip, phase, walking, near) {
+  // During support, the foot moves backward relative to the advancing body.
+  const progress = phase % 1;
+  const swinging = walking && phase >= 1;
+  const offset = walking ? Math.round(swinging ? -6 + progress * 12 : 6 - progress * 12) : 0;
+  const foot = hip + offset;
+  const footX = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, x + direction * (foot + 1)));
+  const lift = swinging ? Math.round(3 * Math.sin(progress * Math.PI)) : 0;
+  const sole = watchGround(footX) - ground - lift;
+  const knee = Math.round((hip + foot) / 2) + 1;
+  const kneeY = Math.round((-9 + sole) / 2);
+  const shade = near ? '#a94d71' : '#74334f';
+  watchRect(ctx, shade, Math.min(hip, knee) - 1, -10, Math.abs(hip - knee) + 4, kneeY + 12);
+  watchRect(ctx, shade, Math.min(knee, foot) - 1, kneeY, Math.abs(knee - foot) + 3, sole - kneeY);
+  watchRect(ctx, near ? '#e283a3' : '#b35c7c', foot - 1, sole - 2, 6, 2);
+}
+
+function drawWatchWisp(ctx, wisp, watch) {
+  const x = Math.round(wisp.x);
+  const ground = watchGround(x);
+  const direction = -wisp.side;
+  const target = watchWispWall(wisp, watch.posts)?.wallX ?? WATCH_SIGNAL;
+  const walking = Math.abs(wisp.x - target) > WATCH_WISP_REACH;
+  const striking = watch.tick - wisp.struckAt < 9;
+  const phase = (wisp.stride % 16) / 8;
+  const sway = walking ? Math.round(3 * Math.cos(phase * Math.PI)) : 0;
+  const bob = walking ? Math.round(Math.sin(phase * Math.PI) ** 2) : 0;
+  watchRect(ctx, '#281a377c', x - 11, ground - 1, 22, 2);
   ctx.save();
-  ctx.translate(Math.round(raider.x), watchGround(raider.x));
-  ctx.scale(-raider.side, 1);
-  watchRect(ctx, '#241e37', -13, -1, 27, 2);
+  ctx.translate(x, ground);
+  ctx.scale(direction, 1);
+  drawWispLeg(ctx, x, ground, direction, 1, (phase + 1) % 2, walking, false);
+  drawWispLeg(ctx, x, ground, direction, -4, phase, walking, true);
+  ctx.translate(0, -bob);
 
-  // Alternate footfalls while keeping the shoulders low.
-  const farFoot = 4 + swing;
-  const farKnee = 1 + swing / 2;
-  watchRect(ctx, '#3a4788', -2, -10, 5, 6);
-  watchRect(ctx, '#435da5', Math.min(0, farKnee), -6, Math.abs(farKnee) + 4, 3);
-  watchRect(ctx, '#5489c9', farKnee, -5, farFoot - farKnee + 3, 2);
-  watchRect(ctx, '#6bb6ef', farFoot, -4 + bob, 3, 4 - bob);
-  const nearFoot = -9 - swing;
-  const nearKnee = -6 - swing / 2;
-  watchRect(ctx, '#4674bd', nearKnee, -10, -2 - nearKnee, 3);
-  watchRect(ctx, '#66b2f3', nearKnee, -8, 3, 4);
-  watchRect(ctx, '#509de7', nearFoot, -5 + bob, nearKnee - nearFoot + 3, 3);
-  watchRect(ctx, '#9ce4ff', nearFoot - 2, -2 + bob, 5, 2 - bob);
+  watchRect(ctx, '#783651', 3, -13, 5, 7);
+  watchRect(ctx, '#a65172', 6 + sway, -8, 6, 3);
+  watchRect(ctx, '#582641', -9, -16, 16, 8);
+  watchRect(ctx, '#8f3b60', -8, -15, 14, 6);
+  watchRect(ctx, '#c76188', -6, -17, 13, 7);
+  watchRect(ctx, '#e18aa6', -6, -17, 6, 3);
 
-  ctx.translate(strike, bob);
-  const farHand = -10 - swing;
-  watchRect(ctx, '#3b4d8b', -5, -13, 4, 7);
-  watchRect(ctx, '#4e77ba', farHand, -7, -2 - farHand, 2);
-  watchRect(ctx, '#6ab6e7', farHand - 2, -6, 4, 3);
+  // The head sits back over the shoulder, with the eye facing forward.
+  ctx.save();
+  ctx.translate(-9, 1);
+  watchRect(ctx, '#582641', -2, -24, 13, 14);
+  watchRect(ctx, '#582641', 10, -21, 5, 10);
+  watchRect(ctx, '#b04d73', -1, -23, 12, 12);
+  watchRect(ctx, '#d87196', 1, -23, 9, 8);
+  watchRect(ctx, '#e18cab', 6, -21, 8, 9);
+  watchRect(ctx, '#f5aac2', 3, -23, 6, 2);
+  watchRect(ctx, '#893958', 9, -20, 5, 8);
+  watchRect(ctx, '#ffe4ea', 9, -19, 4, 6);
+  watchRect(ctx, striking ? '#f8aa79' : '#7ecee5', 10, -19, 3, 6);
+  watchRect(ctx, '#2f2445', 12, -18, 2, 4);
+  watchRect(ctx, '#fffaf2', 11, -19, 1, 1);
+  ctx.restore();
 
-  // Raised shoulders taper into a low, forward-set head.
-  watchRect(ctx, '#5d3057', -9, -16, 18, 8);
-  watchRect(ctx, '#773558', -7, -19, 11, 10);
-  watchRect(ctx, '#a74b7d', -8, -17, 15, 8);
-  watchRect(ctx, '#dc70a6', -6, -19, 8, 7);
-  watchRect(ctx, '#f09dc7', -4, -20, 5, 3);
-  watchRect(ctx, '#c15a90', 2, -17, 7, 5);
-  watchRect(ctx, '#803c63', 5, -16, 10, 8);
-  watchRect(ctx, '#e37bad', 7, -17, 6, 7);
-  watchRect(ctx, '#f19abe', 11, -15, 5, 5);
-  drawTriBlobEye(ctx, 9, -16);
-
-  const nearHand = 7 + swing + strike;
-  const nearElbow = 3 + swing / 2;
-  watchRect(ctx, '#3e5298', -1, -13, 4, 6);
-  watchRect(ctx, '#5a92d7', 1, -10, nearElbow + 1, 3);
-  watchRect(ctx, '#71bffe', nearElbow, -8, 3, 5);
-  watchRect(ctx, '#76c8fa', nearElbow + 1, -5, nearHand - nearElbow + 2, 2);
-  watchRect(ctx, '#ace8ff', nearHand, -4, 4, 2);
-  watchRect(ctx, '#83c7fb', nearHand + 2, -2, 2, 1);
+  const hand = striking ? 13 : 5 - sway;
+  watchRect(ctx, '#8d3c61', -4, -14, 5, 8);
+  watchRect(ctx, '#c8648b', -2, -12, 4, 6);
+  watchRect(ctx, '#df81a2', 0, -7, hand + 3, 3);
+  watchRect(ctx, '#f5a6bc', hand + 1, -6, 4, 3);
+  if (striking) {
+    sceneGlow(ctx, '#ffba9a77', 16, -6, 15);
+    watchRect(ctx, '#ffd994', 17, -7, 5, 2);
+    watchRect(ctx, '#ffe9b0', 21, -6, 2, 5);
+    watchRect(ctx, '#f0a083', 22, -2, 3, 2);
+  }
   ctx.restore();
 }
 
@@ -3054,7 +3117,7 @@ function drawCreekWatch(ctx, watch) {
     drawTriPortal(ctx, watch.portalOpening);
     ctx.restore();
   }
-  for (const camp of WATCH_CAMPS) if (onScreen(camp.x, 32)) drawWatchCamp(ctx, camp, watch.tick);
+  for (const camp of WATCH_CAMPS) if (onScreen(camp.x, 50)) drawWatchCamp(ctx, camp, watch.tick);
   for (const post of watch.posts) {
     drawWatchPost(ctx, post);
     for (let index = 0; index < post.guards.length; index++) {
@@ -3070,15 +3133,15 @@ function drawCreekWatch(ctx, watch) {
     watchRect(ctx, '#ffe4a8', coin.x, y - 1, 1, 2);
   }
   for (const raider of watch.raiders) {
-    if (!onScreen(raider.x, 28)) continue;
-    drawWatchRaider(ctx, raider, watch.tick);
+    if (!onScreen(raider.x, 26)) continue;
+    drawWatchWisp(ctx, raider, watch);
   }
   ctx.strokeStyle = '#f7d99dba';
   ctx.lineWidth = 1.2;
   for (const shot of watch.shots) {
     ctx.beginPath();
     ctx.moveTo(shot.from, watchGround(shot.from) - 12);
-    ctx.lineTo(shot.to, watchGround(shot.to) - 6);
+    ctx.lineTo(shot.to, watchGround(shot.to) - 16);
     ctx.stroke();
   }
   const { x, direction, step } = watch.player;
@@ -3184,8 +3247,20 @@ const watchBankLabels = [document.querySelector('#watch-west'), document.querySe
 const watchArea = document.querySelector('#watch-area');
 const watchPosition = document.querySelector('#watch-position');
 const watchPortalState = document.querySelector('#watch-portal-state');
-const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
 const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
+for (const camp of WATCH_CAMPS) {
+  const marker = document.createElement('button');
+  const destination = `camp-${camp.x}`;
+  marker.type = 'button';
+  marker.className = 'watch-camp-marker';
+  marker.dataset.watchDestination = destination;
+  marker.style.left = `${camp.x / WATCH_BOUNDS.right * 100}%`;
+  marker.title = 'Walk to the recruiting camp beside the lake bridge';
+  marker.setAttribute('aria-label', marker.title);
+  watchDestinations[destination] = camp.x;
+  watchPosition.before(marker);
+}
+const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
 const watchMoveKeys = { a: -1, d: 1, arrowleft: -1, arrowright: 1 };
 const watchSavesDialog = document.querySelector('#watch-saves');
 const watchSaveForm = document.querySelector('#watch-save-form');

@@ -1,4 +1,4 @@
-import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS, TRI_PORTAL_OPEN_TICKS, CREEK_HUTS, quarryHeight } from './simulation.js';
+import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS, TRI_PORTAL_OPEN_TICKS, quarryHeight } from './simulation.js';
 
 export const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
 export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
@@ -12,6 +12,7 @@ export const WATCH_DAY = DAY_TICKS;
 export const WATCH_NIGHT = NIGHT_TICKS;
 const WATCH_GUARD_LIMIT = 3;
 const WATCH_RAIDER_LIMIT = 12;
+export const WATCH_WISP_REACH = 12;
 const WATCH_NO_ACTION = -TICKS_PER_SECOND;
 const WATCH_GUARD_STATS = [
   { range: 88, damage: 1, cooldown: 22 },
@@ -20,17 +21,21 @@ const WATCH_GUARD_STATS = [
 const WATCH_USE_RANGE = 19;
 const WATCH_SPEED = 2.05;
 const WATCH_POSTS = [
-  { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44, campX: WATCH_BRIDGE.left - 95 },
-  { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44, campX: WATCH_BRIDGE.right + 95 }
+  { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44 },
+  { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44 }
 ];
-export const WATCH_CAMPS = [...WATCH_POSTS.map(({ campX }) => campX), ...CREEK_HUTS]
-  .map((x) => ({ x, side: Math.sign(x - WATCH_SIGNAL) }));
+export const WATCH_CAMPS = [{ x: WATCH_BRIDGE.left - 86, side: -1 }];
 const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
   .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
 
 export function watchGround(x) {
   if (x >= WATCH_BRIDGE.left && x <= WATCH_BRIDGE.right) return WATCH_BRIDGE.y;
   return quarryHeight(Math.round(x));
+}
+
+export function watchWispWall(wisp, posts) {
+  const post = posts[wisp.side === -1 ? 0 : 1];
+  return post.health > 0 && (wisp.x - post.wallX) * wisp.side >= 0 ? post : null;
 }
 
 export class CreekWatch {
@@ -86,7 +91,7 @@ export class CreekWatch {
   start() {
     if (this.status !== 'ready') return false;
     this.status = 'running';
-    this.message = 'Collect copper and visit a blue-banner camp to recruit guards.';
+    this.message = 'The tent marker leads to the camp beside the lake bridge. Guards alternate west and east.';
     return true;
   }
 
@@ -105,17 +110,25 @@ export class CreekWatch {
       if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: 2 };
       if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
     }
-    if (camp) return this.getCampAction(camp);
+    if (camp) return this.getCampAction();
     return null;
   }
 
-  getCampAction(camp) {
-    const post = this.posts[camp.side === -1 ? 0 : 1];
-    if (post.guards.length < WATCH_GUARD_LIMIT) {
+  getCampAction() {
+    // Guards stay in the roster, so their saved count also preserves the next bank.
+    const count = this.posts.reduce((total, post) => total + post.guards.length, 0);
+    const next = this.posts[count % this.posts.length];
+    // Older saves may have filled one bank first. Keep its cap and fill the other.
+    const post = next.guards.length < WATCH_GUARD_LIMIT ? next
+      : this.posts.find((bank) => bank.guards.length < WATCH_GUARD_LIMIT);
+    if (post) {
       return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
     }
-    const guard = post.guards.find((unit) => unit.rank === 0);
-    return guard ? { kind: 'train', post, guard, label: `Train ${post.name.toLowerCase()} veteran`, cost: 4 } : null;
+    for (const bank of this.posts) {
+      const guard = bank.guards.find((unit) => unit.rank === 0);
+      if (guard) return { kind: 'train', post: bank, guard, label: `Train ${bank.name.toLowerCase()} veteran`, cost: 4 };
+    }
+    return null;
   }
 
   maxWall(post) {
@@ -126,7 +139,7 @@ export class CreekWatch {
     if (this.status === 'ready') return this.start();
     const action = this.getAction();
     if (!action) {
-      if (this.status === 'running') this.message = 'Walk up to a camp, palisade, or the signal tower. Each bank can hold three veterans.';
+      if (this.status === 'running') this.message = 'Walk up to the camp, a palisade, or the signal tower. Each bank can hold three veterans.';
       return false;
     }
     if (this.coins < action.cost) {
@@ -181,7 +194,7 @@ export class CreekWatch {
       }
     }
     this.queue.sort((a, b) => a.due - b.due);
-    this.message = `Night ${this.day}. Tri Raiders are coming through both portals.`;
+    this.message = `Night ${this.day}. Ichor Wisps are coming through both portals.`;
   }
 
   finishNight() {
@@ -226,7 +239,7 @@ export class CreekWatch {
     for (const raider of this.raiders) this.moveRaider(raider);
     if (this.signal <= 0) {
       this.status = 'lost';
-      this.message = 'The raiders extinguished the signal. Start a new watch to try again.';
+      this.message = 'The wisps extinguished the signal. Start a new watch to try again.';
       return;
     }
     this.fireGuards();
@@ -240,21 +253,19 @@ export class CreekWatch {
   }
 
   moveRaider(raider) {
-    const post = this.posts[raider.side === -1 ? 0 : 1];
-    const outsideWall = (raider.x - post.wallX) * raider.side >= 0;
-    const blocked = outsideWall && post.health > 0;
-    const target = blocked ? post.wallX : WATCH_SIGNAL;
+    const post = watchWispWall(raider, this.posts);
+    const target = post?.wallX ?? WATCH_SIGNAL;
     const distance = Math.abs(raider.x - target);
-    if (distance > 5) {
-      const speed = distance > 115 ? 1.72 : 0.96;
-      raider.x += Math.sign(target - raider.x) * Math.min(distance - 5, speed);
+    if (distance > WATCH_WISP_REACH) {
+      const speed = 1.58 + 0.18 * Math.sin(this.tick / 16 + raider.x / 36);
+      raider.x += Math.sign(target - raider.x) * Math.min(distance - WATCH_WISP_REACH, speed);
       raider.stride++;
     } else if (this.tick >= raider.attackAt) {
       raider.struckAt = this.tick;
-      raider.attackAt = this.tick + (blocked ? 38 : 31);
-      if (blocked) {
+      raider.attackAt = this.tick + (post ? 44 : 36);
+      if (post) {
         post.health--;
-        if (post.health === 0) this.message = `${post.name} palisade fell. Raiders are heading for the signal.`;
+        if (post.health === 0) this.message = `${post.name} palisade fell. Wisps are heading for the signal.`;
       } else {
         this.signal = Math.max(0, this.signal - 1);
       }
