@@ -1,8 +1,9 @@
-import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_ROOM, hasWatchSprayer } from './watch.js';
+import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
 const WATCH_SAVE_VERSION = 1;
+const LEGACY_TOWER_ROOM = { left: 34, right: 350, door: 54 };
 export const WATCH_SAVE_NAME_LIMIT = 40;
 
 function readWatchRecord(storage, id) {
@@ -17,6 +18,16 @@ function readWatchRecord(storage, id) {
   if (record?.version !== WATCH_SAVE_VERSION) throw new Error('This save uses an unsupported format.');
   if (!validWatchSaveName(record.name) || !validWatchCount(record.savedAt) || !validWatchState(record.state)) {
     throw new Error('This save slot contains damaged game data.');
+  }
+  if (record.state.towerRoomLayout === undefined || record.state.towerRoomLayout === 1) {
+    // Preserve the old doorway and each side's relative position in the smaller room.
+    const x = record.state.interiorX === undefined ? LEGACY_TOWER_ROOM.door : record.state.interiorX;
+    const oldEdge = x <= LEGACY_TOWER_ROOM.door ? LEGACY_TOWER_ROOM.left : LEGACY_TOWER_ROOM.right;
+    const newEdge = x <= LEGACY_TOWER_ROOM.door ? WATCH_TOWER_ROOM.left : WATCH_TOWER_ROOM.right;
+    const interiorX = WATCH_TOWER_ROOM.door + (x - LEGACY_TOWER_ROOM.door)
+      * (newEdge - WATCH_TOWER_ROOM.door) / (oldEdge - LEGACY_TOWER_ROOM.door);
+    record.state = { ...record.state, interiorX, towerRoomLayout: WATCH_TOWER_ROOM_LAYOUT };
+    if (!validWatchState(record.state)) throw new Error('This save slot contains damaged game data.');
   }
   return record;
 }
@@ -41,7 +52,9 @@ function validWatchState(state) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
-    insideTower = false, interiorX = WATCH_TOWER_ROOM.door } = state;
+    insideTower = false, towerRoomLayout = 1,
+    interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
+  const room = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM : WATCH_TOWER_ROOM;
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
@@ -50,7 +63,8 @@ function validWatchState(state) {
       || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length
       || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')
       || !validWatchFlag(towerUpgraded) || !validWatchFlag(insideTower)
-      || !Number.isFinite(interiorX) || interiorX < WATCH_TOWER_ROOM.left || interiorX > WATCH_TOWER_ROOM.right
+      || (towerRoomLayout !== 1 && towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT)
+      || !Number.isFinite(interiorX) || interiorX < room.left || interiorX > room.right
       || (insideTower && (!towerUpgraded || status !== 'running' || phase !== 'day' || player?.x !== WATCH_SIGNAL))) return false;
 
   return (sprayer === null || (phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick)))
@@ -94,9 +108,9 @@ function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
-    insideTower = false, interiorX = WATCH_TOWER_ROOM.door } = watch;
+    insideTower = false, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, sprayer,
-    gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, interiorX,
+    gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }
@@ -123,7 +137,9 @@ export function saveWatchSlot(storage, watch, name, id) {
   const title = name.trim();
   if (!validWatchSaveName(title)) throw new Error(`Enter a slot name up to ${WATCH_SAVE_NAME_LIMIT} characters.`);
   const state = captureWatchState(watch);
-  if (!validWatchState(state)) throw new Error('The current watch cannot be saved.');
+  if (state.towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT || !validWatchState(state)) {
+    throw new Error('The current watch cannot be saved.');
+  }
   if (id && storage.getItem(WATCH_SAVE_PREFIX + id) === null) throw new Error('This save slot is no longer available.');
   const savedId = id ?? crypto.randomUUID();
   storage.setItem(WATCH_SAVE_PREFIX + savedId, JSON.stringify({ version: WATCH_SAVE_VERSION, name: title, savedAt: Date.now(), state }));

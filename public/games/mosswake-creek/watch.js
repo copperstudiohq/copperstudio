@@ -2,7 +2,12 @@ import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS
 
 export const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
 export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
-export const WATCH_TOWER_ROOM = { left: 34, right: 350, door: 54, ground: 174 };
+export const WATCH_TOWER_BUILDING = { width: 72, height: 96, wall: 4 };
+export const WATCH_TOWER_ROOM_LAYOUT = 2;
+export const WATCH_TOWER_ROOM = {
+  left: 6, right: 58, door: 12, ground: 52,
+  width: WATCH_TOWER_BUILDING.width - 2 * WATCH_TOWER_BUILDING.wall, height: 58, scale: 3
+};
 export const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
 export const WATCH_PORTALS = [
   { side: -1, x: WATCH_BOUNDS.left + 26 },
@@ -46,8 +51,8 @@ const WATCH_POSTS = [
 export const WATCH_FORWARD_WALLS = WATCH_POSTS.map(({ side, name, wallX }) =>
   ({ side, name: `${name} forward`, wallX: wallX + side * 82, forward: true }));
 export const WATCH_VENDORS = [
-  { id: 'tools', name: 'Rowan', trade: 'Tool seller', x: WATCH_SIGNAL + 40 },
-  { id: 'arms', name: 'Bram', trade: 'Weaponsmith', x: WATCH_SIGNAL + 78 }
+  { id: 'tools', name: 'Rowan', trade: 'Tool seller', x: WATCH_SIGNAL + 59 },
+  { id: 'arms', name: 'Bram', trade: 'Weaponsmith', x: WATCH_SIGNAL + 98 }
 ];
 export const WATCH_MARKET_ITEMS = {
   sword: { vendor: 'tools', name: 'Sword', cost: 5, damage: 2, reach: 23, cooldown: 16 },
@@ -77,6 +82,10 @@ export function watchGround(x) {
 
 export function hasWatchSprayer(day) {
   return day === WATCH_FIRST_SPRAYER_NIGHT || day >= WATCH_RECURRING_SPRAYER_NIGHT;
+}
+
+export function watchTowerTarget(watch, side) {
+  return WATCH_SIGNAL + (watch.towerUpgraded ? side * WATCH_TOWER_BUILDING.width / 2 : 0);
 }
 
 export function watchRaidWall(raider, posts, forwardWalls = []) {
@@ -131,6 +140,7 @@ export class CreekWatch {
     this.signal = WATCH_HEALTH;
     this.towerUpgraded = false;
     this.insideTower = false;
+    this.towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT;
     this.interiorX = WATCH_TOWER_ROOM.door;
     this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
     this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
@@ -485,7 +495,7 @@ export class CreekWatch {
 
   moveRaider(raider) {
     const post = watchRaidWall(raider, this.posts, this.forwardWalls);
-    const target = post?.wallX ?? WATCH_SIGNAL;
+    const target = post?.wallX ?? watchTowerTarget(this, raider.side);
     const distance = Math.abs(raider.x - target);
     if (distance > WATCH_OPUS_REACH) {
       const speed = 1.58 + 0.18 * Math.sin(this.tick / 16 + raider.x / 36);
@@ -518,7 +528,7 @@ export class CreekWatch {
     if (sprayer.hp === 0) return;
 
     const post = watchRaidWall(sprayer, this.posts, this.forwardWalls);
-    const target = post?.wallX ?? WATCH_SIGNAL;
+    const target = post?.wallX ?? watchTowerTarget(this, sprayer.side);
     const distance = Math.abs(sprayer.x - target);
     if (sprayer.burstsLeft && this.tick >= sprayer.sprayAt) {
       const reach = Math.max(0, Math.min(WATCH_SPRAY_REACH, distance - WATCH_OPUS_REACH));

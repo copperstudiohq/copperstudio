@@ -2582,7 +2582,12 @@ function drawToolIcon(canvas, type, converted = false) {
 
 const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
 const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
-const WATCH_TOWER_ROOM = { left: 34, right: 350, door: 54, ground: 174 };
+const WATCH_TOWER_BUILDING = { width: 72, height: 96, wall: 4 };
+const WATCH_TOWER_ROOM_LAYOUT = 2;
+const WATCH_TOWER_ROOM = {
+  left: 6, right: 58, door: 12, ground: 52,
+  width: WATCH_TOWER_BUILDING.width - 2 * WATCH_TOWER_BUILDING.wall, height: 58, scale: 3
+};
 const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
 const WATCH_PORTALS = [
   { side: -1, x: WATCH_BOUNDS.left + 26 },
@@ -2626,8 +2631,8 @@ const WATCH_POSTS = [
 const WATCH_FORWARD_WALLS = WATCH_POSTS.map(({ side, name, wallX }) =>
   ({ side, name: `${name} forward`, wallX: wallX + side * 82, forward: true }));
 const WATCH_VENDORS = [
-  { id: 'tools', name: 'Rowan', trade: 'Tool seller', x: WATCH_SIGNAL + 40 },
-  { id: 'arms', name: 'Bram', trade: 'Weaponsmith', x: WATCH_SIGNAL + 78 }
+  { id: 'tools', name: 'Rowan', trade: 'Tool seller', x: WATCH_SIGNAL + 59 },
+  { id: 'arms', name: 'Bram', trade: 'Weaponsmith', x: WATCH_SIGNAL + 98 }
 ];
 const WATCH_MARKET_ITEMS = {
   sword: { vendor: 'tools', name: 'Sword', cost: 5, damage: 2, reach: 23, cooldown: 16 },
@@ -2657,6 +2662,10 @@ function watchGround(x) {
 
 function hasWatchSprayer(day) {
   return day === WATCH_FIRST_SPRAYER_NIGHT || day >= WATCH_RECURRING_SPRAYER_NIGHT;
+}
+
+function watchTowerTarget(watch, side) {
+  return WATCH_SIGNAL + (watch.towerUpgraded ? side * WATCH_TOWER_BUILDING.width / 2 : 0);
 }
 
 function watchRaidWall(raider, posts, forwardWalls = []) {
@@ -2711,6 +2720,7 @@ class CreekWatch {
     this.signal = WATCH_HEALTH;
     this.towerUpgraded = false;
     this.insideTower = false;
+    this.towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT;
     this.interiorX = WATCH_TOWER_ROOM.door;
     this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
     this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
@@ -3065,7 +3075,7 @@ class CreekWatch {
 
   moveRaider(raider) {
     const post = watchRaidWall(raider, this.posts, this.forwardWalls);
-    const target = post?.wallX ?? WATCH_SIGNAL;
+    const target = post?.wallX ?? watchTowerTarget(this, raider.side);
     const distance = Math.abs(raider.x - target);
     if (distance > WATCH_OPUS_REACH) {
       const speed = 1.58 + 0.18 * Math.sin(this.tick / 16 + raider.x / 36);
@@ -3098,7 +3108,7 @@ class CreekWatch {
     if (sprayer.hp === 0) return;
 
     const post = watchRaidWall(sprayer, this.posts, this.forwardWalls);
-    const target = post?.wallX ?? WATCH_SIGNAL;
+    const target = post?.wallX ?? watchTowerTarget(this, sprayer.side);
     const distance = Math.abs(sprayer.x - target);
     if (sprayer.burstsLeft && this.tick >= sprayer.sprayAt) {
       const reach = Math.max(0, Math.min(WATCH_SPRAY_REACH, distance - WATCH_OPUS_REACH));
@@ -3279,6 +3289,7 @@ class CreekWatch {
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
 const WATCH_SAVE_VERSION = 1;
+const LEGACY_TOWER_ROOM = { left: 34, right: 350, door: 54 };
 const WATCH_SAVE_NAME_LIMIT = 40;
 
 function readWatchRecord(storage, id) {
@@ -3293,6 +3304,16 @@ function readWatchRecord(storage, id) {
   if (record?.version !== WATCH_SAVE_VERSION) throw new Error('This save uses an unsupported format.');
   if (!validWatchSaveName(record.name) || !validWatchCount(record.savedAt) || !validWatchState(record.state)) {
     throw new Error('This save slot contains damaged game data.');
+  }
+  if (record.state.towerRoomLayout === undefined || record.state.towerRoomLayout === 1) {
+    // Preserve the old doorway and each side's relative position in the smaller room.
+    const x = record.state.interiorX === undefined ? LEGACY_TOWER_ROOM.door : record.state.interiorX;
+    const oldEdge = x <= LEGACY_TOWER_ROOM.door ? LEGACY_TOWER_ROOM.left : LEGACY_TOWER_ROOM.right;
+    const newEdge = x <= LEGACY_TOWER_ROOM.door ? WATCH_TOWER_ROOM.left : WATCH_TOWER_ROOM.right;
+    const interiorX = WATCH_TOWER_ROOM.door + (x - LEGACY_TOWER_ROOM.door)
+      * (newEdge - WATCH_TOWER_ROOM.door) / (oldEdge - LEGACY_TOWER_ROOM.door);
+    record.state = { ...record.state, interiorX, towerRoomLayout: WATCH_TOWER_ROOM_LAYOUT };
+    if (!validWatchState(record.state)) throw new Error('This save slot contains damaged game data.');
   }
   return record;
 }
@@ -3317,7 +3338,9 @@ function validWatchState(state) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
-    insideTower = false, interiorX = WATCH_TOWER_ROOM.door } = state;
+    insideTower = false, towerRoomLayout = 1,
+    interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
+  const room = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM : WATCH_TOWER_ROOM;
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
@@ -3326,7 +3349,8 @@ function validWatchState(state) {
       || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length
       || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')
       || !validWatchFlag(towerUpgraded) || !validWatchFlag(insideTower)
-      || !Number.isFinite(interiorX) || interiorX < WATCH_TOWER_ROOM.left || interiorX > WATCH_TOWER_ROOM.right
+      || (towerRoomLayout !== 1 && towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT)
+      || !Number.isFinite(interiorX) || interiorX < room.left || interiorX > room.right
       || (insideTower && (!towerUpgraded || status !== 'running' || phase !== 'day' || player?.x !== WATCH_SIGNAL))) return false;
 
   return (sprayer === null || (phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick)))
@@ -3370,9 +3394,9 @@ function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
-    insideTower = false, interiorX = WATCH_TOWER_ROOM.door } = watch;
+    insideTower = false, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, sprayer,
-    gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, interiorX,
+    gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }
@@ -3399,7 +3423,9 @@ function saveWatchSlot(storage, watch, name, id) {
   const title = name.trim();
   if (!validWatchSaveName(title)) throw new Error(`Enter a slot name up to ${WATCH_SAVE_NAME_LIMIT} characters.`);
   const state = captureWatchState(watch);
-  if (!validWatchState(state)) throw new Error('The current watch cannot be saved.');
+  if (state.towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT || !validWatchState(state)) {
+    throw new Error('The current watch cannot be saved.');
+  }
   if (id && storage.getItem(WATCH_SAVE_PREFIX + id) === null) throw new Error('This save slot is no longer available.');
   const savedId = id ?? crypto.randomUUID();
   storage.setItem(WATCH_SAVE_PREFIX + savedId, JSON.stringify({ version: WATCH_SAVE_VERSION, name: title, savedAt: Date.now(), state }));
@@ -3516,6 +3542,10 @@ function drawWatchBridge(ctx) {
 }
 
 function drawWatchSignal(ctx, watch) {
+  if (watch.towerUpgraded) {
+    drawUpgradedWatchSignal(ctx, watch);
+    return;
+  }
   const x = WATCH_SIGNAL;
   const y = WATCH_BRIDGE.y;
   for (const offset of [-13, 9]) {
@@ -3572,20 +3602,86 @@ function drawWatchSignal(ctx, watch) {
   watchRect(ctx, '#ad785c', x + 8, y - 55, 2, 10);
   watchRect(ctx, '#625358', x, y - 55, 1, 10);
   watchRect(ctx, '#92725e', x - 8, y - 52, 16, 1);
-  if (watch.towerUpgraded) {
-    // Copper flashing and a lit dining-room window mark the permanent upgrade.
-    watchRect(ctx, '#efba7d', x - 17, y - 45, 35, 1);
-    watchRect(ctx, '#6c9b87', x - 12, y - 44, 3, 1);
-    watchRect(ctx, '#e5ae73', x + 8, y - 44, 4, 1);
-    watchRect(ctx, '#3b2b30', x - 4, y - 36, 9, 10);
-    watchRect(ctx, '#c7844e', x - 3, y - 35, 7, 8);
-    watchRect(ctx, '#f4c786', x - 2, y - 34, 5, 6);
-    watchRect(ctx, '#81553e', x, y - 35, 1, 8);
-    watchRect(ctx, '#81553e', x - 3, y - 31, 7, 1);
-    watchRect(ctx, '#ba5251', x - 3, y - 28, 7, 1);
-    watchRect(ctx, '#e4ab6b', x - 4, y - 15, 1, 14);
-    watchRect(ctx, '#e4ab6b', x + 3, y - 15, 1, 14);
-    watchRect(ctx, '#b87b53', x - 6, y - 1, 13, 2);
+}
+
+function drawUpgradedWatchSignal(ctx, watch) {
+  const x = WATCH_SIGNAL;
+  const y = WATCH_BRIDGE.y;
+  const { width, height, wall } = WATCH_TOWER_BUILDING;
+  const half = width / 2;
+  const roomHeight = WATCH_TOWER_ROOM.height + wall * 2;
+  const roofTop = y - height;
+  // The 64-pixel room fits between the four-pixel walls of this wider tower.
+  for (const offset of [-34, 26]) {
+    const pier = x + offset;
+    watchRect(ctx, '#3b2f30', pier, y + 2, 9, quarryHeight(pier) - y - 2);
+    watchRect(ctx, '#9d7150', pier + 1, y + 3, 2, POND_LEVEL - y - 3);
+  }
+  watchRect(ctx, '#302a32', x - 40, y - 4, 81, 7);
+  watchRect(ctx, '#51444a', x - half, y - roomHeight, width, roomHeight - 3);
+  watchRect(ctx, '#87735e', x - half + 1, y - roomHeight + 1, width - 8, roomHeight - 6);
+  watchRect(ctx, '#62545a', x + half - 7, y - roomHeight + 1, 7, roomHeight - 5);
+  for (let row = 0; row < 10; row++) {
+    const top = y - roomHeight + 2 + row * 6;
+    watchRect(ctx, '#584b4c', x - 35, top + 5, 70, 1);
+    for (let col = 0; col < 5; col++) {
+      const start = x - 34 + col * 14 + (row % 2) * 7;
+      if (start + 12 > x + 34) continue;
+      watchRect(ctx, '#ae9070', start, top, 11, 1);
+      watchRect(ctx, '#685554', start + 12, top + 1, 1, 4);
+      if ((row + col) % 3 === 0) watchRect(ctx, '#978266', start + 3, top + 3, 4, 1);
+    }
+  }
+  for (const offset of [-36, 29]) {
+    watchRect(ctx, '#b28c69', x + offset, y - roomHeight + 2, 7, roomHeight - 7);
+    watchRect(ctx, '#d2a578', x + offset, y - roomHeight + 2, 1, roomHeight - 8);
+    for (let top = -roomHeight + 7; top < -4; top += 12) {
+      watchRect(ctx, '#68504b', x + offset, y + top, 7, 1);
+    }
+  }
+  watchRect(ctx, '#684c40', x - 39, y - roomHeight + 6, 79, 3);
+  watchRect(ctx, '#d89b68', x - 39, y - roomHeight + 6, 79, 1);
+  watchRect(ctx, '#684c40', x - 39, y - 8, 79, 3);
+  watchRect(ctx, '#c59164', x - 39, y - 8, 79, 1);
+  // A full-height oak entrance, without windows in the dining-room walls.
+  watchRect(ctx, '#3d3035', x - 13, y - 33, 27, 32);
+  watchRect(ctx, '#c49b73', x - 12, y - 32, 25, 31);
+  watchRect(ctx, '#342b30', x - 9, y - 29, 19, 28);
+  watchRect(ctx, '#7a513c', x - 8, y - 28, 17, 27);
+  for (let offset = -7; offset < 9; offset += 4) {
+    watchRect(ctx, '#aa7950', x + offset, y - 27, 1, 25);
+    watchRect(ctx, '#513832', x + offset + 2, y - 26, 1, 24);
+  }
+  for (const top of [-24, -9]) {
+    watchRect(ctx, '#454246', x - 8, y + top, 17, 2);
+    watchRect(ctx, '#a69e86', x - 7, y + top, 1, 1);
+    watchRect(ctx, '#a69e86', x + 7, y + top, 1, 1);
+  }
+  watchRect(ctx, '#efbe7a', x + 4, y - 17, 2, 3);
+  watchRect(ctx, '#cca075', x - 14, y - 1, 29, 2);
+  // The signal burns in an open belfry above the enlarged stone room.
+  watchRect(ctx, '#30323c', x - 26, roofTop + 14, 53, 17);
+  watchRect(ctx, '#425450', x - 23, roofTop + 15, 47, 15);
+  for (const offset of [-25, -14, 13, 24]) {
+    watchRect(ctx, '#976e51', x + offset, roofTop + 14, 3, 17);
+    watchRect(ctx, '#dfaa74', x + offset, roofTop + 14, 1, 16);
+  }
+  watchRect(ctx, '#523940', x - 40, roofTop + 10, 81, 5);
+  watchRect(ctx, '#dc9b68', x - 40, roofTop + 10, 81, 1);
+  for (let tier = 0; tier < 5; tier++) {
+    const roofLeft = -half + tier * 8;
+    watchRect(ctx, tier % 2 ? '#b47553' : '#cf8c5b', x + roofLeft, roofTop + 8 - tier * 2, width + 1 - tier * 16, 2);
+    if (tier < 4) watchRect(ctx, '#eab17b', x + roofLeft + 1, roofTop + 8 - tier * 2, 10, 1);
+  }
+  watchRect(ctx, '#769d87', x + 16, roofTop + 6, 6, 1);
+  watchRect(ctx, '#67937e', x + 18, roofTop + 7, 3, 1);
+  watchRect(ctx, '#e8b980', x - 1, roofTop, 3, 2);
+  if (watch.signal > 0) {
+    const flame = (watch.tick >> 3) % 2;
+    sceneGlow(ctx, '#8aecc3ad', x, roofTop + 23, 15 + watch.signal);
+    watchRect(ctx, '#408a81', x - 8, roofTop + 16, 17, 14);
+    watchRect(ctx, '#90e6c2', x - 5, roofTop + 19 - flame, 11, 10 + flame);
+    watchRect(ctx, '#f2f8c8', x - 2, roofTop + 21, 5, 7);
   }
 }
 
@@ -4001,7 +4097,7 @@ function drawWatchOpus(ctx, opus, watch) {
   const x = Math.round(opus.x);
   const ground = watchGround(x);
   const direction = -opus.side;
-  const target = watchRaidWall(opus, watch.posts, watch.forwardWalls)?.wallX ?? WATCH_SIGNAL;
+  const target = watchRaidWall(opus, watch.posts, watch.forwardWalls)?.wallX ?? watchTowerTarget(watch, opus.side);
   const groundOffset = (offset) => watchGround(Math.max(WATCH_BOUNDS.left,
     Math.min(WATCH_BOUNDS.right, x + direction * offset))) - ground;
   watchRect(ctx, '#281a377c', x - 11, ground - 1, 22, 2);
@@ -4106,156 +4202,112 @@ function drawWatchIchorSpray(ctx, sprayer, tick) {
 }
 
 function drawTowerDiningRoom(ctx, watch) {
-  const { ground, door } = WATCH_TOWER_ROOM;
+  const { width, height, scale, ground, door } = WATCH_TOWER_ROOM;
+  const wall = WATCH_TOWER_BUILDING.wall;
   watchRect(ctx, '#171722', 0, 0, VIEW_WIDTH, HEIGHT);
-  watchRect(ctx, '#302a2d', 20, 19, 344, 165);
-  watchRect(ctx, '#6e5b4d', 27, 25, 330, 145);
-  // Individual limestone blocks, mortar, and warm worn edges.
-  for (let row = 0; row < 10; row++) {
-    const y = 27 + row * 14;
-    for (let col = -1; col < 12; col++) {
-      const x = 29 + col * 31 + (row % 2) * 16;
-      if (x < 28 || x + 29 > 356) continue;
-      const shade = ['#7c6a56', '#77634f', '#806b54', '#725e4e'][(row * 3 + col + 4) % 4];
-      watchRect(ctx, shade, x, y, 29, 12);
-      watchRect(ctx, '#998063', x + 2, y, 24, 1);
-      watchRect(ctx, '#665341', x + 28, y + 2, 1, 9);
-      if ((row + col) % 3 === 0) watchRect(ctx, '#b0997133', x + 5, y + 5, 7, 1);
+  ctx.save();
+  // The room and player share one scale: this is a close view of the real room.
+  ctx.translate((VIEW_WIDTH - width * scale) / 2, (HEIGHT - height * scale) / 2);
+  ctx.scale(scale, scale);
+  watchRect(ctx, '#332c2e', -wall, -wall, width + wall * 2, height + wall * 2);
+  watchRect(ctx, '#7b6752', 0, 0, width, ground);
+  for (let row = 0; row < 8; row++) {
+    const y = row * 6;
+    for (let col = -1; col < 7; col++) {
+      const x = col * 11 + (row % 2) * 5;
+      const left = Math.max(0, x);
+      const right = Math.min(width, x + 10);
+      if (left >= right) continue;
+      watchRect(ctx, (row + col) % 3 ? '#857058' : '#92795c', left, y, right - left, 5);
+      watchRect(ctx, '#ac8d66', left, y, right - left, 1);
+      if (x >= 0 && x + 9 < width) watchRect(ctx, '#705b49', x + 9, y + 1, 1, 4);
     }
   }
-  watchRect(ctx, '#40302b', 27, 155, 330, 22);
-  watchRect(ctx, '#bc8559', 28, 156, 328, 2);
-  watchRect(ctx, '#8b5e40', 28, 159, 328, 18);
-  for (let y = 160; y < 178; y += 6) {
-    watchRect(ctx, '#573e31', 28, y + 4, 328, 1);
-    for (let x = 32 + (y % 3) * 9; x < 350; x += 42) {
-      watchRect(ctx, '#b47e50', x, y, 22, 1);
-      watchRect(ctx, '#654332', x + 30, y, 1, 5);
-      watchRect(ctx, '#d1995f', x + 31, y + 1, 1, 1);
+  // Thick oak edges, worn plank floor, and stone walls have no windows.
+  for (const x of [-wall, width]) {
+    watchRect(ctx, '#4a342d', x, -wall, wall, height + wall * 2);
+    watchRect(ctx, '#ad7c4f', x, 0, 1, height);
+    for (const y of [8, 43]) {
+      watchRect(ctx, '#55504a', x, y, wall, 2);
+      watchRect(ctx, '#bca477', x + 1, y, 1, 1);
     }
   }
-  // Heavy oak supports frame the little room.
-  for (const x of [23, 350]) {
-    watchRect(ctx, '#3d2c2a', x, 20, 11, 161);
-    watchRect(ctx, '#8b5c3d', x + 2, 24, 6, 153);
-    watchRect(ctx, '#b78352', x + 2, 25, 1, 150);
-    for (const y of [39, 143]) {
-      watchRect(ctx, '#4c4640', x + 1, y, 9, 5);
-      watchRect(ctx, '#c09b65', x + 2, y + 1, 1, 1);
-      watchRect(ctx, '#c09b65', x + 8, y + 3, 1, 1);
+  watchRect(ctx, '#54392e', 0, -wall, width, wall);
+  watchRect(ctx, '#bc8958', 0, -3, width, 1);
+  watchRect(ctx, '#5b3d2f', 0, ground - 3, width, height - ground + 3);
+  for (let y = ground - 2; y < height; y += 3) {
+    watchRect(ctx, '#98643f', 0, y, width, 2);
+    for (let x = (y % 2) * 9; x < width; x += 17) {
+      if (x + 1 < width) watchRect(ctx, '#c08a53', x + 1, y, Math.min(8, width - x - 1), 1);
+      if (x + 12 < width) watchRect(ctx, '#60402f', x + 12, y, 1, 2);
     }
   }
-  watchRect(ctx, '#382a29', 22, 20, 340, 12);
-  watchRect(ctx, '#a37049', 25, 22, 334, 6);
-  watchRect(ctx, '#ce9461', 26, 22, 332, 1);
-  for (let x = 35; x < 350; x += 31) watchRect(ctx, '#75492f', x, 25, 17, 1);
-  // The entrance opens back onto the bridge.
-  watchRect(ctx, '#3e3030', door - 17, ground - 67, 35, 67);
-  watchRect(ctx, '#b28a61', door - 15, ground - 65, 31, 65);
-  watchRect(ctx, '#382d2d', door - 12, ground - 61, 25, 61);
-  watchRect(ctx, '#7c5037', door - 10, ground - 59, 21, 59);
-  for (let x = door - 9; x < door + 10; x += 5) {
-    watchRect(ctx, '#b17a4a', x, ground - 58, 1, 55);
-    watchRect(ctx, '#51362d', x + 3, ground - 57, 1, 56);
+  // A human-height door leads straight back onto the bridge.
+  watchRect(ctx, '#47332f', door - 7, ground - 33, 15, 33);
+  watchRect(ctx, '#c39b6b', door - 6, ground - 32, 13, 32);
+  watchRect(ctx, '#674431', door - 5, ground - 30, 11, 30);
+  for (let x = door - 4; x < door + 5; x += 3) {
+    watchRect(ctx, '#a37547', x, ground - 29, 1, 27);
+    watchRect(ctx, '#51372e', x + 1, ground - 28, 1, 28);
   }
-  for (const y of [ground - 48, ground - 15]) {
-    watchRect(ctx, '#45423c', door - 10, y, 21, 3);
-    watchRect(ctx, '#a7a080', door - 8, y, 1, 1);
-    watchRect(ctx, '#a7a080', door + 8, y + 1, 1, 1);
+  for (const y of [ground - 24, ground - 8]) {
+    watchRect(ctx, '#47413b', door - 5, y, 11, 2);
+    watchRect(ctx, '#aaa07d', door - 4, y, 1, 1);
+    watchRect(ctx, '#aaa07d', door + 4, y + 1, 1, 1);
   }
-  watchRect(ctx, '#e3ad62', door + 5, ground - 29, 3, 4);
-  watchRect(ctx, '#bd8a55', door - 17, ground - 1, 35, 3);
-  watchRect(ctx, '#523b31', door - 12, ground - 77, 26, 8);
-  ctx.fillStyle = '#f0cea0';
-  ctx.font = '6px monospace';
-  ctx.fillText('EXIT', door - 7, ground - 71);
-  // An inset window looks out over the creek, framed by soft red curtains.
-  watchRect(ctx, '#514039', 266, 51, 55, 57);
-  watchRect(ctx, '#c39562', 269, 54, 49, 51);
-  watchRect(ctx, '#50757a', 272, 57, 43, 45);
-  watchRect(ctx, '#a5c8bb', 273, 58, 41, 15);
-  watchRect(ctx, '#688d73', 273, 73, 41, 13);
-  for (let x = 275; x < 313; x += 9) {
-    watchRect(ctx, '#3f6353', x, 68 + x % 7, 4, 21);
-    watchRect(ctx, '#799079', x + 1, 67 + x % 7, 1, 16);
+  watchRect(ctx, '#f3c477', door + 2, ground - 16, 2, 3);
+  watchRect(ctx, '#c29964', door - 7, ground, 15, 1);
+  // A shelf of plates and a small copper kettle above the dining table.
+  watchRect(ctx, '#4c352e', 37, 18, 21, 3);
+  watchRect(ctx, '#b98650', 37, 18, 21, 1);
+  for (const x of [39, 43]) {
+    watchRect(ctx, '#ddd0a8', x, 14, 3, 4);
+    watchRect(ctx, '#f6e4b8', x, 14, 2, 1);
   }
-  watchRect(ctx, '#7daca6', 273, 88, 41, 13);
-  for (let x = 274; x < 310; x += 11) watchRect(ctx, '#bfd0ab', x, 93 + x % 3, 8, 1);
-  watchRect(ctx, '#604735', 292, 56, 3, 48);
-  watchRect(ctx, '#c39967', 292, 56, 1, 48);
-  watchRect(ctx, '#674b35', 271, 78, 45, 3);
-  watchRect(ctx, '#af7b50', 266, 104, 55, 4);
-  for (const x of [266, 311]) {
-    watchRect(ctx, '#813b3b', x, 53, 9, 49);
-    watchRect(ctx, '#ab5550', x + 1, 54, 3, 47);
-    watchRect(ctx, '#572d34', x + 7, 56, 1, 43);
-    watchRect(ctx, '#dcaa67', x, 88, 9, 2);
+  watchRect(ctx, '#a55d3c', 50, 13, 5, 5);
+  watchRect(ctx, '#e5a66c', 51, 13, 3, 4);
+  watchRect(ctx, '#6e4932', 51, 11, 2, 2);
+  watchRect(ctx, '#ca8a52', 55, 13, 2, 1);
+  // A compact table and two chairs fit the actual tower footprint.
+  for (const x of [27, 58]) {
+    watchRect(ctx, '#49322c', x, 34, 4, 18);
+    watchRect(ctx, '#b58250', x, 34, 4, 2);
+    watchRect(ctx, '#bc8d56', x, 38, 1, 14);
+    watchRect(ctx, '#a26d42', x - 1, 44, 6, 2);
+    watchRect(ctx, '#63432f', x + 3, 46, 1, 6);
   }
-  // Cupboard, crockery, and a copper kettle.
-  watchRect(ctx, '#3a2b2a', 294, 128, 42, 37);
-  watchRect(ctx, '#8b5b3c', 296, 130, 38, 34);
-  for (const x of [298, 316]) {
-    watchRect(ctx, '#a3734b', x, 134, 16, 25);
-    watchRect(ctx, '#70472f', x + 2, 136, 12, 21);
-    watchRect(ctx, '#e0ad69', x + 12, 145, 1, 3);
+  for (const x of [34, 52]) {
+    watchRect(ctx, '#6a442f', x, 40, 2, 12);
+    watchRect(ctx, '#c38a52', x, 41, 1, 10);
   }
-  watchRect(ctx, '#c49461', 292, 127, 46, 3);
-  watchRect(ctx, '#e6d8ab', 298, 124, 10, 3);
-  watchRect(ctx, '#b8b799', 299, 121, 8, 3);
-  watchRect(ctx, '#9c5a3e', 319, 116, 11, 10);
-  watchRect(ctx, '#e1a16b', 321, 117, 7, 8);
-  watchRect(ctx, '#edc08b', 322, 118, 2, 4);
-  watchRect(ctx, '#634537', 322, 113, 5, 3);
-  watchRect(ctx, '#c78955', 328, 116, 4, 2);
-  watchRect(ctx, '#c78955', 316, 119, 3, 4);
-  // Two chairs sit around a small dinner table.
-  for (const x of [135, 244]) {
-    watchRect(ctx, '#49322c', x, 132, 14, 39);
-    watchRect(ctx, '#ac794b', x + 1, 133, 12, 3);
-    watchRect(ctx, '#bd8b56', x + 2, 137, 2, 20);
-    watchRect(ctx, '#855434', x + 10, 137, 2, 33);
-    watchRect(ctx, '#c28a56', x - 1, 156, 16, 4);
-    watchRect(ctx, '#a37345', x, 160, 3, 12);
+  watchRect(ctx, '#62352f', 32, 36, 24, 5);
+  watchRect(ctx, '#bd4945', 31, 36, 26, 8);
+  watchRect(ctx, '#e7745b', 32, 36, 24, 1);
+  watchRect(ctx, '#9e353b', 31, 39, 26, 5);
+  for (let x = 33; x < 56; x += 5) {
+    watchRect(ctx, '#d65b4e', x, 39, 1, 4);
+    watchRect(ctx, '#6e2b34', x + 2, 39, 1, 5);
   }
-  for (const x of [161, 213]) {
-    watchRect(ctx, '#553b30', x, 149, 5, 24);
-    watchRect(ctx, '#b27a49', x, 150, 2, 22);
+  watchRect(ctx, '#e5b576', 31, 43, 26, 1);
+  for (const x of [35, 49]) {
+    watchRect(ctx, '#d7c5a0', x, 34, 5, 2);
+    watchRect(ctx, '#f5e2b7', x + 1, 34, 3, 1);
+    watchRect(ctx, '#d1a66a', x - 2, 34, 1, 2);
   }
-  watchRect(ctx, '#56372e', 149, 140, 91, 7);
-  // Crimson woven cloth hangs over the edge, with seams and shaded folds.
-  watchRect(ctx, '#642b34', 147, 138, 95, 17);
-  watchRect(ctx, '#b94846', 149, 138, 91, 4);
-  watchRect(ctx, '#dc6955', 151, 138, 87, 1);
-  watchRect(ctx, '#9f3b3b', 149, 142, 91, 12);
-  for (let x = 153; x < 240; x += 13) {
-    watchRect(ctx, '#c5554b', x, 143, 2, 10);
-    watchRect(ctx, '#7d3037', x + 6, 143, 2, 11);
-  }
-  watchRect(ctx, '#d39c66', 149, 152, 91, 1);
-  watchRect(ctx, '#e6b57a', 151, 154, 87, 1);
-  for (const x of [168, 216]) {
-    watchRect(ctx, '#c8bc9b', x, 135, 12, 3);
-    watchRect(ctx, '#f0ddba', x + 1, 134, 10, 3);
-    watchRect(ctx, '#a3a68e', x + 3, 135, 6, 1);
-    watchRect(ctx, '#e8c48e', x - 5, 133, 2, 5);
-    watchRect(ctx, '#a9784e', x + 14, 132, 3, 6);
-    watchRect(ctx, '#ecd5a4', x + 14, 132, 3, 2);
-  }
-  watchRect(ctx, '#b47c50', 193, 134, 8, 4);
-  watchRect(ctx, '#f1db9d', 196, 124, 2, 11);
-  watchRect(ctx, '#e1a35a', 195, 120, 3, 4);
-  watchRect(ctx, '#fff0b5', 196, 121, 1, 2);
-  // Two wall lamps keep the stone and copper warm.
-  for (const x of [104, 242]) {
-    sceneGlow(ctx, '#f3b86c38', x, 83, 26);
-    watchRect(ctx, '#4b3430', x - 3, 77, 7, 15);
-    watchRect(ctx, '#b9804e', x - 4, 79, 9, 12);
-    watchRect(ctx, '#f5bf6d', x - 2, 81, 5, 8);
-    watchRect(ctx, '#ffedb3', x, 82, 2, 5);
-    watchRect(ctx, '#765037', x - 4, 79, 9, 1);
-    watchRect(ctx, '#765037', x - 4, 89, 9, 2);
+  watchRect(ctx, '#a77543', 43, 34, 3, 2);
+  watchRect(ctx, '#f1d9a1', 44, 30, 1, 4);
+  watchRect(ctx, '#f2ae61', 44, 28, 1, 2);
+  watchRect(ctx, '#ffedab', 44, 29, 1, 1);
+  for (const x of [24, 60]) {
+    sceneGlow(ctx, '#f3b86c38', x, 13, 12);
+    watchRect(ctx, '#53372b', x - 1, 9, 3, 9);
+    watchRect(ctx, '#c99253', x - 2, 10, 5, 7);
+    watchRect(ctx, '#f1bd6b', x - 1, 11, 3, 5);
+    watchRect(ctx, '#fff0b5', x, 11, 1, 3);
+    watchRect(ctx, '#785134', x - 2, 16, 5, 1);
   }
   drawWatchPlayer(ctx, watch.interiorX, ground, watch.player.direction, (watch.player.step >> 2) % 2, null, 0);
+  ctx.restore();
 }
 
 function drawCreekWatch(ctx, watch) {
@@ -4269,7 +4321,7 @@ function drawCreekWatch(ctx, watch) {
   ctx.save();
   ctx.translate(-left, 0);
   if (onScreen(WATCH_SIGNAL, 86)) drawWatchBridge(ctx);
-  if (onScreen(WATCH_SIGNAL, 36)) drawWatchSignal(ctx, watch);
+  if (onScreen(WATCH_SIGNAL, 46)) drawWatchSignal(ctx, watch);
   if (watch.marketOpen) {
     for (const vendor of WATCH_VENDORS) if (onScreen(vendor.x, 23)) drawWatchStall(ctx, vendor);
   }
@@ -5072,7 +5124,10 @@ world.addEventListener('pointerdown', (event) => {
   if (gameMode === 'watch') {
     const bounds = world.getBoundingClientRect();
     world.focus({ preventScroll: true });
-    walkWatchTo((watch.insideTower ? 0 : watch.camera) + (event.clientX - bounds.left) * VIEW_WIDTH / bounds.width);
+    const canvasX = (event.clientX - bounds.left) * VIEW_WIDTH / bounds.width;
+    const roomLeft = (VIEW_WIDTH - WATCH_TOWER_ROOM.width * WATCH_TOWER_ROOM.scale) / 2;
+    const target = watch.insideTower ? (canvasX - roomLeft) / WATCH_TOWER_ROOM.scale : watch.camera + canvasX;
+    walkWatchTo(target);
     return;
   }
   keyboardAim = false;

@@ -748,7 +748,10 @@ world.addEventListener('pointerdown', (event) => {
   if (gameMode === 'watch') {
     const bounds = world.getBoundingClientRect();
     world.focus({ preventScroll: true });
-    walkWatchTo((watch.insideTower ? 0 : watch.camera) + (event.clientX - bounds.left) * VIEW_WIDTH / bounds.width);
+    const canvasX = (event.clientX - bounds.left) * VIEW_WIDTH / bounds.width;
+    const roomLeft = (VIEW_WIDTH - WATCH_TOWER_ROOM.width * WATCH_TOWER_ROOM.scale) / 2;
+    const target = watch.insideTower ? (canvasX - roomLeft) / WATCH_TOWER_ROOM.scale : watch.camera + canvasX;
+    walkWatchTo(target);
     return;
   }
   keyboardAim = false;
