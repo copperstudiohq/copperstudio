@@ -21,6 +21,9 @@ const WATCH_GUARD_STATS = [
 ];
 const WATCH_USE_RANGE = 19;
 const WATCH_SPEED = 2.05;
+const CAMP_APPROACH_RANGE = 120;
+const CAMP_CLEARANCE_RANGE = 92;
+const CAMP_RETREAT_DISTANCE = 32;
 const WATCH_POSTS = [
   { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44 },
   { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44 }
@@ -28,11 +31,15 @@ const WATCH_POSTS = [
 export const WATCH_PIGEONS = WATCH_POSTS.flatMap(({ side, wallX }) =>
   [49, 94, 143].map((offset) => ({ side, x: wallX + side * offset })));
 export const WATCH_CAMP_GROUPS = [
-  { name: 'West', side: -1, locations: [VIEW_WIDTH - 60, VIEW_WIDTH + 24, VIEW_WIDTH + 117, VIEW_WIDTH + 194] },
-  { name: 'East', side: 1, locations: [3 * VIEW_WIDTH + 140, 3 * VIEW_WIDTH + 224, 3 * VIEW_WIDTH + 308, 4 * VIEW_WIDTH + 8] }
+  { name: 'West', side: -1, camps: [
+    { x: VIEW_WIDTH + 24, style: 'ridge' }, { x: VIEW_WIDTH + 117, style: 'lean-to' }
+  ] },
+  { name: 'East', side: 1, camps: [
+    { x: 3 * VIEW_WIDTH + 224, style: 'patchwork' }, { x: 3 * VIEW_WIDTH + 308, style: 'sagging' }
+  ] }
 ];
-export const WATCH_CAMPS = WATCH_CAMP_GROUPS.flatMap(({ side, locations }) => locations.map((x) => ({ x, side })));
-export const WATCH_CAMP_HINT = 'Use either tent marker to walk to a group of four recruiting camps.';
+export const WATCH_CAMPS = WATCH_CAMP_GROUPS.flatMap(({ side, camps }) => camps.map((camp) => ({ ...camp, side })));
+export const WATCH_CAMP_HINT = 'Use either tent marker to walk to its two recruiting camps.';
 const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
   .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
 
@@ -120,6 +127,19 @@ export class CreekWatch {
     return true;
   }
 
+  campShelterProgress(camp) {
+    if (this.phase !== 'night') return 0;
+    let progress = 0;
+    for (const raider of this.raiders) {
+      if (raider.side !== camp.side || raider.hp <= 0) continue;
+      // Positive distance means the raider is still on the portal side of the camp.
+      const distance = (raider.x - camp.x) * camp.side;
+      const remaining = distance >= 0 ? CAMP_APPROACH_RANGE - distance : CAMP_CLEARANCE_RANGE + distance;
+      progress = Math.max(progress, remaining / CAMP_RETREAT_DISTANCE);
+    }
+    return Math.min(1, progress);
+  }
+
   getAction() {
     if (this.status !== 'running') return null;
     const player = this.player.x;
@@ -135,7 +155,12 @@ export class CreekWatch {
       if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: 2 };
       if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
     }
-    if (camp) return this.getCampAction();
+    if (camp) {
+      if (this.campShelterProgress(camp) > 0) {
+        return { kind: 'shelter', label: 'Recruit taking shelter', cost: 0 };
+      }
+      return this.getCampAction();
+    }
     return null;
   }
 
@@ -165,6 +190,10 @@ export class CreekWatch {
     const action = this.getAction();
     if (!action) {
       if (this.status === 'running') this.message = 'Walk up to a camp, a palisade, or the signal tower. Each bank can hold three veterans.';
+      return false;
+    }
+    if (action.kind === 'shelter') {
+      this.message = 'The recruit will come out when the Tri pass.';
       return false;
     }
     if (this.coins < action.cost) {

@@ -28,24 +28,24 @@ function drawWatchBridge(ctx) {
   const { left, right, y } = WATCH_BRIDGE;
   for (let x = left + 11; x < right - 3; x += 21) {
     const depth = quarryHeight(x) - y;
-    watchRect(ctx, '#282834', x, y + 3, 4, depth);
-    watchRect(ctx, '#776051', x, y + 3, 1, Math.min(20, depth));
+    watchRect(ctx, '#49352f', x, y + 3, 4, depth);
+    watchRect(ctx, '#8a6349', x, y + 3, 1, Math.min(20, depth));
     for (let brace = 0; brace < Math.min(8, depth - 6); brace++) {
       watchRect(ctx, '#67483f', x - 6 + brace, y + 5 + brace, 2, 1);
       watchRect(ctx, '#4e3f42', x + 8 - brace, y + 5 + brace, 2, 1);
     }
-    watchRect(ctx, '#605657', x - 4, y + 6, 12, 3);
-    watchRect(ctx, '#ab866e', x - 3, y + 6, 10, 1);
-    watchRect(ctx, '#c69e78', x + 1, y + 7, 2, 1);
+    watchRect(ctx, '#674835', x - 4, y + 6, 12, 3);
+    watchRect(ctx, '#ac7950', x - 3, y + 6, 10, 1);
+    watchRect(ctx, '#c29260', x + 1, y + 7, 2, 1);
     watchRect(ctx, '#83a7a05e', x - 2, POND_LEVEL, 9, depth > POND_LEVEL - y ? 1 : 0);
   }
-  watchRect(ctx, '#3d3338', left, y + 5, right - left + 1, 2);
+  watchRect(ctx, '#593d31', left, y + 5, right - left + 1, 2);
   watchRect(ctx, '#805542', left, y, right - left + 1, 5);
   watchRect(ctx, '#c28d63', left, y, right - left + 1, 1);
   for (let x = left + 5; x < right; x += 8) {
     watchRect(ctx, '#4c3939', x, y + 2, 1, 3);
     watchRect(ctx, '#a36a4e', x + 1, y + 2, 4, 1);
-    watchRect(ctx, '#c49c7a', x - 2, y + 3, 1, 1);
+    watchRect(ctx, '#c39361', x - 2, y + 3, 1, 1);
   }
 }
 
@@ -54,8 +54,8 @@ function drawWatchSignal(ctx, watch) {
   const y = WATCH_BRIDGE.y;
   for (const offset of [-13, 9]) {
     const pier = x + offset;
-    watchRect(ctx, '#343343', pier, y + 2, 6, quarryHeight(pier) - y - 2);
-    watchRect(ctx, '#71645d', pier, y + 2, 2, POND_LEVEL - y - 2);
+    watchRect(ctx, '#49352f', pier, y + 2, 6, quarryHeight(pier) - y - 2);
+    watchRect(ctx, '#8a6349', pier, y + 2, 2, POND_LEVEL - y - 2);
   }
   watchRect(ctx, '#332d35', x - 17, y - 4, 35, 5);
   watchRect(ctx, '#3b343c', x - 13, y - 43, 27, 41);
@@ -139,51 +139,109 @@ function drawWatchPost(ctx, post) {
   }
 }
 
-function drawWatchCamp(ctx, camp, tick) {
-  const { x, side } = camp;
+const CAMP_TENTS = {
+  ridge: { top: -28, peak: -22, ridge: 2, left: -37, right: 3, cloth: '#a08a6b', fold: '#716553', patch: '#b3a07e' },
+  'lean-to': { top: -25, peak: -10, ridge: 3, left: -43, right: 3, cloth: '#859071', fold: '#59644f', patch: '#a1a58a' },
+  patchwork: { top: -30, peak: -25, ridge: 2, left: -40, right: 3, cloth: '#986e60', fold: '#714d48', patch: '#b5916a' },
+  sagging: { top: -21, peak: -25, ridge: 15, left: -42, right: 4, cloth: '#8c8783', fold: '#615c64', patch: '#a89982' }
+};
+
+function drawCampTwig(ctx, foot, tip, top) {
+  for (let y = top; y < 0; y++) {
+    const x = Math.round(foot + (tip - foot) * y / top);
+    watchRect(ctx, '#534236', x, y, 2, 1);
+    if (y % 5 !== 0) watchRect(ctx, '#a08264', x, y, 1, 1);
+  }
+  watchRect(ctx, '#a08264', tip - 2, top + 2, 2, 1);
+}
+
+function drawCampShelter(ctx, tent, door, hidden) {
+  const { top, peak, ridge, left, right, cloth, fold, patch } = tent;
+  for (let y = top; y < 0; y++) {
+    const depth = (y - top) / -top;
+    const hem = y >= -5 ? (y + 5) % 3 : 0;
+    const torn = y >= -11 && y <= -8 ? 4 - Math.abs(y + 9) : 0;
+    const edge = Math.round(peak + (left - peak) * depth) + hem + torn;
+    const end = Math.round(peak + ridge + (right - peak - ridge) * depth) - hem;
+    const seam = Math.round(peak + ridge + (right - peak - ridge) * depth * 0.45);
+    watchRect(ctx, cloth, edge, y, seam - edge, 1);
+    watchRect(ctx, fold, seam, y, end - seam + 1, 1);
+  }
+  const repair = Math.round((left + peak) / 2) - 1;
+  watchRect(ctx, fold, repair, -8, 7, 5);
+  watchRect(ctx, patch, repair + 1, -8, 5, 4);
+  watchRect(ctx, '#d7c3a0', repair + 1, -8, 1, 1);
+  watchRect(ctx, '#d7c3a0', repair + 4, -5, 1, 1);
+  watchRect(ctx, fold, repair + 3, -15, 3, 1);
+  watchRect(ctx, fold, repair + 2, -14, 2, 2);
+
+  drawCampTwig(ctx, left - 1, peak + 3, top - 4);
+  drawCampTwig(ctx, right + 1, peak + ridge - 1, top - 3);
+  watchRect(ctx, '#b69d7d', peak + 1, top - 1, ridge > 4 ? ridge - 2 : 4, 2);
+  watchRect(ctx, '#483b37', door - 6, -13, 13, 13);
+  watchRect(ctx, hidden ? fold : '#2d252d', door - 5, -12, 11, 12);
+  watchRect(ctx, patch, door - 6, -14, 13, 2);
+  watchRect(ctx, '#866950', door - 7, -10, 2, 10);
+  watchRect(ctx, '#866950', door + 6, -10, 1, 9);
+  if (hidden) {
+    watchRect(ctx, cloth, door - 4, -12, 5, 11);
+    watchRect(ctx, '#a7947c', door + 1, -11, 1, 9);
+    watchRect(ctx, patch, door + 2, -5, 3, 2);
+  } else {
+    watchRect(ctx, '#baa687', door + 4, -12, 2, 8);
+    watchRect(ctx, '#665247', door + 3, -8, 3, 1);
+  }
+}
+
+function drawCampRecruit(ctx, x, tick, walking) {
+  ctx.save();
+  ctx.translate(x, 0);
+  if (walking) {
+    ctx.scale(-1, 1);
+    const stride = (tick >> 1) % 2 ? 2 : -2;
+    watchRect(ctx, '#594745', -2 - stride, -6, 2, 6);
+    watchRect(ctx, '#7b6553', 1 + stride, -6, 2, 6);
+    watchRect(ctx, '#ac8c71', 1 + stride, -1, 3, 1);
+  } else {
+    watchRect(ctx, '#594745', -1, -7, 5, 2);
+    watchRect(ctx, '#7b6553', 3, -6, 2, 5);
+    watchRect(ctx, '#ac8c71', 4, -2, 3, 2);
+  }
+  const bob = walking && (tick & 2) ? -1 : 0;
+  ctx.translate(0, bob);
+  watchRect(ctx, '#4f4945', -4, -11, 7, 6);
+  watchRect(ctx, '#827263', -3, -10, 5, 5);
+  watchRect(ctx, '#a79b82', -2, -8, 2, 2);
+  watchRect(ctx, '#66574c', -4, -6, 2, 2);
+  watchRect(ctx, '#9e8068', 1, -8, 3, 2);
+  watchRect(ctx, '#60574d', -3, -16, 5, 3);
+  watchRect(ctx, '#918271', -2, -16, 3, 1);
+  watchRect(ctx, '#b89373', -1, -14, 4, 3);
+  watchRect(ctx, '#51433e', 2, -13, 1, 1);
+  ctx.restore();
+}
+
+function drawWatchCamp(ctx, camp, watch) {
+  const { x, side, style } = camp;
+  const { tick } = watch;
   const flicker = (tick >> 3) % 2;
+  const tent = CAMP_TENTS[style];
+  const door = tent.peak + Math.floor(tent.ridge / 2);
+  const retreat = watch.campShelterProgress(camp);
   ctx.save();
   ctx.translate(x, watchGround(x));
   ctx.scale(-side, 1);
-  watchRect(ctx, '#2b252cb8', -31, -2, 67, 3);
+  watchRect(ctx, '#2b252cb8', -45, -2, 81, 3);
   sceneGlow(ctx, '#ec9e627e', 29, -7, 17 + flicker);
+  drawCampShelter(ctx, tent, door, retreat === 1);
 
-  // A ripped strip of canvas hangs from the remaining sticks.
-  for (let row = 0; row < 21; row++) {
-    const y = row - 22;
-    const spread = Math.floor(row * .81);
-    const left = -14 - spread;
-    watchRect(ctx, '#353031', left, y, spread + 2, 1);
-    const hem = row < 13 ? -7 + Math.floor(row / 4) : -14 - Math.floor((row - 12) / 2);
-    if (row < 18) watchRect(ctx, row % 4 ? '#756952' : '#8e7e5d', left + 2, y, hem - left - 1, 1);
-    watchRect(ctx, '#b08a61', left, y, 2, 1);
-    if (row < 10 || row > 14) watchRect(ctx, row < 10 ? '#a27a58' : '#80593f', -12 + spread, y, 2, 1);
-  }
-  watchRect(ctx, '#b48c68', -14, -26, 2, 5);
-  watchRect(ctx, '#8b654a', -12, -25, 3, 2);
-  watchRect(ctx, '#d9b588', -14, -22, 5, 2);
-  watchRect(ctx, '#524138', -27, -4, 15, 2);
-  watchRect(ctx, '#a77850', -13, -3, 9, 2);
-  watchRect(ctx, '#704b35', -5, -2, 8, 2);
-
-  // Bark and end grain frame the seated recruit's bent legs.
   watchRect(ctx, '#382b2b', 7, -7, 16, 7);
   watchRect(ctx, '#77513a', 8, -7, 14, 5);
   watchRect(ctx, '#382c2a', 11, -4, 8, 2);
   watchRect(ctx, '#bd9066', 7, -6, 5, 5);
   watchRect(ctx, '#7e543e', 8, -5, 3, 3);
   watchRect(ctx, '#bf8b5d', 9, -4, 1, 1);
-  watchRect(ctx, '#333039', 12, -10, 9, 4);
-  watchRect(ctx, '#56535b', 18, -9, 4, 7);
-  watchRect(ctx, '#9e7158', 20, -3, 5, 3);
-  watchRect(ctx, '#393a39', 10, -18, 7, 9);
-  watchRect(ctx, '#637567', 11, -17, 5, 7);
-  watchRect(ctx, '#abb199', 13, -15, 4, 3);
-  watchRect(ctx, '#cfa183', 16, -13, 4, 2);
-  watchRect(ctx, '#b98265', 12, -22, 7, 5);
-  watchRect(ctx, '#e4b189', 15, -21, 4, 3);
-  watchRect(ctx, '#4b3b3b', 11, -23, 7, 3);
-  watchRect(ctx, '#514342', 17, -20, 1, 1);
+  if (retreat < 1) drawCampRecruit(ctx, Math.round(16 + (door - 16) * retreat), tick, retreat > 0);
 
   watchRect(ctx, '#706059', 25, -2, 10, 2);
   watchRect(ctx, '#d9784e', 27, -5, 6, 4);
@@ -309,7 +367,7 @@ export function drawCreekWatch(ctx, watch) {
     drawTriPortal(ctx, watch.portalOpening);
     ctx.restore();
   }
-  for (const camp of WATCH_CAMPS) if (onScreen(camp.x, 50)) drawWatchCamp(ctx, camp, watch.tick);
+  for (const camp of WATCH_CAMPS) if (onScreen(camp.x, 50)) drawWatchCamp(ctx, camp, watch);
   if (watch.phase === 'day') {
     for (const [bird, pigeon] of WATCH_PIGEONS.entries()) {
       if (watch.huntedPigeons & (1 << bird)) continue;

@@ -37,7 +37,7 @@ const DECORATIONS = [
   { x: START_VIEW + 101, type: 'posts' }, { x: START_VIEW + 351, type: 'posts' },
   { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'pump' }
 ];
-const POND_DOCK = { x: START_VIEW + 258, y: 128 };
+const POND_DOCK = { type: 'dock', x: START_VIEW + 258, y: 128 };
 const TRI_IRIS = '#e89147';
 const rainRandom = makeRandom(23691);
 const streaks = Array.from({ length: WEATHER.storm * WORLD_AREAS.length }, () => ({
@@ -595,7 +595,7 @@ function drawScenery(ctx, type, x, y, converted) {
     paint('#b78453', x - 13, y - 1, 27, 1);
     for (let seam = -10; seam < 13; seam += 5) {
       paint('#4c3934', x + seam, y, 1, 2);
-      paint('#bb966e', x + seam + 2, y + 1, 1, 1);
+      paint('#b58450', x + seam + 2, y + 1, 1, 1);
     }
     for (let step = 0; step < 5; step++) {
       paint('#563d36', x + 11 + step * 2, y - 2 - step * 3, 4, 4);
@@ -640,10 +640,11 @@ function drawStructures(ctx, quarry, left, chipper, skipDecoration) {
     chipper.draw(ctx, decoration, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted));
   }
   const bank = POND_DOCK.x + 22;
-  if (bank >= left && bank - 34 < right && quarry.at(bank, quarryHeight(bank)) === ROCK) {
-    const { x, y } = POND_DOCK;
+  if (bank >= left && bank - 34 < right && !skipDecoration?.(POND_DOCK)
+      && quarry.at(bank, quarryHeight(bank)) === ROCK) {
+    const { x, y, type } = POND_DOCK;
     const converted = quarry.isTriAt(x + 1, y);
-    chipper.draw(ctx, POND_DOCK, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, 'dock', 0, 0, converted));
+    chipper.draw(ctx, POND_DOCK, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted));
   }
   for (const item of quarry.scenery) {
     const { type, x, y } = item;

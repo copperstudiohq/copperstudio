@@ -102,10 +102,10 @@ const watchArea = document.querySelector('#watch-area');
 const watchPosition = document.querySelector('#watch-position');
 const watchPortalState = document.querySelector('#watch-portal-state');
 const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
-for (const { name, side, locations } of WATCH_CAMP_GROUPS) {
+for (const { name, side, camps } of WATCH_CAMP_GROUPS) {
   const marker = document.createElement('button');
   // Arrive within recruiting range with the whole group in view.
-  const x = locations[side === -1 ? 2 : 1] + side * 12;
+  const x = (side === -1 ? camps.at(-1) : camps[0]).x + side * 12;
   const destination = `camp-${side}`;
   marker.type = 'button';
   marker.className = 'watch-camp-marker';
@@ -117,7 +117,8 @@ for (const { name, side, locations } of WATCH_CAMP_GROUPS) {
   watchPosition.before(marker);
 }
 const watchRenderOptions = {
-  skipDecoration: ({ x, type }) => type === 'hut' || WATCH_CAMPS.some((camp) => Math.abs(camp.x - x) <= 44)
+  skipDecoration: ({ x, type }) => type === 'hut' || type === 'dock'
+    || WATCH_CAMPS.some((camp) => Math.abs(camp.x - x) <= 44)
 };
 const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
 const watchMoveKeys = { a: -1, d: 1, arrowleft: -1, arrowright: 1 };
@@ -376,7 +377,7 @@ function drawWatchMode() {
   const label = watch.status === 'ready' ? 'Begin watch' : finished ? 'New watch'
     : action ? action.label + cost : 'No station nearby';
   setWatchText(watchAction, label);
-  watchAction.disabled = active && (paused || !action);
+  watchAction.disabled = active && (paused || !action || action.kind === 'shelter');
   for (const button of watchMoveButtons) button.disabled = finished || (paused && active);
   setWatchText(watchMessage, watch.message);
 }
