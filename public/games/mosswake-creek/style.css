@@ -119,6 +119,8 @@ button, input[type="range"] { cursor: pointer; }
 .watch-action { width: 100%; margin-top: 11px; padding-inline: 9px; white-space: normal; border-color: #62917f; background: #2d4840; color: #d8eee4; }
 .watch-action:hover { background: #38584e; }
 .watch-action:disabled { opacity: .58; cursor: default; }
+.watch-swing { border-color: #a67650; background: #48322a; color: #fce0b3; }
+.watch-swing:hover { background: #593c30; }
 .watch-panel .watch-message { min-height: 37px; margin-top: 11px; }
 .watch-map { display: grid; gap: 9px; padding: 10px 13px; border-top: 1px solid var(--line); }
 .watch-map-label { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; }
@@ -196,6 +198,20 @@ dialog dd { margin: 2px 0 0; }
 .watch-slot-details strong, .watch-slot-details small { display: block; }
 .watch-slot-details small { margin-top: 3px; color: var(--muted); }
 .watch-slot-list .button { min-height: 34px; }
+.watch-market { width: min(560px, calc(100% - 26px)); }
+.market-merchant { display: flex; align-items: center; gap: 16px; margin: 14px 0; }
+.market-merchant canvas { width: 80px; height: 88px; border: 1px solid #7c6049; border-radius: 5px; image-rendering: pixelated; }
+.market-merchant p { margin: 4px 0; }
+#watch-market-balance { color: #f5c184; font-weight: 700; }
+.market-stock { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.market-stock li { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px; border: 1px solid #594237; border-radius: 7px; background: #2c221e; }
+.market-stock canvas { width: 38px; height: 38px; background: #201b20; border-radius: 4px; image-rendering: pixelated; }
+.market-stock div { flex: 1 1 140px; }
+.market-stock strong, .market-stock small { display: block; }
+.market-stock small { margin-top: 4px; color: var(--muted); }
+.market-stock .button { min-height: 34px; }
+#watch-market-status { margin: 12px 0 0; }
+#watch-market-status:empty { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 @media (max-width: 1080px) {

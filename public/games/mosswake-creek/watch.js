@@ -10,10 +10,21 @@ export const WATCH_PORTALS = [
 export const WATCH_HEALTH = 10;
 export const WATCH_DAY = DAY_TICKS;
 export const WATCH_NIGHT = NIGHT_TICKS;
-const WATCH_GUARD_LIMIT = 3;
+const WATCH_GUARD_POSITIONS = 8;
+const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
 export const WATCH_ENEMY_NAME = CREATURES.opus;
 export const WATCH_OPUS_REACH = 12;
+export const WATCH_SWING_TICKS = 10;
+const WATCH_FIRST_SPRAYER_NIGHT = 20;
+const WATCH_RECURRING_SPRAYER_NIGHT = 30;
+export const WATCH_SPRAYER_HEALTH = 24;
+export const WATCH_SPRAYER_BURSTS = 3;
+export const WATCH_SPRAY_FLIGHT = 26;
+export const WATCH_SPRAY_SPLASH = 14;
+export const WATCH_SPRAY_REACH = 78;
+const WATCH_SPRAYER_DUE = TRI_PORTAL_OPEN_TICKS + 52;
+const WATCH_SPRAYER_REACH = 32;
 const WATCH_NO_ACTION = -TICKS_PER_SECOND;
 const WATCH_GUARD_STATS = [
   { range: 88, damage: 1, cooldown: 22 },
@@ -28,6 +39,18 @@ const WATCH_POSTS = [
   { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44 },
   { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44 }
 ];
+export const WATCH_FORWARD_WALLS = WATCH_POSTS.map(({ side, name, wallX }) =>
+  ({ side, name: `${name} forward`, wallX: wallX + side * 82, forward: true }));
+export const WATCH_VENDORS = [
+  { id: 'tools', name: 'Rowan', trade: 'Tool seller', x: WATCH_SIGNAL + 40 },
+  { id: 'arms', name: 'Bram', trade: 'Weaponsmith', x: WATCH_SIGNAL + 78 }
+];
+export const WATCH_MARKET_ITEMS = {
+  sword: { vendor: 'tools', name: 'Sword', cost: 5, damage: 2, reach: 23, cooldown: 16 },
+  'repair-kit': { vendor: 'tools', name: 'Repair Kit', cost: 4, description: 'Repair palisades for 1 copper.' },
+  'copper-sword': { vendor: 'arms', name: 'Copper Sword', cost: 9, damage: 3, reach: 30, cooldown: 14 },
+  'copper-hammer': { vendor: 'arms', name: 'Copper Battle Hammer', cost: 12, damage: 4, reach: 25, cooldown: 27, targets: 2 }
+};
 export const WATCH_PIGEONS = WATCH_POSTS.flatMap(({ side, wallX }) =>
   [49, 94, 143].map((offset) => ({ side, x: wallX + side * offset })));
 export const WATCH_CAMP_GROUPS = [
@@ -48,9 +71,29 @@ export function watchGround(x) {
   return quarryHeight(Math.round(x));
 }
 
-export function watchOpusWall(opus, posts) {
-  const post = posts[opus.side === -1 ? 0 : 1];
-  return post.health > 0 && (opus.x - post.wallX) * opus.side >= 0 ? post : null;
+export function hasWatchSprayer(day) {
+  return day === WATCH_FIRST_SPRAYER_NIGHT || day >= WATCH_RECURRING_SPRAYER_NIGHT;
+}
+
+export function watchRaidWall(raider, posts, forwardWalls = []) {
+  const bank = raider.side === -1 ? 0 : 1;
+  const forward = forwardWalls[bank];
+  if (forward?.health > 0 && (raider.x - forward.wallX) * raider.side >= 0) return forward;
+  const post = posts[bank];
+  return post.health > 0 && (raider.x - post.wallX) * raider.side >= 0 ? post : null;
+}
+
+export function watchIchorLandings(sprayer) {
+  const { from, reach } = sprayer.spray;
+  return [0.48, 0.74, 1].map((fraction) => Math.round(from - sprayer.side * reach * fraction));
+}
+
+export function watchRecruitPose(camp, tick) {
+  const phase = (tick + camp.x * 3) % 240;
+  if (phase < 128) return { x: 16, direction: 1, walking: false };
+  const direction = phase < 184 ? -1 : 1;
+  const travel = Math.min(phase - 128, 240 - phase);
+  return { x: 16 - Math.round(travel * 22 / 56), direction, walking: true };
 }
 
 export function watchPigeonPose(pigeon, tick) {
@@ -84,7 +127,12 @@ export class CreekWatch {
     this.signal = WATCH_HEALTH;
     this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
     this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
+    this.forwardWalls = WATCH_FORWARD_WALLS.map((wall) => ({ ...wall, tier: 0, health: 0 }));
+    this.gear = [];
+    this.weapon = null;
+    this.swingAt = WATCH_NO_ACTION;
     this.raiders = [];
+    this.sprayer = null;
     this.shots = [];
     this.loot = [];
     this.huntedPigeons = 0;
@@ -111,6 +159,19 @@ export class CreekWatch {
     return Math.min(1, this.phaseTick / this.duration);
   }
 
+  get bloodMoon() {
+    return this.phase === 'night' && this.day % 10 === 0;
+  }
+
+  get marketOpen() {
+    return this.forwardWalls.every(({ tier }) => tier > 0);
+  }
+
+  get canSwing() {
+    const item = WATCH_MARKET_ITEMS[this.weapon];
+    return this.status === 'running' && item?.damage > 0 && this.tick - this.swingAt >= item.cooldown;
+  }
+
   get portalOpening() {
     return this.phase === 'night' ? Math.min(1, this.phaseTick / TRI_PORTAL_OPEN_TICKS) : 0;
   }
@@ -130,7 +191,8 @@ export class CreekWatch {
   campShelterProgress(camp) {
     if (this.phase !== 'night') return 0;
     let progress = 0;
-    for (const raider of this.raiders) {
+    const threats = this.sprayer?.hp > 0 ? this.raiders.concat(this.sprayer) : this.raiders;
+    for (const raider of threats) {
       if (raider.side !== camp.side || raider.hp <= 0) continue;
       // Positive distance means the raider is still on the portal side of the camp.
       const distance = (raider.x - camp.x) * camp.side;
@@ -148,11 +210,19 @@ export class CreekWatch {
       if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower', cost: 3 };
       return { kind: 'bell', label: 'Ring the dusk bell', cost: 0 };
     }
+    if (this.marketOpen) {
+      const vendor = WATCH_VENDORS.find(({ x }) => Math.abs(player - x) <= WATCH_USE_RANGE);
+      if (vendor) return { kind: 'market', vendor, label: `Browse ${vendor.name}’s goods`, cost: 0 };
+    }
     const camp = WATCH_CAMPS.find(({ x }) => Math.abs(player - x) <= WATCH_USE_RANGE);
-    const wall = this.posts.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE);
+    const wall = this.posts.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE)
+      ?? this.forwardWalls.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE);
     if (wall && (!camp || Math.abs(player - wall.wallX) <= Math.abs(player - camp.x))) {
-      if (!wall.health) return { kind: 'build', post: wall, label: `Build ${wall.name.toLowerCase()} palisade`, cost: 4 };
-      if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: 2 };
+      if (!wall.tier || (!wall.forward && !wall.health)) {
+        return { kind: 'build', post: wall, label: `Build ${wall.name.toLowerCase()} palisade`, cost: wall.forward ? 5 : 4 };
+      }
+      const repairCost = this.gear.includes('repair-kit') ? 1 : 2;
+      if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: repairCost };
       if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
     }
     if (camp) {
@@ -165,18 +235,18 @@ export class CreekWatch {
   }
 
   getCampAction() {
-    // Guards stay in the roster, so their saved count also preserves the next bank.
-    const count = this.posts.reduce((total, post) => total + post.guards.length, 0);
-    const next = this.posts[count % this.posts.length];
-    // Older saves may have filled one bank first. Keep its cap and fill the other.
-    const post = next.guards.length < WATCH_GUARD_LIMIT ? next
-      : this.posts.find((bank) => bank.guards.length < WATCH_GUARD_LIMIT);
-    if (post) {
-      return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
-    }
-    for (const bank of this.posts) {
-      const guard = bank.guards.find((unit) => unit.rank === 0);
-      if (guard) return { kind: 'train', post: bank, guard, label: `Train ${bank.name.toLowerCase()} veteran`, cost: 4 };
+    const [west, east] = this.posts;
+    const post = west.guards.length <= east.guards.length ? west : east;
+    return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
+  }
+
+  getTrainingAction() {
+    if (this.getAction()?.kind !== 'hire') return null;
+    const recruits = this.posts.reduce((count, { guards }) => count + guards.length, 0);
+    if (recruits < WATCH_VETERAN_UNLOCK) return null;
+    for (const post of this.posts) {
+      const guard = post.guards.find((unit) => unit.rank === 0);
+      if (guard) return { kind: 'train', post, guard, label: `Train ${post.name.toLowerCase()} veteran`, cost: 4 };
     }
     return null;
   }
@@ -185,17 +255,53 @@ export class CreekWatch {
     return post.tier === 2 ? 11 : 6;
   }
 
-  use() {
-    if (this.status === 'ready') return this.start();
+  buyMarketItem(id) {
     const action = this.getAction();
+    if (!Object.hasOwn(WATCH_MARKET_ITEMS, id) || action?.kind !== 'market') return false;
+    const item = WATCH_MARKET_ITEMS[id];
+    if (item.vendor !== action.vendor.id) return false;
+    if (!this.gear.includes(id)) {
+      if (this.coins < item.cost) {
+        this.message = `You need ${item.cost} copper for the ${item.name}.`;
+        return false;
+      }
+      this.coins -= item.cost;
+      this.gear.push(id);
+    }
+    if (item.damage) this.weapon = id;
+    this.message = item.damage ? `${item.name} equipped.` : `${item.name} purchased.`;
+    return true;
+  }
+
+  swing() {
+    if (!this.canSwing) return false;
+    this.swingAt = this.tick;
+    const item = WATCH_MARKET_ITEMS[this.weapon];
+    const { x, direction } = this.player;
+    const targets = this.raiders.filter((enemy) => enemy.hp > 0 && Math.abs(enemy.x - x) <= item.reach
+      && (enemy.x - x) * direction >= 0);
+    if (this.sprayer?.hp > 0) {
+      const distance = (this.sprayer.x - x) * direction;
+      if (distance >= 0 && distance <= item.reach + 23) targets.push(this.sprayer);
+    }
+    targets.sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x));
+    for (const enemy of targets.slice(0, item.targets ?? 1)) this.damageEnemy(enemy, item.damage);
+    this.removeDefeatedOpus();
+    return true;
+  }
+
+  use(kind) {
+    if (this.status === 'ready') return kind === 'train' ? false : this.start();
+    const action = kind === 'train' ? this.getTrainingAction() : this.getAction();
     if (!action) {
-      if (this.status === 'running') this.message = 'Walk up to a camp, a palisade, or the signal tower. Each bank can hold three veterans.';
+      if (this.status === 'running' && kind !== 'train') this.message = 'Walk up to a camp, a palisade, or the signal tower.';
       return false;
     }
     if (action.kind === 'shelter') {
       this.message = 'The recruit will come out when the Tri pass.';
       return false;
     }
+    if (action.kind === 'market') return false;
     if (this.coins < action.cost) {
       this.message = `You need ${action.cost} copper for that.`;
       return false;
@@ -230,7 +336,8 @@ export class CreekWatch {
       case 'build':
         post.tier = 1;
         post.health = this.maxWall(post);
-        this.message = `${post.name} palisade built.`;
+        this.message = post.forward && this.marketOpen ? 'Both forward palisades are built. The bridge market is open.'
+          : `${post.name} palisade built.`;
         break;
     }
     return true;
@@ -248,11 +355,14 @@ export class CreekWatch {
       }
     }
     this.queue.sort((a, b) => a.due - b.due);
-    this.message = `Night ${this.day}. ${WATCH_ENEMY_NAME} are coming through both portals.`;
+    const event = this.bloodMoon ? 'Blood moon' : 'Night';
+    this.message = hasWatchSprayer(this.day) ? `${event} ${this.day}. An Ichor Sprayer is coming from the west.`
+      : `${event} ${this.day}. ${WATCH_ENEMY_NAME} are coming through both portals.`;
   }
 
   finishNight() {
     this.raiders.length = 0;
+    this.sprayer = null;
     this.queue.length = 0;
     this.phase = 'day';
     this.phaseTick = 0;
@@ -294,27 +404,29 @@ export class CreekWatch {
     while (this.queue[0]?.due <= this.phaseTick) {
       const { side } = this.queue.shift();
       const portal = WATCH_PORTALS[side === -1 ? 0 : 1];
-      const hp = this.day < 3 ? 2 : Math.min(5, 3 + Math.floor((this.day - 3) / 4));
-      this.raiders.push({ side, x: portal.x, stride: 0, hp, attackAt: 0, struckAt: WATCH_NO_ACTION });
+      this.spawnOpus(side, portal.x);
     }
     for (const raider of this.raiders) this.moveRaider(raider);
+    this.stepIchorSprayer();
     if (this.signal <= 0) {
       this.status = 'lost';
-      this.message = `The ${WATCH_ENEMY_NAME} extinguished the signal. Start a new watch to try again.`;
+      this.message = 'The raid extinguished the signal. Start a new watch to try again.';
       return;
     }
     this.fireGuards();
-    this.raiders = this.raiders.filter((raider) => {
-      if (raider.hp > 0) return true;
-      if (this.loot.length < 60) this.loot.push({ x: raider.x, amount: 1 });
-      return false;
-    });
+    this.removeDefeatedOpus();
     if (this.phaseTick >= WATCH_NIGHT || (this.phaseTick > TICKS_PER_SECOND * 6
-        && this.queue.length === 0 && this.raiders.length === 0)) this.finishNight();
+        && this.queue.length === 0 && this.raiders.length === 0
+        && !(this.sprayer?.hp > 0 || this.sprayer?.spray))) this.finishNight();
+  }
+
+  spawnOpus(side, x) {
+    const hp = this.day < 3 ? 2 : Math.min(5, 3 + Math.floor((this.day - 3) / 4));
+    this.raiders.push({ side, x, stride: 0, hp, attackAt: 0, struckAt: WATCH_NO_ACTION });
   }
 
   moveRaider(raider) {
-    const post = watchOpusWall(raider, this.posts);
+    const post = watchRaidWall(raider, this.posts, this.forwardWalls);
     const target = post?.wallX ?? WATCH_SIGNAL;
     const distance = Math.abs(raider.x - target);
     if (distance > WATCH_OPUS_REACH) {
@@ -324,17 +436,59 @@ export class CreekWatch {
     } else if (this.tick >= raider.attackAt) {
       raider.struckAt = this.tick;
       raider.attackAt = this.tick + (post ? 44 : 36);
-      if (post) {
-        post.health--;
-        if (post.health === 0) this.message = `${post.name} palisade fell. ${WATCH_ENEMY_NAME} are heading for the signal.`;
-      } else {
-        this.signal = Math.max(0, this.signal - 1);
+      this.strikeDefense(post, 1);
+    }
+  }
+
+  stepIchorSprayer() {
+    if (!hasWatchSprayer(this.day) || this.phaseTick < WATCH_SPRAYER_DUE) return;
+    if (!this.sprayer) {
+      const { side, x } = WATCH_PORTALS[0];
+      this.sprayer = { side, x, hp: WATCH_SPRAYER_HEALTH, attackAt: 0,
+        sprayAt: this.tick + 3 * TICKS_PER_SECOND, burstsLeft: WATCH_SPRAYER_BURSTS, spray: null };
+      this.message = 'The Ichor Sprayer has emerged from the west portal.';
+    }
+    const sprayer = this.sprayer;
+    if (sprayer.spray) {
+      const age = this.tick - sprayer.spray.at;
+      if (age < WATCH_SPRAY_FLIGHT) return;
+      if (age === WATCH_SPRAY_FLIGHT) {
+        for (const landing of watchIchorLandings(sprayer)) this.spawnOpus(sprayer.side, landing);
       }
+      if (age >= WATCH_SPRAY_FLIGHT + WATCH_SPRAY_SPLASH) sprayer.spray = null;
+    }
+    if (sprayer.hp === 0) return;
+
+    const post = watchRaidWall(sprayer, this.posts, this.forwardWalls);
+    const target = post?.wallX ?? WATCH_SIGNAL;
+    const distance = Math.abs(sprayer.x - target);
+    if (sprayer.burstsLeft && this.tick >= sprayer.sprayAt) {
+      const reach = Math.max(0, Math.min(WATCH_SPRAY_REACH, distance - WATCH_OPUS_REACH));
+      sprayer.spray = { from: sprayer.x, reach, at: this.tick };
+      sprayer.sprayAt = this.tick + 5 * TICKS_PER_SECOND;
+      sprayer.burstsLeft--;
+    } else if (distance > WATCH_SPRAYER_REACH) {
+      const speed = 1.14 + 0.47 * Math.sin(this.tick / 8);
+      sprayer.x += Math.sign(target - sprayer.x) * Math.min(distance - WATCH_SPRAYER_REACH, speed);
+    } else if (this.tick >= sprayer.attackAt) {
+      this.strikeDefense(post, 2);
+      sprayer.attackAt = this.tick + 74;
+    }
+  }
+
+  strikeDefense(post, damage) {
+    if (post) {
+      post.health = Math.max(0, post.health - damage);
+      if (!post.health) this.message = `${post.name} palisade fell. The raid is heading for the signal.`;
+    } else {
+      this.signal = Math.max(0, this.signal - damage);
     }
   }
 
   guardX(post, index) {
-    return post.wallX - post.side * (17 + index * 8);
+    const forward = this.forwardWalls[post.side === -1 ? 0 : 1];
+    const wallX = forward.health ? forward.wallX : post.wallX;
+    return wallX - post.side * (17 + (index % WATCH_GUARD_POSITIONS) * 8);
   }
 
   guardPosition(post, index) {
@@ -350,7 +504,7 @@ export class CreekWatch {
           guard.walking = false;
           return;
         }
-        const outer = post.wallX + post.side * (151 + index * 8);
+        const outer = post.wallX + post.side * (151 + (index % WATCH_GUARD_POSITIONS) * 8);
         const target = dusk || guard.returning ? home : outer;
         walkWatchGuard(guard, this.guardPosition(post, index), target, 1.1);
         const from = this.guardPosition(post, index);
@@ -378,7 +532,24 @@ export class CreekWatch {
     this.shots.push({ from, to, end: this.tick + 9, kind });
   }
 
+  damageEnemy(enemy, damage) {
+    enemy.hp = Math.max(0, enemy.hp - damage);
+    if (enemy === this.sprayer && !enemy.hp) {
+      if (this.loot.length < 60) this.loot.push({ x: enemy.x, amount: 6 });
+      this.message = 'The Ichor Sprayer fell and dropped 6 copper.';
+    }
+  }
+
+  removeDefeatedOpus() {
+    this.raiders = this.raiders.filter((raider) => {
+      if (raider.hp > 0) return true;
+      if (this.loot.length < 60) this.loot.push({ x: raider.x, amount: 1 });
+      return false;
+    });
+  }
+
   fireGuards() {
+    const enemies = this.sprayer?.hp > 0 ? this.raiders.concat(this.sprayer) : this.raiders;
     for (const post of this.posts) {
       post.guards.forEach((guard, index) => {
         if (guard.fireAt > this.tick) return;
@@ -386,7 +557,7 @@ export class CreekWatch {
         const { range, damage, cooldown } = WATCH_GUARD_STATS[guard.rank];
         let target;
         let closest = Infinity;
-        for (const raider of this.raiders) {
+        for (const raider of enemies) {
           if (raider.hp <= 0 || raider.side !== post.side || Math.abs(raider.x - from) > range) continue;
           const distance = Math.abs(raider.x - WATCH_SIGNAL);
           if (distance >= closest) continue;
@@ -394,7 +565,7 @@ export class CreekWatch {
           closest = distance;
         }
         if (!target) return;
-        target.hp -= damage;
+        this.damageEnemy(target, damage);
         this.shootWatchArrow(guard, from, target.x, cooldown, 'raid');
       });
     }

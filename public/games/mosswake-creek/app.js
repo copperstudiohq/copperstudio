@@ -1,8 +1,8 @@
 import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_SECOND, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, ERASE, CREATURES, SCENERY, BOSSES, TRI_PORTAL } from './simulation.js';
 import { QuarryRenderer, drawToolIcon } from './art.js';
-import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_CAMP_GROUPS, WATCH_PORTALS, WATCH_SIGNAL } from './watch.js';
+import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_CAMP_GROUPS, WATCH_FORWARD_WALLS, WATCH_MARKET_ITEMS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_VENDORS } from './watch.js';
 import { listWatchSlots, loadWatchSlot, saveWatchSlot, WATCH_SAVE_NAME_LIMIT } from './watch-saves.js';
-import { drawCreekWatch } from './watch-art.js';
+import { drawCreekWatch, drawWatchMarketIcon, drawWatchVendorPortrait } from './watch-art.js';
 
 function sceneryHint(entity, label) {
   const surface = entity === 'dock' ? 'water or land' : 'dry ground';
@@ -93,6 +93,8 @@ const watchView = document.querySelectorAll('[data-watch-view]');
 const headingTitle = document.querySelector('#title');
 const modeDescription = document.querySelector('#mode-description');
 const watchAction = document.querySelector('#watch-use');
+const watchTrain = document.querySelector('#watch-train');
+const watchSwing = document.querySelector('#watch-swing');
 const watchMessage = document.querySelector('#watch-message');
 const watchCoins = document.querySelector('#watch-coins');
 const watchHealth = document.querySelector('#watch-health');
@@ -101,7 +103,9 @@ const watchBankLabels = [document.querySelector('#watch-west'), document.querySe
 const watchArea = document.querySelector('#watch-area');
 const watchPosition = document.querySelector('#watch-position');
 const watchPortalState = document.querySelector('#watch-portal-state');
-const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
+const watchMarketRoute = document.querySelector('[data-watch-destination="market"]');
+const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31,
+  forwardWest: WATCH_FORWARD_WALLS[0].wallX, forwardEast: WATCH_FORWARD_WALLS[1].wallX, market: WATCH_VENDORS[0].x };
 for (const { name, side, camps } of WATCH_CAMP_GROUPS) {
   const marker = document.createElement('button');
   // Arrive within recruiting range with the whole group in view.
@@ -127,6 +131,13 @@ const watchSaveForm = document.querySelector('#watch-save-form');
 const watchSaveName = document.querySelector('#watch-save-name');
 const watchSaveStatus = document.querySelector('#watch-save-status');
 const watchSlotList = document.querySelector('#watch-slot-list');
+const watchMarketDialog = document.querySelector('#watch-market');
+const watchMarketTitle = document.querySelector('#watch-market-title');
+const watchMarketTrade = document.querySelector('#watch-merchant-trade');
+const watchMarketPortrait = document.querySelector('#watch-merchant-portrait');
+const watchMarketBalance = document.querySelector('#watch-market-balance');
+const watchMarketStock = document.querySelector('#watch-market-stock');
+const watchMarketStatus = document.querySelector('#watch-market-status');
 const quarry = new Quarry();
 const renderer = new QuarryRenderer(world);
 let watch = new CreekWatch();
@@ -354,7 +365,8 @@ function drawWatchMode() {
   const active = watch.status === 'running';
   const finished = watch.status === 'lost';
   setWatchText(liveLabel, finished ? 'LOST' : paused ? 'PAUSED' : active ? 'LIVE' : 'READY');
-  setWatchText(timer, `${watch.phase === 'day' ? 'DAY' : 'NIGHT'} ${watch.day} · ${watch.secondsLeft}s`);
+  const phase = watch.bloodMoon ? 'BLOOD MOON' : watch.phase.toUpperCase();
+  setWatchText(timer, `${phase} ${watch.day} · ${watch.secondsLeft}s`);
   timer.dateTime = `PT${watch.secondsLeft}S`;
   setWatchText(watchArea, WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
   const position = `${(watch.player.x / WATCH_BOUNDS.right * 100).toFixed(2)}%`;
@@ -368,9 +380,11 @@ function drawWatchMode() {
   setWatchText(watchHealthLabel, `${watch.signal}/${WATCH_HEALTH}`);
   watch.posts.forEach((post, index) => {
     const wall = post.health ? `Wall ${post.health}/${watch.maxWall(post)}` : 'No wall';
+    const forward = watch.forwardWalls[index];
+    const defense = forward.tier ? `${wall} · Forward ${forward.health}/${watch.maxWall(forward)}` : wall;
     const guards = `${post.guards.length} ${post.guards.length === 1 ? 'guard' : 'guards'}`;
     const veterans = post.guards.filter(({ rank }) => rank === 1).length;
-    setWatchText(watchBankLabels[index], `${wall} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}`);
+    setWatchText(watchBankLabels[index], `${defense} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}`);
   });
   const action = watch.getAction();
   const cost = action?.cost ? ` · ${action.cost} copper` : '';
@@ -378,18 +392,88 @@ function drawWatchMode() {
     : action ? action.label + cost : 'No station nearby';
   setWatchText(watchAction, label);
   watchAction.disabled = active && (paused || !action || action.kind === 'shelter');
+  const training = action?.kind === 'hire' ? watch.getTrainingAction() : null;
+  watchTrain.hidden = !training;
+  if (training) {
+    setWatchText(watchTrain, `${training.label} · ${training.cost} copper`);
+    watchTrain.disabled = paused;
+  }
+  watchMarketRoute.hidden = !watch.marketOpen;
+  watchSwing.hidden = !watch.weapon;
+  if (watch.weapon) {
+    setWatchText(watchSwing, `Swing ${WATCH_MARKET_ITEMS[watch.weapon].name}`);
+    watchSwing.disabled = paused || !watch.canSwing;
+  }
   for (const button of watchMoveButtons) button.disabled = finished || (paused && active);
   setWatchText(watchMessage, watch.message);
 }
 
-function useWatchStation() {
+function renderWatchMarketStock(vendor, focusItem) {
+  setWatchText(watchMarketBalance, `${watch.coins} copper available`);
+  watchMarketStock.replaceChildren();
+  let nextFocus;
+  for (const [id, item] of Object.entries(WATCH_MARKET_ITEMS)) {
+    if (item.vendor !== vendor.id) continue;
+    const owned = watch.gear.includes(id);
+    const equipped = watch.weapon === id;
+    const entry = document.createElement('li');
+    const icon = document.createElement('canvas');
+    icon.width = icon.height = 24;
+    icon.setAttribute('aria-hidden', 'true');
+    drawWatchMarketIcon(icon, id);
+    const info = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = item.name;
+    const detail = document.createElement('small');
+    detail.textContent = item.description ?? `${item.damage} damage · ${item.reach} reach${item.targets ? ' · Hits up to two Tri' : ''}`;
+    info.append(name, detail);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button';
+    button.textContent = equipped ? 'Equipped' : owned ? (item.damage ? 'Equip' : 'Owned') : `Buy · ${item.cost} copper`;
+    button.setAttribute('aria-label', `${button.textContent} ${item.name}`);
+    button.disabled = equipped || (owned && !item.damage);
+    if (id === focusItem && !button.disabled) nextFocus = button;
+    button.addEventListener('click', () => {
+      watch.buyMarketItem(id);
+      setWatchText(watchMarketStatus, watch.message);
+      renderWatchMarketStock(vendor, id);
+      dirty = true;
+    });
+    entry.append(icon, info, button);
+    watchMarketStock.append(entry);
+  }
+  if (focusItem) (nextFocus ?? watchMarketDialog.querySelector('.close-button')).focus();
+}
+
+function openWatchMarket(vendor) {
+  walkKeys.clear();
+  walkTarget = null;
+  setWatchText(watchMarketTitle, `${vendor.name}’s stall`);
+  setWatchText(watchMarketTrade, vendor.trade);
+  setWatchText(watchMarketStatus, '');
+  watchMarketPortrait.setAttribute('aria-label', `Portrait of ${vendor.name}`);
+  drawWatchVendorPortrait(watchMarketPortrait, vendor);
+  renderWatchMarketStock(vendor);
+  watchMarketDialog.showModal();
+}
+
+function swingWatchWeapon() {
+  if (!paused && watch.swing()) dirty = true;
+}
+
+function useWatchStation(kind) {
   if (watch.status === 'lost') {
     watch.reset();
     walkKeys.clear();
     walkTarget = null;
   }
   if (watch.status === 'ready') setPaused(false);
-  if (!paused) watch.use();
+  if (!paused) {
+    const action = kind === 'train' ? null : watch.getAction();
+    if (action?.kind === 'market') openWatchMarket(action.vendor);
+    else watch.use(kind);
+  }
   dirty = true;
 }
 
@@ -507,7 +591,10 @@ document.querySelector('#menu-return').addEventListener('click', () => {
   setMenuVisibility(true);
   menuButtons.find((button) => button.dataset.menuPlay === gameMode).focus({ preventScroll: true });
 });
-watchAction.addEventListener('click', useWatchStation);
+watchAction.addEventListener('click', () => useWatchStation());
+watchTrain.addEventListener('click', () => useWatchStation('train'));
+watchSwing.addEventListener('click', swingWatchWeapon);
+watchMarketDialog.addEventListener('close', () => world.focus({ preventScroll: true }));
 for (const button of watchMoveButtons) {
   button.addEventListener('click', () => {
     const target = watchDestinations[button.dataset.watchDestination]
@@ -681,7 +768,8 @@ world.addEventListener('wheel', (event) => {
 const directions = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
 document.addEventListener('keydown', (event) => {
-  if (!menu.hidden || event.altKey || event.ctrlKey || event.metaKey || guide.open || clearDialog.open || watchSavesDialog.open) return;
+  if (!menu.hidden || event.altKey || event.ctrlKey || event.metaKey || guide.open || clearDialog.open
+      || watchSavesDialog.open || watchMarketDialog.open) return;
   if (event.target instanceof HTMLInputElement) return;
   const key = event.key.toLowerCase();
   if (key === ' ' && !(event.target instanceof HTMLButtonElement)) {
@@ -701,6 +789,9 @@ document.addEventListener('keydown', (event) => {
     } else if (key === 'e' && !event.repeat) {
       event.preventDefault();
       useWatchStation();
+    } else if (key === 'f' && !event.repeat) {
+      event.preventDefault();
+      swingWatchWeapon();
     }
     return;
   }
@@ -747,7 +838,8 @@ function loop(timestamp) {
     camera = Math.abs(difference) < 0.55 ? cameraTarget : camera + difference * (1 - Math.exp(-elapsed / 60));
     dirty = true;
   }
-  if (!paused && !guide.open && !clearDialog.open && !watchSavesDialog.open && (gameMode === 'sandbox' || watch.status === 'running')) {
+  if (!paused && !guide.open && !clearDialog.open && !watchSavesDialog.open && !watchMarketDialog.open
+      && (gameMode === 'sandbox' || watch.status === 'running')) {
     lag += elapsed;
     while (lag >= INTERVAL) {
       if (gameMode === 'watch') watch.step(watchMotion());

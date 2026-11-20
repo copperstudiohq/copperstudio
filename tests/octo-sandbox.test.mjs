@@ -41,6 +41,7 @@ test('controls distinguish painting and keyboard aim from Creek Watch station ac
   assert.match(reply.reply, /drag or tap to paint.*1–9.*B selects Break.*E selects eraser.*Space pauses/);
   assert.match(reply.reply, /arrow keys aim and Enter places.*Shift/);
   assert.match(reply.reply, /Creek Watch.*A\/D, arrow keys or tapping the ground move.*E or the action button/);
+  assert.match(reply.reply, /repair or shop.*F or Swing attacks with your equipped weapon/);
 });
 
 test('Mosswake distinguishes tab-only Sandbox edits from persistent named Creek Watch slots', () => {
@@ -48,6 +49,7 @@ test('Mosswake distinguishes tab-only Sandbox edits from persistent named Creek 
   assert.match(reply.reply, /Sandbox edits are tab-only and restart on reload/);
   assert.match(reply.reply, /Creek Watch has named local save slots.*Save slots.*create or update/);
   assert.match(reply.reply, /Creek Watch saves.*main menu.*Load.*same browser profile and game address/);
+  assert.match(reply.reply, /defenses and purchased gear/);
   assert.match(reply.reply, /Reset restarts only the selected mode/);
   assert.doesNotMatch(reply.reply, /autosave|named worlds|JSON|no persistent saves/);
   assert.match(answer('Mosswake Creek multiplayer').reply, /single-player.*no co-op or online rooms/);
@@ -60,6 +62,7 @@ test('specific game facts cover materials, Tri, bosses and endless Creek Watch d
     ['How does Tri spread ichor in Mosswake Creek?', 'sandbox-tri-growth', /six map pixels.*13 seconds.*75 seconds.*three minutes/],
     ['How do I summon bosses in Mosswake Creek?', 'sandbox-summon-bosses', /dry ground.*water or ichor.*open air/],
     ['How do I win Creek Watch?', 'sandbox-creek-watch', /endless nights.*signal.*palisades.*dawn/i],
+    ['How do I unlock the market in Creek Watch?', 'sandbox-bridge-market', /both forward palisades for 5 copper each.*E to shop.*Rowan.*Repair Kit.*1 copper.*Bram.*F or Swing/],
   ];
   for (const [question, id, fact] of queries) {
     assert.equal(rankKnowledge(question, OCTO_KNOWLEDGE, 'sandbox')[0]?.entry.id, id, question);

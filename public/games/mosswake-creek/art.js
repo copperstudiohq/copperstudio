@@ -394,7 +394,7 @@ function rect(ctx, color, x, y, w, h) {
   ctx.fillRect(x, y, w, h);
 }
 
-function sceneOval(ctx, color, x, y, rx, ry) {
+export function sceneOval(ctx, color, x, y, rx, ry) {
   for (let row = -ry; row <= ry; row++) {
     const half = Math.round(rx * Math.sqrt(1 - (row / ry) ** 2));
     rect(ctx, color, x - half, y + row, half * 2 + 1, 1);
@@ -414,26 +414,31 @@ const SCENE_STARS = Array.from({ length: 38 }, (_, index) => ({
   size: index % 7 === 0 ? 2 : 1
 }));
 
-export function drawSceneSky(ctx, night, progress) {
+const MOON_COLORS = ['#a4b6fa80', '#a2acd0', '#e0e5e9', '#b4bed4', '#bec6d8', '#a5b1d0'];
+const BLOOD_MOON_COLORS = ['#f447598f', '#a83e57', '#ff9888', '#d75c65', '#df686c', '#b3445b'];
+
+export function drawSceneSky(ctx, night, progress, bloodMoon = false) {
   const arc = Math.sin(progress * Math.PI);
   const x = Math.round(20 + progress * (VIEW_WIDTH - 40));
   const y = Math.round(42 - arc * 23);
   const haze = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  haze.addColorStop(0, night ? '#171639cf' : `rgba(90, 150, 163, ${0.24 + arc * 0.28})`);
-  haze.addColorStop(0.37, night ? '#30264b8c' : `rgba(240, 153, 104, ${0.48 - arc * 0.26})`);
-  haze.addColorStop(1, night ? '#1e143772' : '#643e3409');
+  haze.addColorStop(0, night ? (bloodMoon ? '#3c142acf' : '#171639cf') : `rgba(90, 150, 163, ${0.24 + arc * 0.28})`);
+  haze.addColorStop(0.37, night ? (bloodMoon ? '#7121378c' : '#30264b8c') : `rgba(240, 153, 104, ${0.48 - arc * 0.26})`);
+  haze.addColorStop(1, night ? (bloodMoon ? '#40183172' : '#1e143772') : '#643e3409');
   rect(ctx, haze, 0, 0, VIEW_WIDTH, HEIGHT);
   if (night) {
     for (const star of SCENE_STARS) {
       rect(ctx, star.size === 2 ? '#b7c6dfcb' : '#9caad580', star.x, star.y, star.size, 1);
       if (star.size === 2) rect(ctx, '#a3a6d290', star.x, star.y - 1, 1, 3);
     }
-    sceneGlow(ctx, '#a4b6fa80', x, y, 29);
-    sceneOval(ctx, '#a2acd0', x, y, 11, 11);
-    sceneOval(ctx, '#e0e5e9', x - 1, y - 1, 9, 9);
-    rect(ctx, '#b4bed4', x - 6, y - 4, 4, 3);
-    rect(ctx, '#bec6d8', x + 1, y + 2, 5, 3);
-    rect(ctx, '#a5b1d0', x + 4, y - 5, 2, 2);
+    const [glow, rim, face, crater, basin, shade] = bloodMoon ? BLOOD_MOON_COLORS : MOON_COLORS;
+    const radius = bloodMoon ? 15 : 11;
+    sceneGlow(ctx, glow, x, y, bloodMoon ? 41 : 29);
+    sceneOval(ctx, rim, x, y, radius, radius);
+    sceneOval(ctx, face, x - 1, y - 1, radius - 2, radius - 2);
+    rect(ctx, crater, x - 6, y - 4, 4, 3);
+    rect(ctx, basin, x + 1, y + 2, 5, 3);
+    rect(ctx, shade, x + 4, y - 5, 2, 2);
   } else {
     sceneGlow(ctx, '#ffba7eae', x, y, 38);
     sceneOval(ctx, '#f7ab71', x, y, 12, 12);
@@ -801,14 +806,17 @@ export function drawTriOpus(ctx, { stride, tick, walking = true, striking = fals
   rect(ctx, '#e18aa6', -6, -15, 5, 2);
   rect(ctx, '#f5aac2', -5, -15, 2, 1);
 
-  rect(ctx, '#582641', -2, -21, 12, 12);
-  rect(ctx, '#582641', 9, -18, 5, 9);
-  rect(ctx, '#b04d73', -1, -20, 12, 10);
-  rect(ctx, '#d87196', 1, -20, 8, 7);
+  // Blend the side edges into the skin and round only the upper-left corner.
+  rect(ctx, '#b04d73', 1, -21, 9, 12);
+  rect(ctx, '#b04d73', -1, -20, 12, 11);
+  rect(ctx, '#b04d73', -2, -18, 13, 9);
+  rect(ctx, '#d87196', 2, -20, 7, 7);
+  rect(ctx, '#d87196', 1, -19, 8, 6);
   rect(ctx, '#e18cab', 5, -18, 8, 8);
   rect(ctx, '#f5aac2', 3, -20, 5, 1);
   rect(ctx, '#a94d71', 3, -12, 3, 1);
-  rect(ctx, '#893958', 8, -17, 5, 7);
+  rect(ctx, '#d47b9d', 8, -17, 5, 7);
+  rect(ctx, '#893958', 8, -17, 5, 1);
   rect(ctx, '#ffe4ea', 8, -16, 4, 5);
   rect(ctx, TRI_IRIS, 9, -16, 3, 5);
   rect(ctx, '#2f2445', 11, -15, 2, 3);

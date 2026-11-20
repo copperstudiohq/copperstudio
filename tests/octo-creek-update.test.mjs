@@ -25,12 +25,12 @@ test('Octo describes placeable nighttime Blob portals rather than island realm t
   assert.doesNotMatch(reply, /eye sockets|moon book|insert eyes/);
 });
 
-test('Octo explains the two camp groups, alternating hires, prices and bank limits', () => {
+test('Octo explains the two camp groups, balanced hires, prices and veteran training', () => {
   const reply = ask('How do I hire guards and train veterans in Creek Watch?', 'sandbox-recruit-veterans');
   assert.match(reply, /two recruiting camps on each bank.*four total.*tent map marker.*E or the action button.*3 copper/);
   assert.match(reply, /different weathered twig-and-cloth tent.*Tri Opus approach.*hides and closes the flap.*recruiting resumes after they pass/);
-  assert.match(reply, /alternate between west and east defenses/);
-  assert.match(reply, /Each bank has three guard places.*4 copper each/);
+  assert.match(reply, /bank with fewer guards.*ties go west/);
+  assert.match(reply, /no roster limit.*After three guards in total.*separate training button.*4 copper each/);
   assert.match(reply, /archers shoot farther.*double damage/);
 });
 

@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_HEALTH, WATCH_NIGHT, WATCH_PIGEONS } from './watch.js';
+import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -33,11 +33,14 @@ const validWatchFlag = (value) => typeof value === 'boolean';
 const optionalWatchField = (value, isValid) => value === undefined || isValid(value);
 const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.length <= limit
   && items.every((item) => item && isValid(item));
+const validWatchWall = ({ tier, health }) => [0, 1, 2].includes(tier)
+  && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0);
 
 function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
-    shots, loot, huntedPigeons = 0, queue, message } = state;
+    shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
+    swingAt = -TICKS_PER_SECOND } = state;
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
@@ -45,10 +48,15 @@ function validWatchState(state) {
       || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
       || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length) return false;
 
-  return player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
-    && validWatchList(posts, 2, ({ tier, health, guards }) =>
-      [0, 1, 2].includes(tier) && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0)
-      && validWatchList(guards, 3, ({ rank, direction, fireAt, shotAt, x, stride, returning, walking }) =>
+  return (sprayer === null || (phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick)))
+    && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
+    && optionalWatchField(forwardWalls, (walls) => validWatchList(walls, 2, validWatchWall) && walls.length === 2)
+    && validWatchList(gear, Object.keys(WATCH_MARKET_ITEMS).length,
+      (id) => typeof id === 'string' && Object.hasOwn(WATCH_MARKET_ITEMS, id)) && new Set(gear).size === gear.length
+    && (weapon === null || (gear.includes(weapon) && WATCH_MARKET_ITEMS[weapon].damage > 0))
+    && validWatchStamp(swingAt) && swingAt <= tick
+    && validWatchList(posts, 2, (post) => validWatchWall(post)
+      && validWatchList(post.guards, Infinity, ({ rank, direction, fireAt, shotAt, x, stride, returning, walking }) =>
         [0, 1].includes(rank) && validWatchSide(direction) && validWatchCount(fireAt) && validWatchStamp(shotAt)
         && optionalWatchField(x, validWatchX) && optionalWatchField(stride, validWatchCount)
         && optionalWatchField(returning, validWatchFlag) && optionalWatchField(walking, validWatchFlag)
@@ -57,17 +65,29 @@ function validWatchState(state) {
     && validWatchList(raiders, 64, ({ side, x, stride, hp, attackAt, struckAt }) =>
       validWatchSide(side) && validWatchX(x) && validWatchCount(stride)
       && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt))
-    && validWatchList(shots, 64, ({ from, to, end, kind }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
+    && validWatchList(shots, Infinity, ({ from, to, end, kind }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
       && (kind === undefined || kind === 'pigeon' || kind === 'raid'))
     && validWatchList(loot, 128, ({ x, amount }) => validWatchX(x) && validWatchCount(amount) && amount > 0)
     && validWatchList(queue, 64, ({ side, due }) => validWatchSide(side) && validWatchCount(due) && due <= WATCH_NIGHT)
     && queue.every(({ due }, index) => index === 0 || queue[index - 1].due <= due);
 }
 
+function validSprayer(sprayer, tick) {
+  const { side, x, hp, attackAt, sprayAt, burstsLeft, spray } = sprayer;
+  if (side !== -1 || !validWatchX(x) || !validWatchCount(hp) || hp > WATCH_SPRAYER_HEALTH
+      || !validWatchCount(attackAt) || !validWatchCount(sprayAt)
+      || !validWatchCount(burstsLeft) || burstsLeft > WATCH_SPRAYER_BURSTS) return false;
+  return spray === null || (spray && validWatchX(spray.from) && Number.isFinite(spray.reach)
+    && spray.reach >= 0 && spray.reach <= WATCH_SPRAY_REACH && validWatchX(spray.from + spray.reach)
+    && validWatchCount(spray.at) && spray.at <= tick && tick - spray.at < WATCH_SPRAY_FLIGHT + WATCH_SPRAY_SPLASH);
+}
+
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
-    shots, loot, huntedPigeons = 0, queue, message } = watch;
-  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message,
+    shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
+    swingAt = -TICKS_PER_SECOND } = watch;
+  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, sprayer,
+    gear, weapon, swingAt, forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }
 
@@ -103,11 +123,12 @@ export function saveWatchSlot(storage, watch, name, id) {
 export function loadWatchSlot(storage, id) {
   const { state } = readWatchRecord(storage, id);
   const watch = new CreekWatch();
-  const { posts, ...progress } = captureWatchState(state);
+  const { posts, forwardWalls, ...progress } = captureWatchState(state);
   progress.message = progress.message.replace(/\b(?:Ichor Wisps|Wisps|Tri Raiders)\b/gi, WATCH_ENEMY_NAME);
   if (progress.message === 'The tent marker leads to the camp beside the lake bridge. Guards alternate west and east.') {
     progress.message = WATCH_CAMP_HINT;
   }
   const restoredPosts = watch.posts.map((post, index) => ({ ...post, ...posts[index] }));
-  return Object.assign(watch, progress, { posts: restoredPosts });
+  const restoredWalls = watch.forwardWalls.map((wall, index) => ({ ...wall, ...forwardWalls?.[index] }));
+  return Object.assign(watch, progress, { posts: restoredPosts, forwardWalls: restoredWalls });
 }

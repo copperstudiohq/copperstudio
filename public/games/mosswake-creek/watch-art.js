@@ -1,6 +1,6 @@
 import { POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
-import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow } from './art.js';
-import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, watchGround, watchOpusWall, watchPigeonPose } from './watch.js';
+import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow, sceneOval } from './art.js';
+import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_VENDORS, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose } from './watch.js';
 
 function watchRect(ctx, color, x, y, width, height) {
   ctx.fillStyle = color;
@@ -9,14 +9,14 @@ function watchRect(ctx, color, x, y, width, height) {
 
 function drawWatchSky(ctx, watch) {
   const night = watch.phase === 'night';
-  const x = drawSceneSky(ctx, night, watch.phaseProgress);
+  const x = drawSceneSky(ctx, night, watch.phaseProgress, watch.bloodMoon);
   const worldX = watch.camera + x;
   const reflectionX = Math.max(WATCH_BRIDGE.left + 39, Math.min(WATCH_BRIDGE.right - 29, worldX));
   for (let row = 0; row < 12; row++) {
     const waveY = POND_LEVEL + row;
     const shimmer = Math.sin(row * 2.2 + watch.tick / 18);
     const width = 6 + row + Math.round((shimmer + 1) * 3);
-    const tint = night ? '176,191,247' : '255,197,126';
+    const tint = watch.bloodMoon ? '242,102,125' : night ? '176,191,247' : '255,197,126';
     const start = Math.round(reflectionX + shimmer * 4 - width / 2);
     if (row % 3 !== 1 && quarryHeight(start) > waveY && quarryHeight(start + width) > waveY) {
       watchRect(ctx, `rgba(${tint}, ${0.34 - row * 0.02})`, start - watch.camera, waveY, width, 1);
@@ -111,6 +111,13 @@ function drawWatchSignal(ctx, watch) {
 function drawWatchPost(ctx, post) {
   const x = post.wallX;
   const y = watchGround(x);
+  if (post.forward) {
+    watchRect(ctx, '#785d4d', x + 12, y - 26, 2, 26);
+    watchRect(ctx, '#bf8a5d', x + 12, y - 27, 10, 2);
+    watchRect(ctx, '#6d8f82', x + 14, y - 25, 8, 7);
+    watchRect(ctx, '#abd0a7', x + 15, y - 24, 5, 1);
+    watchRect(ctx, '#517666', x + 15, y - 18, 4, 2);
+  }
   if (!post.health) {
     watchRect(ctx, '#543d3a', x - 7, y - 2, 15, 2);
     watchRect(ctx, '#825b48', x - 4, y - 6, 3, 6);
@@ -137,6 +144,114 @@ function drawWatchPost(ctx, post) {
     watchRect(ctx, '#221e2b', x - 9, y - height - 4, 18, 2);
     watchRect(ctx, '#86bfa6', x - 9, y - height - 4, Math.ceil(18 * strength), 2);
   }
+}
+
+function drawMarketSeller(ctx, vendor) {
+  const smith = vendor.id === 'arms';
+  const coat = smith ? '#607c78' : '#8a6e59';
+  const trim = smith ? '#a2aaa0' : '#c39970';
+  watchRect(ctx, '#312935', -6, -12, 12, 11);
+  watchRect(ctx, coat, -5, -11, 10, 10);
+  watchRect(ctx, trim, -5, -11, 4, 2);
+  watchRect(ctx, '#57403a', -2, -9, 7, 8);
+  watchRect(ctx, '#b6855d', -1, -8, 4, 5);
+  watchRect(ctx, '#624539', -5, -3, 11, 2);
+  watchRect(ctx, '#deb589', 0, -3, 2, 2);
+  watchRect(ctx, '#6f4c41', -5, -21, 10, 10);
+  watchRect(ctx, smith ? '#a87765' : '#bf8e6b', -4, -20, 9, 8);
+  watchRect(ctx, smith ? '#d7a484' : '#e4b78b', 0, -19, 5, 5);
+  watchRect(ctx, '#443137', 2, -17, 2, 1);
+  watchRect(ctx, '#63453d', -3, -14, 7, 3);
+  watchRect(ctx, '#946a58', -1, -14, 4, 1);
+  if (smith) {
+    watchRect(ctx, '#3c333b', -5, -23, 9, 4);
+    watchRect(ctx, '#908a85', -3, -23, 5, 1);
+    watchRect(ctx, '#536b6a', -5, -20, 10, 2);
+  } else {
+    watchRect(ctx, '#614439', -5, -24, 8, 3);
+    watchRect(ctx, '#a57e59', -4, -24, 6, 2);
+    watchRect(ctx, '#80573e', -6, -22, 13, 2);
+  }
+  watchRect(ctx, '#aa7a60', -6, -6, 3, 3);
+  watchRect(ctx, '#c49072', 4, -7, 3, 3);
+}
+
+export function drawWatchVendorPortrait(canvas, vendor) {
+  const ctx = canvas.getContext('2d');
+  const backdrop = vendor.id === 'arms' ? '#253a3a' : '#3e2c27';
+  watchRect(ctx, backdrop, 0, 0, canvas.width, canvas.height);
+  watchRect(ctx, '#795943', 3, 3, canvas.width - 6, 1);
+  watchRect(ctx, '#795943', 3, canvas.height - 4, canvas.width - 6, 1);
+  ctx.save();
+  ctx.translate(20, 42);
+  ctx.scale(1.4, 1.4);
+  drawMarketSeller(ctx, vendor);
+  ctx.restore();
+}
+
+function drawWatchGear(ctx, id) {
+  const copper = id !== 'sword';
+  if (id === 'repair-kit') {
+    watchRect(ctx, '#603e36', 0, -4, 15, 11);
+    watchRect(ctx, '#a96d4d', 1, -3, 13, 8);
+    watchRect(ctx, '#e0ac79', 1, -3, 13, 2);
+    watchRect(ctx, '#6e5242', 4, -7, 7, 3);
+    watchRect(ctx, '#dab67e', 6, 0, 3, 2);
+    return;
+  }
+  watchRect(ctx, '#553d3f', -2, -1, 8, 3);
+  watchRect(ctx, '#bf8f65', -1, -1, 5, 1);
+  if (id === 'copper-hammer') {
+    watchRect(ctx, '#88615a', 4, -1, 10, 2);
+    watchRect(ctx, '#683f42', 12, -5, 7, 11);
+    watchRect(ctx, '#d39163', 13, -4, 5, 9);
+    watchRect(ctx, '#f8c487', 17, -5, 2, 11);
+    watchRect(ctx, '#7b9d89', 13, -4, 2, 2);
+  } else {
+    watchRect(ctx, copper ? '#95523e' : '#625a68', 5, -3, 3, 7);
+    watchRect(ctx, copper ? '#d68b61' : '#9ba7b2', 8, -2, copper ? 13 : 10, 5);
+    watchRect(ctx, copper ? '#ffd091' : '#dae6e0', 8, -2, copper ? 13 : 10, 1);
+    watchRect(ctx, copper ? '#ffd091' : '#dae6e0', copper ? 21 : 18, -1, 2, 2);
+  }
+}
+
+export function drawWatchMarketIcon(canvas, id) {
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.translate(id === 'repair-kit' ? 5 : 7, id === 'repair-kit' ? 12 : 20);
+  if (id !== 'repair-kit') ctx.rotate(-Math.PI / 3);
+  drawWatchGear(ctx, id);
+  ctx.restore();
+}
+
+function drawWatchStall(ctx, vendor) {
+  const smith = vendor.id === 'arms';
+  const cloth = smith ? '#537670' : '#9a6350';
+  const stripe = smith ? '#9eaf90' : '#e0af7b';
+  ctx.save();
+  ctx.translate(vendor.x, watchGround(vendor.x));
+  watchRect(ctx, '#382d32', -17, -29, 35, 27);
+  watchRect(ctx, '#50433d', -14, -28, 29, 22);
+  watchRect(ctx, '#89654e', -16, -28, 3, 28);
+  watchRect(ctx, '#89654e', 14, -28, 3, 28);
+  drawMarketSeller(ctx, vendor);
+  watchRect(ctx, '#6a4740', -17, -9, 35, 9);
+  watchRect(ctx, '#cf9e71', -18, -11, 37, 3);
+  watchRect(ctx, '#ae7f5d', -15, -7, 30, 2);
+  for (let x = -12; x < 17; x += 7) watchRect(ctx, '#624239', x, -7, 1, 7);
+  watchRect(ctx, '#443137', -19, -30, 39, 3);
+  watchRect(ctx, cloth, -18, -35, 37, 6);
+  for (let x = -16; x < 18; x += 7) watchRect(ctx, stripe, x, -35, 3, 6);
+  watchRect(ctx, '#77583e', -7, -44, 15, 9);
+  watchRect(ctx, '#e1b783', -5, -43, 11, 1);
+  if (smith) {
+    watchRect(ctx, '#bdc6bc', -1, -42, 2, 5);
+    watchRect(ctx, '#dab587', -3, -40, 6, 1);
+  } else {
+    watchRect(ctx, '#dab587', -1, -42, 2, 5);
+    watchRect(ctx, '#dac49b', -4, -42, 8, 2);
+  }
+  ctx.restore();
 }
 
 const CAMP_TENTS = {
@@ -193,12 +308,12 @@ function drawCampShelter(ctx, tent, door, hidden) {
   }
 }
 
-function drawCampRecruit(ctx, x, tick, walking) {
+function drawCampRecruit(ctx, x, y, tick, direction, walking) {
   ctx.save();
-  ctx.translate(x, 0);
+  ctx.translate(x, y);
+  ctx.scale(direction, 1);
   if (walking) {
-    ctx.scale(-1, 1);
-    const stride = (tick >> 1) % 2 ? 2 : -2;
+    const stride = (tick >> 2) % 2 ? 2 : -2;
     watchRect(ctx, '#594745', -2 - stride, -6, 2, 6);
     watchRect(ctx, '#7b6553', 1 + stride, -6, 2, 6);
     watchRect(ctx, '#ac8c71', 1 + stride, -1, 3, 1);
@@ -207,7 +322,7 @@ function drawCampRecruit(ctx, x, tick, walking) {
     watchRect(ctx, '#7b6553', 3, -6, 2, 5);
     watchRect(ctx, '#ac8c71', 4, -2, 3, 2);
   }
-  const bob = walking && (tick & 2) ? -1 : 0;
+  const bob = walking && (tick & 4) ? -1 : 0;
   ctx.translate(0, bob);
   watchRect(ctx, '#4f4945', -4, -11, 7, 6);
   watchRect(ctx, '#827263', -3, -10, 5, 5);
@@ -241,7 +356,13 @@ function drawWatchCamp(ctx, camp, watch) {
   watchRect(ctx, '#bd9066', 7, -6, 5, 5);
   watchRect(ctx, '#7e543e', 8, -5, 3, 3);
   watchRect(ctx, '#bf8b5d', 9, -4, 1, 1);
-  if (retreat < 1) drawCampRecruit(ctx, Math.round(16 + (door - 16) * retreat), tick, retreat > 0);
+  if (retreat < 1) {
+    const pose = watchRecruitPose(camp, tick);
+    const offset = Math.round(pose.x + (door - pose.x) * retreat);
+    const walking = pose.walking || retreat > 0;
+    const floor = walking ? watchGround(x - side * offset) - watchGround(x) : 0;
+    drawCampRecruit(ctx, offset, floor, tick, retreat > 0 ? -1 : pose.direction, walking);
+  }
 
   watchRect(ctx, '#706059', 25, -2, 10, 2);
   watchRect(ctx, '#d9784e', 27, -5, 6, 4);
@@ -301,7 +422,7 @@ function drawWatchPigeon(ctx, { x, direction, walking }, tick) {
   ctx.restore();
 }
 
-function drawWatchPlayer(ctx, x, y, direction, hemSway) {
+function drawWatchPlayer(ctx, x, y, direction, hemSway, weapon, swingAge) {
   ctx.save();
   ctx.translate(Math.round(x), y);
   ctx.scale(direction, 1);
@@ -329,6 +450,20 @@ function drawWatchPlayer(ctx, x, y, direction, hemSway) {
   watchRect(ctx, '#d89265', 5, -21, 1, 5);
   watchRect(ctx, '#231c29', 1, -21, 4, 5);
   watchRect(ctx, '#231c29', 2, -16, 3, 1);
+  if (weapon) {
+    const swinging = swingAge < WATCH_SWING_TICKS;
+    const angle = swinging ? -1.6 + 2.45 * swingAge / WATCH_SWING_TICKS : -0.74;
+    ctx.translate(5, -10);
+    if (swinging) {
+      ctx.strokeStyle = weapon === 'sword' ? '#ddeaeebc' : '#ffd091bc';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 22, angle - 0.65, angle + 0.12);
+      ctx.stroke();
+    }
+    ctx.rotate(angle);
+    drawWatchGear(ctx, weapon);
+  }
   ctx.restore();
 }
 
@@ -336,7 +471,7 @@ function drawWatchOpus(ctx, opus, watch) {
   const x = Math.round(opus.x);
   const ground = watchGround(x);
   const direction = -opus.side;
-  const target = watchOpusWall(opus, watch.posts)?.wallX ?? WATCH_SIGNAL;
+  const target = watchRaidWall(opus, watch.posts, watch.forwardWalls)?.wallX ?? WATCH_SIGNAL;
   const groundOffset = (offset) => watchGround(Math.max(WATCH_BOUNDS.left,
     Math.min(WATCH_BOUNDS.right, x + direction * offset))) - ground;
   watchRect(ctx, '#281a377c', x - 11, ground - 1, 22, 2);
@@ -348,6 +483,98 @@ function drawWatchOpus(ctx, opus, watch) {
   ctx.restore();
 }
 
+const SPRAYER_MOUTH = { x: 9, y: -31 };
+// Each row starts a section of the silhouette from the tilted crest to the foot.
+const SPRAYER_PROFILE = [
+  [-53, -22, -10], [-50, -26, -5], [-46, -26, 3], [-42, -23, 12],
+  [-38, -21, 19], [-32, -22, 23], [-26, -26, 24], [-20, -31, 23],
+  [-14, -39, 26], [-9, -46, 32], [-4, -51, 34], [0, -54, 30]
+];
+
+function drawIchorSprayer(ctx, sprayer, tick) {
+  const x = Math.round(sprayer.x);
+  const ground = watchGround(x);
+  const contracting = Math.round(4 * Math.sin(tick / 8));
+  const spraying = sprayer.spray && tick - sprayer.spray.at < WATCH_SPRAY_FLIGHT;
+  const lean = spraying ? -3 : Math.round(contracting / 2);
+  ctx.save();
+  ctx.translate(x, ground);
+  ctx.scale(-sprayer.side, 1);
+
+  watchRect(ctx, '#3a2339a6', -54 - contracting, -2, 89 + contracting, 3);
+  for (let section = 1; section < SPRAYER_PROFILE.length; section++) {
+    const [top, startLeft, startRight] = SPRAYER_PROFILE[section - 1];
+    const [bottom, endLeft, endRight] = SPRAYER_PROFILE[section];
+    for (let y = top; y < bottom; y++) {
+      const depth = (y - top) / (bottom - top);
+      const sway = Math.round(lean * (-y / 53));
+      const left = Math.round(startLeft + (endLeft - startLeft) * depth + sway - contracting * (1 + y / 53));
+      const right = Math.round(startRight + (endRight - startRight) * depth + sway);
+      const width = right - left;
+      watchRect(ctx, '#482845', left, y, width, 1);
+      if (y === -53 || y === -1) continue;
+      watchRect(ctx, y > -6 ? '#435685' : '#9f3e70', left + 1, y, width - 2, 1);
+      watchRect(ctx, y > -6 ? '#6595c3' : '#cc6498', left + 3, y, width - 9, 1);
+    }
+  }
+  // Folds run through the crest and down into the same soft body.
+  for (let row = 0; row < 31; row++) {
+    const x = Math.round(-21 + (row < 13 ? row * 0.85 : 11 - (row - 13) * 0.45) + lean * (1 - row / 40));
+    watchRect(ctx, '#b44d83', x - 1, -49 + row, 17, 1);
+    watchRect(ctx, '#e88ab4', x, -49 + row, 5 + Math.floor(row / 8), 1);
+    if (row < 15) watchRect(ctx, '#f3a6c6', x + 2, -49 + row, 2, 1);
+  }
+  for (const [x, y, width] of [[-26, -16, 14], [-37, -10, 13], [-17, -9, 16], [3, -12, 17]]) {
+    const pull = Math.round(contracting * (x - 18) / 74);
+    watchRect(ctx, '#b14a80', x + pull, y, width, 3);
+    watchRect(ctx, '#e58ab3', x + pull + 2, y, width - 5, 1);
+  }
+  watchRect(ctx, '#8ab9d5', -37 - contracting, -4, 25, 1);
+  watchRect(ctx, '#8ab9d5', 1, -4, 19, 1);
+
+  const mouthX = SPRAYER_MOUTH.x;
+  const mouthY = SPRAYER_MOUTH.y;
+  const gape = spraying ? 9 : 5;
+  sceneOval(ctx, '#ed92b5', mouthX, mouthY, 13, gape + 3);
+  sceneOval(ctx, '#35192f', mouthX, mouthY - 1, 11, gape + 1);
+  sceneOval(ctx, '#b74d6e', mouthX + 1, mouthY + 2, 9, gape - 2);
+  watchRect(ctx, '#ef8a87', mouthX - 4, mouthY + 1, 10, 2);
+  watchRect(ctx, '#f6b4a1', mouthX + 2, mouthY + 2, 5, 1);
+  watchRect(ctx, '#d46e78', mouthX + 8, mouthY + 4, 2, 5);
+  if (spraying) watchRect(ctx, '#faa49c', mouthX + 11, mouthY, 8, 4);
+
+  watchRect(ctx, '#281925', -23, -66, 46, 4);
+  watchRect(ctx, '#f17d89', -22, -65, Math.ceil(44 * sprayer.hp / WATCH_SPRAYER_HEALTH), 2);
+  ctx.restore();
+}
+
+function drawWatchIchorSpray(ctx, sprayer, tick) {
+  const { from, at } = sprayer.spray;
+  const age = tick - at;
+  const startX = from - sprayer.side * (SPRAYER_MOUTH.x + 9);
+  const startY = watchGround(from) + SPRAYER_MOUTH.y;
+  for (const [index, landing] of watchIchorLandings(sprayer).entries()) {
+    const ground = watchGround(landing);
+    if (age >= WATCH_SPRAY_FLIGHT) {
+      const splash = (age - WATCH_SPRAY_FLIGHT) / WATCH_SPRAY_SPLASH;
+      const spread = 3 + Math.round(5 * splash);
+      watchRect(ctx, '#ac5268', landing - spread, ground - 1, spread * 2, 2);
+      watchRect(ctx, '#f0a390', landing - spread, ground - 1, spread, 1);
+      watchRect(ctx, '#f0a390', landing + spread, ground - 3 - Math.round(14 * splash * (1 - splash)), 2, 2);
+      continue;
+    }
+    for (let trail = 2; trail >= 0; trail--) {
+      const progress = (age - 3 * trail) / WATCH_SPRAY_FLIGHT;
+      if (progress < 0) continue;
+      const x = Math.round(startX + (landing - startX) * progress);
+      const arch = (17 + index * 7) * 4 * progress * (1 - progress);
+      const y = Math.round(startY + (ground - 2 - startY) * progress - arch);
+      sceneOval(ctx, trail ? '#ba5b75' : '#e27985', x, y, 5 - trail, 3 - trail);
+      if (!trail) watchRect(ctx, '#ffd0b4', x - 2, y - 1, 3, 1);
+    }
+  }
+}
+
 export function drawCreekWatch(ctx, watch) {
   drawWatchSky(ctx, watch);
   const left = watch.camera;
@@ -356,6 +583,9 @@ export function drawCreekWatch(ctx, watch) {
   ctx.translate(-left, 0);
   if (onScreen(WATCH_SIGNAL, 86)) drawWatchBridge(ctx);
   if (onScreen(WATCH_SIGNAL, 36)) drawWatchSignal(ctx, watch);
+  if (watch.marketOpen) {
+    for (const vendor of WATCH_VENDORS) if (onScreen(vendor.x, 23)) drawWatchStall(ctx, vendor);
+  }
   for (const portal of WATCH_PORTALS) {
     if (!onScreen(portal.x, 46)) continue;
     const { x, side } = portal;
@@ -375,6 +605,7 @@ export function drawCreekWatch(ctx, watch) {
       if (onScreen(pose.x, 11)) drawWatchPigeon(ctx, pose, watch.tick);
     }
   }
+  for (const wall of watch.forwardWalls) if (onScreen(wall.wallX, 24)) drawWatchPost(ctx, wall);
   for (const post of watch.posts) {
     drawWatchPost(ctx, post);
     for (let index = 0; index < post.guards.length; index++) {
@@ -389,6 +620,9 @@ export function drawCreekWatch(ctx, watch) {
     watchRect(ctx, '#f1b36a', coin.x - 1, y - 2, 3, 4);
     watchRect(ctx, '#ffe4a8', coin.x, y - 1, 1, 2);
   }
+  const { sprayer } = watch;
+  if (sprayer?.hp > 0 && onScreen(sprayer.x, 54)) drawIchorSprayer(ctx, sprayer, watch.tick);
+  if (sprayer?.spray && onScreen(sprayer.spray.from, 104)) drawWatchIchorSpray(ctx, sprayer, watch.tick);
   for (const raider of watch.raiders) {
     if (!onScreen(raider.x, 26)) continue;
     drawWatchOpus(ctx, raider, watch);
@@ -402,6 +636,6 @@ export function drawCreekWatch(ctx, watch) {
     ctx.stroke();
   }
   const { x, direction, step } = watch.player;
-  drawWatchPlayer(ctx, x, watchGround(x), direction, (step >> 2) % 2);
+  drawWatchPlayer(ctx, x, watchGround(x), direction, (step >> 2) % 2, watch.weapon, watch.tick - watch.swingAt);
   ctx.restore();
 }
