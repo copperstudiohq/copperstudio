@@ -43,3 +43,10 @@ test('Creek Watch guidance covers endless nights, the map, preparation time and 
   assert.match(saves.reply, /Sandbox edits are tab-only.*Creek Watch has named local save slots/);
   assert.match(saves.reply, /Creek Watch saves.*main menu.*Load.*same browser profile and game address/);
 });
+
+test('Octo explains automatic map-wide guard pickups and waiting for their safe return', () => {
+  const reply = ask('How do guards collect coins in Creek Watch?', 'sandbox-guard-collectors');
+  assert.match(reply, /across the whole map.*including pigeon drops.*automatically adds it to your copper/);
+  assert.match(reply, /enough daylight.*reach the coins and return.*too far away wait for a later day/);
+  assert.match(reply, /bell recalls the guards first.*Night and the portals wait until everyone is home.*natural dusk/);
+});

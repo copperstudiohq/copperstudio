@@ -32,6 +32,9 @@ const WATCH_GUARD_STATS = [
 ];
 const WATCH_USE_RANGE = 19;
 const WATCH_SPEED = 2.05;
+const WATCH_GUARD_SPEED = 1.1;
+const WATCH_GUARD_RETURN_SPEED = 1.35;
+const WATCH_GUARD_RETURN_MARGIN = 9;
 const CAMP_APPROACH_RANGE = 120;
 const CAMP_CLEARANCE_RANGE = 92;
 const CAMP_RETREAT_DISTANCE = 32;
@@ -136,6 +139,7 @@ export class CreekWatch {
     this.shots = [];
     this.loot = [];
     this.huntedPigeons = 0;
+    this.recallingGuards = false;
     this.stockCaches();
     this.queue = [];
     this.message = 'Build palisades and hire guards before the first raid.';
@@ -208,7 +212,7 @@ export class CreekWatch {
     const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
     if (atSignal && this.phase === 'day') {
       if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower', cost: 3 };
-      return { kind: 'bell', label: 'Ring the dusk bell', cost: 0 };
+      return { kind: 'bell', label: this.recallingGuards ? 'Waiting for guards to return' : 'Ring the dusk bell', cost: 0 };
     }
     if (this.marketOpen) {
       const vendor = WATCH_VENDORS.find(({ x }) => Math.abs(player - x) <= WATCH_USE_RANGE);
@@ -344,6 +348,19 @@ export class CreekWatch {
   }
 
   startNight() {
+    if (!this.posts.every((post) => post.guards.every((guard, index) =>
+      this.guardPosition(post, index) === this.guardX(post, index)))) {
+      this.recallingGuards = true;
+      this.message = 'Guards are returning to their defenses. The portals will open when everyone is home.';
+      return false;
+    }
+    this.recallingGuards = false;
+    for (const post of this.posts) {
+      for (const guard of post.guards) {
+        guard.returning = false;
+        guard.walking = false;
+      }
+    }
     this.phase = 'night';
     this.phaseTick = 0;
     this.queue = [];
@@ -358,6 +375,7 @@ export class CreekWatch {
     const event = this.bloodMoon ? 'Blood moon' : 'Night';
     this.message = hasWatchSprayer(this.day) ? `${event} ${this.day}. An Ichor Sprayer is coming from the west.`
       : `${event} ${this.day}. ${WATCH_ENEMY_NAME} are coming through both portals.`;
+    return true;
   }
 
   finishNight() {
@@ -368,6 +386,8 @@ export class CreekWatch {
     this.phaseTick = 0;
     this.day++;
     this.huntedPigeons = 0;
+    this.recallingGuards = false;
+    for (const post of this.posts) for (const guard of post.guards) guard.returning = false;
     this.coins += 3;
     this.stockCaches();
     this.message = `Dawn of day ${this.day}. You earned 3 copper. Repair and prepare for the next raid.`;
@@ -376,7 +396,7 @@ export class CreekWatch {
   step(direction = 0) {
     if (this.status !== 'running') return;
     this.tick++;
-    this.phaseTick++;
+    this.phaseTick = this.phase === 'day' ? Math.min(WATCH_DAY, this.phaseTick + 1) : this.phaseTick + 1;
     if (direction) {
       this.player.x = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, this.player.x + direction * WATCH_SPEED));
       this.player.direction = direction;
@@ -389,17 +409,16 @@ export class CreekWatch {
     });
     this.shots = this.shots.filter(({ end }) => end > this.tick);
     if (this.phase === 'day') {
-      if (this.phaseTick >= WATCH_DAY) this.startNight();
-      else {
-        if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
-          this.message = 'Dusk in 10 seconds. The guards are heading back to their posts.';
-        }
-        this.patrolGuards();
+      if (this.phaseTick >= WATCH_DAY) this.recallingGuards = true;
+      if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
+        this.message = 'Dusk in 10 seconds. The guards are securing their posts.';
       }
+      this.patrolGuards();
+      if (this.recallingGuards) this.startNight();
       return;
     }
     for (const post of this.posts) {
-      post.guards.forEach((guard, index) => walkWatchGuard(guard, this.guardPosition(post, index), this.guardX(post, index), 1.35));
+      post.guards.forEach((guard, index) => walkWatchGuard(guard, this.guardPosition(post, index), this.guardX(post, index), WATCH_GUARD_RETURN_SPEED));
     }
     while (this.queue[0]?.due <= this.phaseTick) {
       const { side } = this.queue.shift();
@@ -496,20 +515,43 @@ export class CreekWatch {
   }
 
   patrolGuards() {
-    const dusk = this.phaseTick >= WATCH_DAY - 10 * TICKS_PER_SECOND;
+    const claimed = new Set();
+    const remaining = WATCH_DAY - this.phaseTick;
     for (const post of this.posts) {
       post.guards.forEach((guard, index) => {
         const home = this.guardX(post, index);
-        if (!dusk && this.tick - guard.shotAt < 9) {
+        const position = this.guardPosition(post, index);
+        this.collectGuardCoins(position);
+        const returnTicks = Math.ceil(Math.abs(position - home) / WATCH_GUARD_RETURN_SPEED);
+        const mustReturn = this.recallingGuards || remaining <= returnTicks + WATCH_GUARD_RETURN_MARGIN;
+        if (mustReturn) {
+          guard.returning = true;
+          walkWatchGuard(guard, position, home, WATCH_GUARD_RETURN_SPEED);
+          this.collectGuardCoins(this.guardPosition(post, index));
+          return;
+        }
+        if (this.tick - guard.shotAt < 9) {
           guard.walking = false;
           return;
         }
+        // Claim actual loot objects, so collection or player pickups cannot shift target indexes.
+        let piece;
+        let nearest = Infinity;
+        for (const coin of this.loot) {
+          const distance = Math.abs(coin.x - position);
+          if (claimed.has(coin) || distance >= nearest || !this.canGuardVisit(position, coin.x, home)) continue;
+          piece = coin;
+          nearest = distance;
+        }
+        if (piece) claimed.add(piece);
         const outer = post.wallX + post.side * (151 + (index % WATCH_GUARD_POSITIONS) * 8);
-        const target = dusk || guard.returning ? home : outer;
-        walkWatchGuard(guard, this.guardPosition(post, index), target, 1.1);
+        const target = piece ? piece.x : !guard.returning && this.canGuardVisit(position, outer, home) ? outer : home;
+        walkWatchGuard(guard, position, target, WATCH_GUARD_SPEED);
         const from = this.guardPosition(post, index);
-        if (from === target) guard.returning = !dusk && target === outer;
-        if (dusk || Math.abs(from - home) < 21 || guard.fireAt > this.tick) return;
+        this.collectGuardCoins(from);
+        if (piece) guard.returning = false;
+        else if (from === target) guard.returning = target === outer;
+        if (Math.abs(from - home) < 21 || guard.fireAt > this.tick) return;
 
         for (const [bird, pigeon] of WATCH_PIGEONS.entries()) {
           if (pigeon.side !== post.side || (this.huntedPigeons & (1 << bird))) continue;
@@ -518,11 +560,28 @@ export class CreekWatch {
           this.huntedPigeons |= 1 << bird;
           if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
           this.shootWatchArrow(guard, from, to, 44, 'pigeon');
-          this.message = 'A guard hunted a pigeon. Pick up the copper it dropped.';
+          this.message = 'A guard hunted a pigeon. Guards will collect the copper for you.';
           break;
         }
       });
     }
+  }
+
+  canGuardVisit(from, target, home) {
+    const travel = Math.ceil(Math.abs(target - from) / WATCH_GUARD_SPEED);
+    const back = Math.ceil(Math.abs(target - home) / WATCH_GUARD_RETURN_SPEED);
+    return travel + back + WATCH_GUARD_RETURN_MARGIN < WATCH_DAY - this.phaseTick;
+  }
+
+  collectGuardCoins(x) {
+    let amount = 0;
+    this.loot = this.loot.filter((piece) => {
+      if (Math.abs(piece.x - x) > 6) return true;
+      amount += piece.amount;
+      return false;
+    });
+    this.coins += amount;
+    if (amount && !this.recallingGuards) this.message = `A guard collected ${amount} copper for you.`;
   }
 
   shootWatchArrow(guard, from, to, cooldown, kind) {

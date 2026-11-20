@@ -40,13 +40,14 @@ function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
-    swingAt = -TICKS_PER_SECOND } = state;
+    swingAt = -TICKS_PER_SECOND, recallingGuards = false } = state;
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
       || !validWatchCount(coins) || !validWatchCount(signal) || signal > WATCH_HEALTH
       || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
-      || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length) return false;
+      || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length
+      || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')) return false;
 
   return (sprayer === null || (phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick)))
     && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
@@ -85,9 +86,9 @@ function validSprayer(sprayer, tick) {
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
-    swingAt = -TICKS_PER_SECOND } = watch;
+    swingAt = -TICKS_PER_SECOND, recallingGuards = false } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, sprayer,
-    gear, weapon, swingAt, forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
+    gear, weapon, swingAt, recallingGuards, forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }
 
