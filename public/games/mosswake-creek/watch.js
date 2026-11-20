@@ -2,6 +2,7 @@ import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS
 
 export const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
 export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
+export const WATCH_TOWER_ROOM = { left: 34, right: 350, door: 54, ground: 174 };
 export const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
 export const WATCH_PORTALS = [
   { side: -1, x: WATCH_BOUNDS.left + 26 },
@@ -128,6 +129,9 @@ export class CreekWatch {
     this.phaseTick = 0;
     this.coins = 6;
     this.signal = WATCH_HEALTH;
+    this.towerUpgraded = false;
+    this.insideTower = false;
+    this.interiorX = WATCH_TOWER_ROOM.door;
     this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
     this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
     this.forwardWalls = WATCH_FORWARD_WALLS.map((wall) => ({ ...wall, tier: 0, health: 0 }));
@@ -173,7 +177,7 @@ export class CreekWatch {
 
   get canSwing() {
     const item = WATCH_MARKET_ITEMS[this.weapon];
-    return this.status === 'running' && item?.damage > 0 && this.tick - this.swingAt >= item.cooldown;
+    return this.status === 'running' && !this.insideTower && item?.damage > 0 && this.tick - this.swingAt >= item.cooldown;
   }
 
   get portalOpening() {
@@ -208,6 +212,7 @@ export class CreekWatch {
 
   getAction() {
     if (this.status !== 'running') return null;
+    if (this.insideTower) return { kind: 'tower-exit', label: 'Leave tower room', cost: 0 };
     const player = this.player.x;
     const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
     if (atSignal && this.phase === 'day') {
@@ -236,6 +241,14 @@ export class CreekWatch {
       return this.getCampAction();
     }
     return null;
+  }
+
+  getTowerAction() {
+    if (this.status !== 'running') return null;
+    if (this.insideTower) return { kind: 'tower-exit', label: 'Leave tower room', cost: 0 };
+    if (this.phase !== 'day' || Math.abs(this.player.x - WATCH_SIGNAL) > WATCH_USE_RANGE) return null;
+    return this.towerUpgraded ? { kind: 'tower-enter', label: 'Enter tower room', cost: 0 }
+      : { kind: 'tower-upgrade', label: 'Upgrade tower room', cost: 100 };
   }
 
   getCampAction() {
@@ -295,8 +308,9 @@ export class CreekWatch {
   }
 
   use(kind) {
-    if (this.status === 'ready') return kind === 'train' ? false : this.start();
-    const action = kind === 'train' ? this.getTrainingAction() : this.getAction();
+    if (this.status === 'ready') return kind === 'train' || kind === 'tower' ? false : this.start();
+    const action = kind === 'train' ? this.getTrainingAction()
+      : kind === 'tower' ? this.getTowerAction() : this.getAction();
     if (!action) {
       if (this.status === 'running' && kind !== 'train') this.message = 'Walk up to a camp, a palisade, or the signal tower.';
       return false;
@@ -313,6 +327,21 @@ export class CreekWatch {
     const { post } = action;
     this.coins -= action.cost;
     switch (action.kind) {
+      case 'tower-upgrade':
+        this.towerUpgraded = true;
+        this.message = 'Tower room built. You can enter during the day.';
+        break;
+      case 'tower-enter':
+        this.insideTower = true;
+        this.interiorX = WATCH_TOWER_ROOM.door;
+        this.player.x = WATCH_SIGNAL;
+        this.message = 'Inside the tower room. The outside watch is paused; use the action button or E to leave.';
+        break;
+      case 'tower-exit':
+        this.insideTower = false;
+        this.player.x = WATCH_SIGNAL;
+        this.message = 'You left the tower room. The watch continues.';
+        break;
       case 'bell':
         this.startNight();
         return true;
@@ -348,6 +377,7 @@ export class CreekWatch {
   }
 
   startNight() {
+    if (this.insideTower) return false;
     if (!this.posts.every((post) => post.guards.every((guard, index) =>
       this.guardPosition(post, index) === this.guardX(post, index)))) {
       this.recallingGuards = true;
@@ -395,6 +425,15 @@ export class CreekWatch {
 
   step(direction = 0) {
     if (this.status !== 'running') return;
+    if (this.insideTower) {
+      if (direction) {
+        this.interiorX = Math.max(WATCH_TOWER_ROOM.left,
+          Math.min(WATCH_TOWER_ROOM.right, this.interiorX + direction * WATCH_SPEED));
+        this.player.direction = direction;
+        this.player.step++;
+      }
+      return;
+    }
     this.tick++;
     this.phaseTick = this.phase === 'day' ? Math.min(WATCH_DAY, this.phaseTick + 1) : this.phaseTick + 1;
     if (direction) {

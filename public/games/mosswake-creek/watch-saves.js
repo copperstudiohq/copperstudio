@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, hasWatchSprayer } from './watch.js';
+import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_ROOM, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -40,14 +40,18 @@ function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
-    swingAt = -TICKS_PER_SECOND, recallingGuards = false } = state;
+    swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
+    insideTower = false, interiorX = WATCH_TOWER_ROOM.door } = state;
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
       || !validWatchCount(coins) || !validWatchCount(signal) || signal > WATCH_HEALTH
       || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
       || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length
-      || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')) return false;
+      || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')
+      || !validWatchFlag(towerUpgraded) || !validWatchFlag(insideTower)
+      || !Number.isFinite(interiorX) || interiorX < WATCH_TOWER_ROOM.left || interiorX > WATCH_TOWER_ROOM.right
+      || (insideTower && (!towerUpgraded || status !== 'running' || phase !== 'day' || player?.x !== WATCH_SIGNAL))) return false;
 
   return (sprayer === null || (phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick)))
     && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
@@ -89,9 +93,11 @@ function validSprayer(sprayer, tick) {
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
-    swingAt = -TICKS_PER_SECOND, recallingGuards = false } = watch;
+    swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
+    insideTower = false, interiorX = WATCH_TOWER_ROOM.door } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, sprayer,
-    gear, weapon, swingAt, recallingGuards, forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
+    gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, interiorX,
+    forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }
 

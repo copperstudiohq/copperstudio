@@ -107,6 +107,7 @@ button, input[type="range"] { cursor: pointer; }
 .watch-panel { padding: 16px; }
 .watch-panel h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
 .watch-panel p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+#watch-description { font-size: 14px; }
 .watch-copper, .watch-integrity, .watch-bank { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
 .watch-copper { margin: 16px 0 12px; padding: 8px 10px; border: 1px solid #624734; border-radius: 7px; background: #34271e; }
 .watch-copper span { display: inline-flex; align-items: center; gap: 7px; }
@@ -116,9 +117,11 @@ button, input[type="range"] { cursor: pointer; }
 #watch-health { width: 100%; height: 9px; margin: 8px 0 12px; accent-color: #85b99f; }
 .watch-bank { padding: 8px 0; border-top: 1px solid var(--line); }
 .watch-bank span { color: var(--muted); text-align: right; }
-.watch-action { width: 100%; margin-top: 11px; padding-inline: 9px; white-space: normal; border-color: #62917f; background: #2d4840; color: #d8eee4; }
+.watch-action { width: 100%; margin-top: 11px; padding-inline: 9px; white-space: normal; font-size: 14px; border-color: #62917f; background: #2d4840; color: #d8eee4; }
 .watch-action:hover { background: #38584e; }
 .watch-action:disabled { opacity: .58; cursor: default; }
+.watch-tower { font-size: 14px; border-color: #ba8256; background: #593a2c; color: #ffe0ad; }
+.watch-tower:hover { background: #6c4732; }
 .watch-swing { border-color: #a67650; background: #48322a; color: #fce0b3; }
 .watch-swing:hover { background: #593c30; }
 .watch-panel .watch-message { min-height: 37px; margin-top: 11px; }
@@ -200,7 +203,7 @@ dialog dd { margin: 2px 0 0; }
 .watch-slot-list .button { min-height: 34px; }
 .watch-market { width: min(560px, calc(100% - 26px)); }
 .market-merchant { display: flex; align-items: center; gap: 16px; margin: 14px 0; }
-.market-merchant canvas { width: 80px; height: 88px; border: 1px solid #7c6049; border-radius: 5px; image-rendering: pixelated; }
+.market-merchant canvas { width: 128px; height: 144px; flex: 0 0 auto; border: 2px solid #a07850; border-radius: 4px; box-shadow: 0 3px 0 #100e12, inset 0 0 0 2px #342927; image-rendering: pixelated; }
 .market-merchant p { margin: 4px 0; }
 #watch-market-balance { color: #f5c184; font-weight: 700; }
 .market-stock { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }

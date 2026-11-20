@@ -51,3 +51,16 @@ test('Octo explains carried coin deliveries and keeping bags during a safe recal
   assert.match(reply, /early bell recalls guards directly.*passing guards.*without a detour.*Night and the portals wait until everyone is home/);
   assert.match(replyAsOcto(createOctoChat(), 'Mosswake Creek saves').reply, /carried copper and delivered piles/);
 });
+
+test('Octo explains the paid-once tower dining room and its safe exit', () => {
+  for (const question of [
+    'How do I upgrade the tower in Creek Watch?',
+    'How do I enter the tower dining room in Mosswake Creek?',
+    'Where is the red tablecloth dinner table in Creek Watch?',
+  ]) {
+    const reply = ask(question, 'sandbox-tower-dining');
+    assert.match(reply, /during the day.*Upgrade tower for 100 copper.*pay once.*Enter tower.*red tablecloth/);
+    assert.match(reply, /A\/D.*arrow keys.*tap.*E or Leave tower.*Time and the outside watch pause/);
+    assert.match(reply, /upgrade and your room location.*named Watch save slots/);
+  }
+});

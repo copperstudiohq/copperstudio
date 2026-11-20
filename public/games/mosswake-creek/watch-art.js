@@ -1,6 +1,7 @@
-import { POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
+import { HEIGHT, POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
 import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow, sceneOval } from './art.js';
-import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_VENDORS, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose } from './watch.js';
+import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_ROOM, WATCH_VENDORS, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose } from './watch.js';
+import { drawVendorPortraitImage } from './vendor-portraits.js';
 
 function watchRect(ctx, color, x, y, width, height) {
   ctx.fillStyle = color;
@@ -106,6 +107,21 @@ function drawWatchSignal(ctx, watch) {
   watchRect(ctx, '#ad785c', x + 8, y - 55, 2, 10);
   watchRect(ctx, '#625358', x, y - 55, 1, 10);
   watchRect(ctx, '#92725e', x - 8, y - 52, 16, 1);
+  if (watch.towerUpgraded) {
+    // Copper flashing and a lit dining-room window mark the permanent upgrade.
+    watchRect(ctx, '#efba7d', x - 17, y - 45, 35, 1);
+    watchRect(ctx, '#6c9b87', x - 12, y - 44, 3, 1);
+    watchRect(ctx, '#e5ae73', x + 8, y - 44, 4, 1);
+    watchRect(ctx, '#3b2b30', x - 4, y - 36, 9, 10);
+    watchRect(ctx, '#c7844e', x - 3, y - 35, 7, 8);
+    watchRect(ctx, '#f4c786', x - 2, y - 34, 5, 6);
+    watchRect(ctx, '#81553e', x, y - 35, 1, 8);
+    watchRect(ctx, '#81553e', x - 3, y - 31, 7, 1);
+    watchRect(ctx, '#ba5251', x - 3, y - 28, 7, 1);
+    watchRect(ctx, '#e4ab6b', x - 4, y - 15, 1, 14);
+    watchRect(ctx, '#e4ab6b', x + 3, y - 15, 1, 14);
+    watchRect(ctx, '#b87b53', x - 6, y - 1, 13, 2);
+  }
 }
 
 function drawWatchPost(ctx, post) {
@@ -183,10 +199,12 @@ export function drawWatchVendorPortrait(canvas, vendor) {
   watchRect(ctx, '#795943', 3, 3, canvas.width - 6, 1);
   watchRect(ctx, '#795943', 3, canvas.height - 4, canvas.width - 6, 1);
   ctx.save();
-  ctx.translate(20, 42);
-  ctx.scale(1.4, 1.4);
+  ctx.translate(canvas.width / 2, canvas.height - 8);
+  const scale = Math.min(canvas.width / 28, canvas.height / 29);
+  ctx.scale(scale, scale);
   drawMarketSeller(ctx, vendor);
   ctx.restore();
+  drawVendorPortraitImage(canvas, vendor.id);
 }
 
 function drawWatchGear(ctx, id) {
@@ -232,16 +250,63 @@ function drawWatchStall(ctx, vendor) {
   ctx.translate(vendor.x, watchGround(vendor.x));
   watchRect(ctx, '#382d32', -17, -29, 35, 27);
   watchRect(ctx, '#50433d', -14, -28, 29, 22);
+  for (let x = -12; x <= 12; x += 6) {
+    watchRect(ctx, '#392e30', x, -27, 1, 17);
+    watchRect(ctx, '#70513f', x + 1, -26, 3, 1);
+    watchRect(ctx, '#624636', x + 2, -19, 2, 1);
+  }
   watchRect(ctx, '#89654e', -16, -28, 3, 28);
   watchRect(ctx, '#89654e', 14, -28, 3, 28);
+  watchRect(ctx, '#c49364', -16, -27, 1, 25);
+  watchRect(ctx, '#4f3832', 16, -27, 1, 25);
+  watchRect(ctx, '#a67850', -13, -15, 26, 2);
+  watchRect(ctx, '#d0a16a', -13, -15, 26, 1);
+  if (smith) {
+    for (const x of [-9, 9]) {
+      watchRect(ctx, '#c4c8b6', x, -27, 1, 8);
+      watchRect(ctx, '#698480', x + 1, -26, 1, 6);
+      watchRect(ctx, '#dcb57a', x - 2, -21, 5, 1);
+    }
+    watchRect(ctx, '#4b5354', -11, -18, 5, 3);
+    watchRect(ctx, '#9eafa3', -12, -19, 7, 2);
+  } else {
+    for (const x of [-9, 7]) {
+      watchRect(ctx, '#af6e45', x, -21, 4, 5);
+      watchRect(ctx, '#e0b374', x, -21, 4, 1);
+      watchRect(ctx, '#664533', x + 1, -23, 2, 2);
+    }
+    watchRect(ctx, '#668679', 8, -26, 3, 7);
+    watchRect(ctx, '#b3c2a0', 9, -25, 1, 4);
+  }
   drawMarketSeller(ctx, vendor);
   watchRect(ctx, '#6a4740', -17, -9, 35, 9);
   watchRect(ctx, '#cf9e71', -18, -11, 37, 3);
   watchRect(ctx, '#ae7f5d', -15, -7, 30, 2);
-  for (let x = -12; x < 17; x += 7) watchRect(ctx, '#624239', x, -7, 1, 7);
+  for (let x = -12; x < 17; x += 7) {
+    watchRect(ctx, '#624239', x, -7, 1, 7);
+    watchRect(ctx, '#bf8a60', x + 1, -6, 4, 1);
+    watchRect(ctx, '#82523c', x + 2, -3, 3, 1);
+    watchRect(ctx, '#f0ba79', x + 2, -8, 1, 1);
+  }
+  watchRect(ctx, '#704537', -17, -2, 35, 2);
+  watchRect(ctx, '#ecc18a', -17, -11, 35, 1);
+  watchRect(ctx, '#5a3a31', -17, -8, 35, 1);
+  for (const x of [-15, 15]) {
+    watchRect(ctx, '#5b3e35', x, -7, 2, 6);
+    watchRect(ctx, '#d09b62', x, -6, 1, 1);
+    watchRect(ctx, '#d09b62', x, -2, 1, 1);
+  }
   watchRect(ctx, '#443137', -19, -30, 39, 3);
   watchRect(ctx, cloth, -18, -35, 37, 6);
-  for (let x = -16; x < 18; x += 7) watchRect(ctx, stripe, x, -35, 3, 6);
+  for (let x = -16; x < 18; x += 7) {
+    watchRect(ctx, stripe, x, -35, 3, 6);
+    watchRect(ctx, '#ffffff25', x, -35, 2, 1);
+    watchRect(ctx, '#231d2c44', x + 2, -33, 1, 5);
+    watchRect(ctx, cloth, x - 1, -29, 6, 2);
+    watchRect(ctx, stripe, x, -29, 3, 2);
+    watchRect(ctx, '#231d2c66', x - 1, -27, 6, 1);
+  }
+  watchRect(ctx, '#e5b67d', -18, -36, 37, 1);
   watchRect(ctx, '#77583e', -7, -44, 15, 9);
   watchRect(ctx, '#e1b783', -5, -43, 11, 1);
   if (smith) {
@@ -575,7 +640,164 @@ function drawWatchIchorSpray(ctx, sprayer, tick) {
   }
 }
 
+function drawTowerDiningRoom(ctx, watch) {
+  const { ground, door } = WATCH_TOWER_ROOM;
+  watchRect(ctx, '#171722', 0, 0, VIEW_WIDTH, HEIGHT);
+  watchRect(ctx, '#302a2d', 20, 19, 344, 165);
+  watchRect(ctx, '#6e5b4d', 27, 25, 330, 145);
+  // Individual limestone blocks, mortar, and warm worn edges.
+  for (let row = 0; row < 10; row++) {
+    const y = 27 + row * 14;
+    for (let col = -1; col < 12; col++) {
+      const x = 29 + col * 31 + (row % 2) * 16;
+      if (x < 28 || x + 29 > 356) continue;
+      const shade = ['#7c6a56', '#77634f', '#806b54', '#725e4e'][(row * 3 + col + 4) % 4];
+      watchRect(ctx, shade, x, y, 29, 12);
+      watchRect(ctx, '#998063', x + 2, y, 24, 1);
+      watchRect(ctx, '#665341', x + 28, y + 2, 1, 9);
+      if ((row + col) % 3 === 0) watchRect(ctx, '#b0997133', x + 5, y + 5, 7, 1);
+    }
+  }
+  watchRect(ctx, '#40302b', 27, 155, 330, 22);
+  watchRect(ctx, '#bc8559', 28, 156, 328, 2);
+  watchRect(ctx, '#8b5e40', 28, 159, 328, 18);
+  for (let y = 160; y < 178; y += 6) {
+    watchRect(ctx, '#573e31', 28, y + 4, 328, 1);
+    for (let x = 32 + (y % 3) * 9; x < 350; x += 42) {
+      watchRect(ctx, '#b47e50', x, y, 22, 1);
+      watchRect(ctx, '#654332', x + 30, y, 1, 5);
+      watchRect(ctx, '#d1995f', x + 31, y + 1, 1, 1);
+    }
+  }
+  // Heavy oak supports frame the little room.
+  for (const x of [23, 350]) {
+    watchRect(ctx, '#3d2c2a', x, 20, 11, 161);
+    watchRect(ctx, '#8b5c3d', x + 2, 24, 6, 153);
+    watchRect(ctx, '#b78352', x + 2, 25, 1, 150);
+    for (const y of [39, 143]) {
+      watchRect(ctx, '#4c4640', x + 1, y, 9, 5);
+      watchRect(ctx, '#c09b65', x + 2, y + 1, 1, 1);
+      watchRect(ctx, '#c09b65', x + 8, y + 3, 1, 1);
+    }
+  }
+  watchRect(ctx, '#382a29', 22, 20, 340, 12);
+  watchRect(ctx, '#a37049', 25, 22, 334, 6);
+  watchRect(ctx, '#ce9461', 26, 22, 332, 1);
+  for (let x = 35; x < 350; x += 31) watchRect(ctx, '#75492f', x, 25, 17, 1);
+  // The entrance opens back onto the bridge.
+  watchRect(ctx, '#3e3030', door - 17, ground - 67, 35, 67);
+  watchRect(ctx, '#b28a61', door - 15, ground - 65, 31, 65);
+  watchRect(ctx, '#382d2d', door - 12, ground - 61, 25, 61);
+  watchRect(ctx, '#7c5037', door - 10, ground - 59, 21, 59);
+  for (let x = door - 9; x < door + 10; x += 5) {
+    watchRect(ctx, '#b17a4a', x, ground - 58, 1, 55);
+    watchRect(ctx, '#51362d', x + 3, ground - 57, 1, 56);
+  }
+  for (const y of [ground - 48, ground - 15]) {
+    watchRect(ctx, '#45423c', door - 10, y, 21, 3);
+    watchRect(ctx, '#a7a080', door - 8, y, 1, 1);
+    watchRect(ctx, '#a7a080', door + 8, y + 1, 1, 1);
+  }
+  watchRect(ctx, '#e3ad62', door + 5, ground - 29, 3, 4);
+  watchRect(ctx, '#bd8a55', door - 17, ground - 1, 35, 3);
+  watchRect(ctx, '#523b31', door - 12, ground - 77, 26, 8);
+  ctx.fillStyle = '#f0cea0';
+  ctx.font = '6px monospace';
+  ctx.fillText('EXIT', door - 7, ground - 71);
+  // An inset window looks out over the creek, framed by soft red curtains.
+  watchRect(ctx, '#514039', 266, 51, 55, 57);
+  watchRect(ctx, '#c39562', 269, 54, 49, 51);
+  watchRect(ctx, '#50757a', 272, 57, 43, 45);
+  watchRect(ctx, '#a5c8bb', 273, 58, 41, 15);
+  watchRect(ctx, '#688d73', 273, 73, 41, 13);
+  for (let x = 275; x < 313; x += 9) {
+    watchRect(ctx, '#3f6353', x, 68 + x % 7, 4, 21);
+    watchRect(ctx, '#799079', x + 1, 67 + x % 7, 1, 16);
+  }
+  watchRect(ctx, '#7daca6', 273, 88, 41, 13);
+  for (let x = 274; x < 310; x += 11) watchRect(ctx, '#bfd0ab', x, 93 + x % 3, 8, 1);
+  watchRect(ctx, '#604735', 292, 56, 3, 48);
+  watchRect(ctx, '#c39967', 292, 56, 1, 48);
+  watchRect(ctx, '#674b35', 271, 78, 45, 3);
+  watchRect(ctx, '#af7b50', 266, 104, 55, 4);
+  for (const x of [266, 311]) {
+    watchRect(ctx, '#813b3b', x, 53, 9, 49);
+    watchRect(ctx, '#ab5550', x + 1, 54, 3, 47);
+    watchRect(ctx, '#572d34', x + 7, 56, 1, 43);
+    watchRect(ctx, '#dcaa67', x, 88, 9, 2);
+  }
+  // Cupboard, crockery, and a copper kettle.
+  watchRect(ctx, '#3a2b2a', 294, 128, 42, 37);
+  watchRect(ctx, '#8b5b3c', 296, 130, 38, 34);
+  for (const x of [298, 316]) {
+    watchRect(ctx, '#a3734b', x, 134, 16, 25);
+    watchRect(ctx, '#70472f', x + 2, 136, 12, 21);
+    watchRect(ctx, '#e0ad69', x + 12, 145, 1, 3);
+  }
+  watchRect(ctx, '#c49461', 292, 127, 46, 3);
+  watchRect(ctx, '#e6d8ab', 298, 124, 10, 3);
+  watchRect(ctx, '#b8b799', 299, 121, 8, 3);
+  watchRect(ctx, '#9c5a3e', 319, 116, 11, 10);
+  watchRect(ctx, '#e1a16b', 321, 117, 7, 8);
+  watchRect(ctx, '#edc08b', 322, 118, 2, 4);
+  watchRect(ctx, '#634537', 322, 113, 5, 3);
+  watchRect(ctx, '#c78955', 328, 116, 4, 2);
+  watchRect(ctx, '#c78955', 316, 119, 3, 4);
+  // Two chairs sit around a small dinner table.
+  for (const x of [135, 244]) {
+    watchRect(ctx, '#49322c', x, 132, 14, 39);
+    watchRect(ctx, '#ac794b', x + 1, 133, 12, 3);
+    watchRect(ctx, '#bd8b56', x + 2, 137, 2, 20);
+    watchRect(ctx, '#855434', x + 10, 137, 2, 33);
+    watchRect(ctx, '#c28a56', x - 1, 156, 16, 4);
+    watchRect(ctx, '#a37345', x, 160, 3, 12);
+  }
+  for (const x of [161, 213]) {
+    watchRect(ctx, '#553b30', x, 149, 5, 24);
+    watchRect(ctx, '#b27a49', x, 150, 2, 22);
+  }
+  watchRect(ctx, '#56372e', 149, 140, 91, 7);
+  // Crimson woven cloth hangs over the edge, with seams and shaded folds.
+  watchRect(ctx, '#642b34', 147, 138, 95, 17);
+  watchRect(ctx, '#b94846', 149, 138, 91, 4);
+  watchRect(ctx, '#dc6955', 151, 138, 87, 1);
+  watchRect(ctx, '#9f3b3b', 149, 142, 91, 12);
+  for (let x = 153; x < 240; x += 13) {
+    watchRect(ctx, '#c5554b', x, 143, 2, 10);
+    watchRect(ctx, '#7d3037', x + 6, 143, 2, 11);
+  }
+  watchRect(ctx, '#d39c66', 149, 152, 91, 1);
+  watchRect(ctx, '#e6b57a', 151, 154, 87, 1);
+  for (const x of [168, 216]) {
+    watchRect(ctx, '#c8bc9b', x, 135, 12, 3);
+    watchRect(ctx, '#f0ddba', x + 1, 134, 10, 3);
+    watchRect(ctx, '#a3a68e', x + 3, 135, 6, 1);
+    watchRect(ctx, '#e8c48e', x - 5, 133, 2, 5);
+    watchRect(ctx, '#a9784e', x + 14, 132, 3, 6);
+    watchRect(ctx, '#ecd5a4', x + 14, 132, 3, 2);
+  }
+  watchRect(ctx, '#b47c50', 193, 134, 8, 4);
+  watchRect(ctx, '#f1db9d', 196, 124, 2, 11);
+  watchRect(ctx, '#e1a35a', 195, 120, 3, 4);
+  watchRect(ctx, '#fff0b5', 196, 121, 1, 2);
+  // Two wall lamps keep the stone and copper warm.
+  for (const x of [104, 242]) {
+    sceneGlow(ctx, '#f3b86c38', x, 83, 26);
+    watchRect(ctx, '#4b3430', x - 3, 77, 7, 15);
+    watchRect(ctx, '#b9804e', x - 4, 79, 9, 12);
+    watchRect(ctx, '#f5bf6d', x - 2, 81, 5, 8);
+    watchRect(ctx, '#ffedb3', x, 82, 2, 5);
+    watchRect(ctx, '#765037', x - 4, 79, 9, 1);
+    watchRect(ctx, '#765037', x - 4, 89, 9, 2);
+  }
+  drawWatchPlayer(ctx, watch.interiorX, ground, watch.player.direction, (watch.player.step >> 2) % 2, null, 0);
+}
+
 export function drawCreekWatch(ctx, watch) {
+  if (watch.insideTower) {
+    drawTowerDiningRoom(ctx, watch);
+    return;
+  }
   drawWatchSky(ctx, watch);
   const left = watch.camera;
   const onScreen = (x, margin) => x >= left - margin && x < left + VIEW_WIDTH + margin;

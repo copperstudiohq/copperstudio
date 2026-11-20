@@ -1,6 +1,6 @@
 import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_SECOND, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, ERASE, CREATURES, SCENERY, BOSSES, TRI_PORTAL } from './simulation.js';
 import { QuarryRenderer, drawToolIcon } from './art.js';
-import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_CAMP_GROUPS, WATCH_FORWARD_WALLS, WATCH_MARKET_ITEMS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_VENDORS } from './watch.js';
+import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_CAMP_GROUPS, WATCH_FORWARD_WALLS, WATCH_MARKET_ITEMS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_TOWER_ROOM, WATCH_VENDORS } from './watch.js';
 import { listWatchSlots, loadWatchSlot, saveWatchSlot, WATCH_SAVE_NAME_LIMIT } from './watch-saves.js';
 import { drawCreekWatch, drawWatchMarketIcon, drawWatchVendorPortrait } from './watch-art.js';
 
@@ -93,6 +93,11 @@ const watchView = document.querySelectorAll('[data-watch-view]');
 const headingTitle = document.querySelector('#title');
 const modeDescription = document.querySelector('#mode-description');
 const watchAction = document.querySelector('#watch-use');
+const watchTower = document.querySelector('#watch-tower');
+const watchPanelTitle = document.querySelector('#watch-label');
+const watchPanelDescription = document.querySelector('#watch-description');
+const watchMapRoute = document.querySelector('.watch-route');
+const watchMapDestinations = document.querySelector('.watch-destinations');
 const watchTrain = document.querySelector('#watch-train');
 const watchSwing = document.querySelector('#watch-swing');
 const watchMessage = document.querySelector('#watch-message');
@@ -360,19 +365,26 @@ function drawWatchMode() {
   }
   watchQuarry.tick = watch.tick;
   watchQuarry.weather = watch.phase === 'night' ? 'storm' : 'rain';
-  watchRenderer.draw(watchQuarry, null, watch.camera, watchRenderOptions);
+  if (!watch.insideTower) watchRenderer.draw(watchQuarry, null, watch.camera, watchRenderOptions);
   drawCreekWatch(watchRenderer.ctx, watch);
   const active = watch.status === 'running';
   const finished = watch.status === 'lost';
-  setWatchText(liveLabel, finished ? 'LOST' : paused ? 'PAUSED' : active ? 'LIVE' : 'READY');
+  setWatchText(liveLabel, finished ? 'LOST' : paused ? 'PAUSED' : watch.insideTower ? 'INSIDE' : active ? 'LIVE' : 'READY');
   const phase = watch.bloodMoon ? 'BLOOD MOON' : watch.phase.toUpperCase();
-  setWatchText(timer, `${phase} ${watch.day} · ${watch.secondsLeft}s`);
+  setWatchText(timer, watch.insideTower ? 'OUTSIDE PAUSED' : `${phase} ${watch.day} · ${watch.secondsLeft}s`);
   timer.dateTime = `PT${watch.secondsLeft}S`;
-  setWatchText(watchArea, WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
+  setWatchText(watchArea, watch.insideTower ? 'Tower dining room' : WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
+  setWatchText(watchPanelTitle, watch.insideTower ? 'Dining room' : 'Signal tower');
+  setWatchText(watchPanelDescription, watch.insideTower ? 'A little room above the creek. The outside watch pauses while you rest.'
+    : 'Keep the light burning as long as you can.');
+  world.setAttribute('aria-label', watch.insideTower ? 'Tower dining room. Walk with A and D or tap the floor. Press E to leave.' : 'Creek Watch playfield');
+  watchMapRoute.hidden = watch.insideTower;
+  watchMapDestinations.hidden = watch.insideTower;
   const position = `${(watch.player.x / WATCH_BOUNDS.right * 100).toFixed(2)}%`;
   if (watchPosition.style.left !== position) watchPosition.style.left = position;
   const night = watch.phase === 'night';
-  const portalStatus = night ? (watch.portalOpening < 1 ? 'Portals opening' : 'Portals open') : 'Portals dormant';
+  const portalStatus = watch.insideTower ? `Day ${watch.day} · ${watch.secondsLeft}s remaining outside`
+    : night ? (watch.portalOpening < 1 ? 'Portals opening' : 'Portals open') : 'Portals dormant';
   if (watchPortalState.dataset.open !== String(night)) watchPortalState.dataset.open = String(night);
   setWatchText(watchPortalState, portalStatus);
   setWatchText(watchCoins, watch.coins);
@@ -392,6 +404,12 @@ function drawWatchMode() {
     : action ? action.label + cost : 'No station nearby';
   setWatchText(watchAction, label);
   watchAction.disabled = active && (paused || !action || action.kind === 'shelter');
+  const tower = watch.getTowerAction();
+  watchTower.hidden = !tower || watch.insideTower;
+  if (tower) {
+    setWatchText(watchTower, `${tower.label}${tower.cost ? ` · ${tower.cost} copper` : ''}`);
+    watchTower.disabled = paused;
+  }
   const training = action?.kind === 'hire' ? watch.getTrainingAction() : null;
   watchTrain.hidden = !training;
   if (training) {
@@ -399,12 +417,13 @@ function drawWatchMode() {
     watchTrain.disabled = paused;
   }
   watchMarketRoute.hidden = !watch.marketOpen;
-  watchSwing.hidden = !watch.weapon;
+  watchSwing.hidden = !watch.weapon || watch.insideTower;
   if (watch.weapon) {
     setWatchText(watchSwing, `Swing ${WATCH_MARKET_ITEMS[watch.weapon].name}`);
     watchSwing.disabled = paused || !watch.canSwing;
   }
-  for (const button of watchMoveButtons) button.disabled = finished || (paused && active);
+  for (const button of watchMoveButtons) button.disabled = finished || (paused && active)
+    || (watch.insideTower && button.hasAttribute('data-watch-destination'));
   setWatchText(watchMessage, watch.message);
 }
 
@@ -470,9 +489,16 @@ function useWatchStation(kind) {
   }
   if (watch.status === 'ready') setPaused(false);
   if (!paused) {
-    const action = kind === 'train' ? null : watch.getAction();
+    const wasInside = watch.insideTower;
+    const action = kind === 'train' || kind === 'tower' ? null : watch.getAction();
     if (action?.kind === 'market') openWatchMarket(action.vendor);
     else watch.use(kind);
+    if (watch.insideTower !== wasInside) {
+      walkKeys.clear();
+      walkTarget = null;
+      lag = 0;
+      world.focus({ preventScroll: true });
+    }
   }
   dirty = true;
 }
@@ -483,7 +509,8 @@ function walkWatchTo(target) {
     setPaused(false);
   }
   if (paused || watch.status !== 'running') return;
-  walkTarget = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, target));
+  const bounds = watch.insideTower ? WATCH_TOWER_ROOM : WATCH_BOUNDS;
+  walkTarget = Math.max(bounds.left, Math.min(bounds.right, target));
   dirty = true;
 }
 
@@ -492,7 +519,7 @@ function watchMotion() {
   const right = walkKeys.has('d') || walkKeys.has('arrowright');
   if (left || right) return Number(right) - Number(left);
   if (walkTarget === null) return 0;
-  const distance = walkTarget - watch.player.x;
+  const distance = walkTarget - (watch.insideTower ? watch.interiorX : watch.player.x);
   if (Math.abs(distance) <= 2) {
     walkTarget = null;
     return 0;
@@ -592,13 +619,15 @@ document.querySelector('#menu-return').addEventListener('click', () => {
   menuButtons.find((button) => button.dataset.menuPlay === gameMode).focus({ preventScroll: true });
 });
 watchAction.addEventListener('click', () => useWatchStation());
+watchTower.addEventListener('click', () => useWatchStation('tower'));
 watchTrain.addEventListener('click', () => useWatchStation('train'));
 watchSwing.addEventListener('click', swingWatchWeapon);
 watchMarketDialog.addEventListener('close', () => world.focus({ preventScroll: true }));
 for (const button of watchMoveButtons) {
   button.addEventListener('click', () => {
+    if (watch.insideTower && button.hasAttribute('data-watch-destination')) return;
     const target = watchDestinations[button.dataset.watchDestination]
-      ?? (walkTarget ?? watch.player.x) + Number(button.dataset.watchMove) * 47;
+      ?? (walkTarget ?? (watch.insideTower ? watch.interiorX : watch.player.x)) + Number(button.dataset.watchMove) * 47;
     walkWatchTo(target);
   });
 }
@@ -719,7 +748,7 @@ world.addEventListener('pointerdown', (event) => {
   if (gameMode === 'watch') {
     const bounds = world.getBoundingClientRect();
     world.focus({ preventScroll: true });
-    walkWatchTo(watch.camera + (event.clientX - bounds.left) * VIEW_WIDTH / bounds.width);
+    walkWatchTo((watch.insideTower ? 0 : watch.camera) + (event.clientX - bounds.left) * VIEW_WIDTH / bounds.width);
     return;
   }
   keyboardAim = false;
