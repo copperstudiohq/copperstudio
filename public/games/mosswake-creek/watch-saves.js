@@ -57,10 +57,11 @@ function validWatchState(state) {
     && (weapon === null || (gear.includes(weapon) && WATCH_MARKET_ITEMS[weapon].damage > 0))
     && validWatchStamp(swingAt) && swingAt <= tick
     && validWatchList(posts, 2, (post) => validWatchWall(post)
-      && validWatchList(post.guards, Infinity, ({ rank, direction, fireAt, shotAt, x, stride, returning, walking }) =>
+      && validWatchList(post.guards, Infinity, ({ rank, direction, fireAt, shotAt, x, stride, returning, walking, carriedCoins = 0 }) =>
         [0, 1].includes(rank) && validWatchSide(direction) && validWatchCount(fireAt) && validWatchStamp(shotAt)
         && optionalWatchField(x, validWatchX) && optionalWatchField(stride, validWatchCount)
         && optionalWatchField(returning, validWatchFlag) && optionalWatchField(walking, validWatchFlag)
+        && validWatchCount(carriedCoins)
         && (!walking || validWatchCount(stride))))
     && posts.length === 2
     && validWatchList(raiders, 64, ({ side, x, stride, hp, attackAt, struckAt }) =>
@@ -68,7 +69,9 @@ function validWatchState(state) {
       && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt))
     && validWatchList(shots, Infinity, ({ from, to, end, kind }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
       && (kind === undefined || kind === 'pigeon' || kind === 'raid'))
-    && validWatchList(loot, 128, ({ x, amount }) => validWatchX(x) && validWatchCount(amount) && amount > 0)
+    && validWatchList(loot, Infinity, ({ x, amount, forPlayer = false }) =>
+      validWatchX(x) && validWatchCount(amount) && amount > 0 && validWatchFlag(forPlayer))
+    && loot.filter((piece) => !piece.forPlayer).length <= 128
     && validWatchList(queue, 64, ({ side, due }) => validWatchSide(side) && validWatchCount(due) && due <= WATCH_NIGHT)
     && queue.every(({ due }, index) => index === 0 || queue[index - 1].due <= due);
 }

@@ -321,7 +321,7 @@ export class CreekWatch {
         this.message = 'Signal tower repaired. Ring the bell when you’re ready.';
         break;
       case 'hire':
-        post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: WATCH_NO_ACTION });
+        post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: WATCH_NO_ACTION, carriedCoins: 0 });
         this.message = `Guard hired and sent to the ${post.name.toLowerCase()} bank.`;
         break;
       case 'train':
@@ -521,13 +521,26 @@ export class CreekWatch {
       post.guards.forEach((guard, index) => {
         const home = this.guardX(post, index);
         const position = this.guardPosition(post, index);
-        this.collectGuardCoins(position);
+        this.collectGuardCoins(guard, position);
+        this.dropGuardCoins(guard, position);
         const returnTicks = Math.ceil(Math.abs(position - home) / WATCH_GUARD_RETURN_SPEED);
         const mustReturn = this.recallingGuards || remaining <= returnTicks + WATCH_GUARD_RETURN_MARGIN;
         if (mustReturn) {
           guard.returning = true;
           walkWatchGuard(guard, position, home, WATCH_GUARD_RETURN_SPEED);
-          this.collectGuardCoins(this.guardPosition(post, index));
+          this.collectGuardCoins(guard, this.guardPosition(post, index));
+          this.dropGuardCoins(guard, this.guardPosition(post, index));
+          return;
+        }
+        if (guard.carriedCoins > 0) {
+          // A moving player may make delivery unsafe; keep the bag and head home.
+          const delivering = this.canGuardVisit(position, this.player.x, home);
+          guard.returning = !delivering;
+          walkWatchGuard(guard, position, delivering ? this.player.x : home,
+            delivering ? WATCH_GUARD_SPEED : WATCH_GUARD_RETURN_SPEED);
+          const from = this.guardPosition(post, index);
+          this.collectGuardCoins(guard, from);
+          this.dropGuardCoins(guard, from);
           return;
         }
         if (this.tick - guard.shotAt < 9) {
@@ -539,7 +552,7 @@ export class CreekWatch {
         let nearest = Infinity;
         for (const coin of this.loot) {
           const distance = Math.abs(coin.x - position);
-          if (claimed.has(coin) || distance >= nearest || !this.canGuardVisit(position, coin.x, home)) continue;
+          if (coin.forPlayer || claimed.has(coin) || distance >= nearest || !this.canGuardVisit(position, coin.x, home)) continue;
           piece = coin;
           nearest = distance;
         }
@@ -548,7 +561,8 @@ export class CreekWatch {
         const target = piece ? piece.x : !guard.returning && this.canGuardVisit(position, outer, home) ? outer : home;
         walkWatchGuard(guard, position, target, WATCH_GUARD_SPEED);
         const from = this.guardPosition(post, index);
-        this.collectGuardCoins(from);
+        this.collectGuardCoins(guard, from);
+        this.dropGuardCoins(guard, from);
         if (piece) guard.returning = false;
         else if (from === target) guard.returning = target === outer;
         if (Math.abs(from - home) < 21 || guard.fireAt > this.tick) return;
@@ -560,7 +574,7 @@ export class CreekWatch {
           this.huntedPigeons |= 1 << bird;
           if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
           this.shootWatchArrow(guard, from, to, 44, 'pigeon');
-          this.message = 'A guard hunted a pigeon. Guards will collect the copper for you.';
+          this.message = 'A guard hunted a pigeon. Guards will bring its copper to you.';
           break;
         }
       });
@@ -573,15 +587,27 @@ export class CreekWatch {
     return travel + back + WATCH_GUARD_RETURN_MARGIN < WATCH_DAY - this.phaseTick;
   }
 
-  collectGuardCoins(x) {
+  collectGuardCoins(guard, x) {
     let amount = 0;
     this.loot = this.loot.filter((piece) => {
-      if (Math.abs(piece.x - x) > 6) return true;
+      if (piece.forPlayer || Math.abs(piece.x - x) > 6) return true;
       amount += piece.amount;
       return false;
     });
-    this.coins += amount;
-    if (amount && !this.recallingGuards) this.message = `A guard collected ${amount} copper for you.`;
+    if (amount) {
+      guard.carriedCoins = (guard.carriedCoins ?? 0) + amount;
+      if (!this.recallingGuards) this.message = `A guard picked up ${amount} copper and will bring it to you.`;
+    }
+  }
+
+  dropGuardCoins(guard, x) {
+    const amount = guard.carriedCoins;
+    if (!(amount > 0) || Math.abs(x - this.player.x) > 6) return;
+    const pile = this.loot.find((piece) => piece.forPlayer && piece.x === this.player.x);
+    if (pile) pile.amount += amount;
+    else this.loot.push({ x: this.player.x, amount, forPlayer: true });
+    guard.carriedCoins = 0;
+    this.message = `A guard dropped ${amount} copper at your feet.`;
   }
 
   shootWatchArrow(guard, from, to, cooldown, kind) {

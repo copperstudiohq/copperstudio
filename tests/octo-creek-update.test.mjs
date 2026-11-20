@@ -44,9 +44,10 @@ test('Creek Watch guidance covers endless nights, the map, preparation time and 
   assert.match(saves.reply, /Creek Watch saves.*main menu.*Load.*same browser profile and game address/);
 });
 
-test('Octo explains automatic map-wide guard pickups and waiting for their safe return', () => {
+test('Octo explains carried coin deliveries and keeping bags during a safe recall', () => {
   const reply = ask('How do guards collect coins in Creek Watch?', 'sandbox-guard-collectors');
-  assert.match(reply, /across the whole map.*including pigeon drops.*automatically adds it to your copper/);
-  assert.match(reply, /enough daylight.*reach the coins and return.*too far away wait for a later day/);
-  assert.match(reply, /bell recalls the guards first.*Night and the portals wait until everyone is home.*natural dusk/);
+  assert.match(reply, /across the whole map.*including pigeon drops.*carry it to you and drop it at your feet.*character automatically picks it up/);
+  assert.match(reply, /enough daylight.*reach you and return.*keep carried copper.*possibly the next day/);
+  assert.match(reply, /early bell recalls guards directly.*passing guards.*without a detour.*Night and the portals wait until everyone is home/);
+  assert.match(replyAsOcto(createOctoChat(), 'Mosswake Creek saves').reply, /carried copper and delivered piles/);
 });
