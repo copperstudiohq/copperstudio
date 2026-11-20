@@ -38,6 +38,7 @@ const DECORATIONS = [
   { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'pump' }
 ];
 const POND_DOCK = { x: START_VIEW + 258, y: 128 };
+const TRI_IRIS = '#e89147';
 const rainRandom = makeRandom(23691);
 const streaks = Array.from({ length: WEATHER.storm * WORLD_AREAS.length }, () => ({
   x: rainRandom() * WIDTH, y: rainRandom() * HEIGHT, speed: 1.7 + rainRandom() * 3.8, length: 2 + rainRandom() * 7,
@@ -515,80 +516,124 @@ function sceneBrush(ctx, converted) {
   };
 }
 
-function drawLamp(ctx, x, y, converted) {
-  const halo = ctx.createRadialGradient(x, y, 0, x, y, 13);
-  halo.addColorStop(0, converted ? '#76b7ff66' : 'rgba(255,166,90,.35)');
-  halo.addColorStop(1, 'transparent');
-  rect(ctx, halo, x - 13, y - 13, 26, 26);
-  rect(ctx, converted ? '#875889' : '#a55539', x - 2, y - 2, 5, 4);
-  rect(ctx, converted ? '#9ed1ff' : '#ffc888', x - 1, y - 1, 3, 2);
+function drawPlacedBirch(paint, x, y) {
+  paint('#5e6156', x - 2, y - 29, 5, 29);
+  paint('#c0bda2', x - 1, y - 28, 3, 27);
+  paint('#e0d8b6', x - 1, y - 27, 1, 24);
+  for (let height = 5; height < 23; height += 5) {
+    paint('#666358', x - 1 + height % 2, y - height, 2, 1);
+  }
+  paint('#898779', x + 2, y - 23, 6, 2);
+  paint('#898779', x - 7, y - 19, 5, 2);
+  paint('#2c403b', x - 13, y - 31, 27, 12);
+  paint('#344c3e', x - 8, y - 35, 20, 15);
+  paint('#547157', x - 5, y - 38, 11, 9);
+  paint('#577357', x - 12, y - 31, 15, 7);
+  paint('#6e8860', x - 9, y - 33, 7, 4);
+  paint('#425d48', x + 2, y - 28, 12, 7);
+  paint('#65805b', x + 4, y - 31, 6, 4);
+  paint('#a49b70', x - 6, y - 31, 2, 2);
+  paint('#898855', x + 7, y - 29, 3, 1);
 }
 
-const birchSprites = new Map();
-
-function drawPlacedBirch(ctx, x, y, converted) {
-  if (!birchSprites.has(converted)) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 36;
-    canvas.height = 40;
-    const sprite = canvas.getContext('2d');
-    drawBirch(18, 39, 34, 71, true, false, (px, py, color, _, triColor) => {
-      const barkOrLeaf = converted && triColor ? channels(triColor) : color;
-      rect(sprite, `rgb(${barkOrLeaf.join(',')})`, px, py, 1, 1);
-    });
-    birchSprites.set(converted, canvas);
+function drawHut(ctx, paint, x, y, converted) {
+  paint('#362c30', x - 19, y - 22, 39, 22);
+  paint('#765742', x - 17, y - 20, 34, 18);
+  paint('#9c7351', x - 16, y - 19, 26, 16);
+  paint('#654638', x + 11, y - 20, 7, 18);
+  for (let row = 0; row < 4; row++) {
+    const boards = y - 17 + row * 4;
+    paint('#614539', x - 16, boards, 33, 1);
+    paint('#b98a5d', x - 16, boards + 1, 25, 1);
+    paint('#78523c', x + ((row % 2) ? -5 : -12), boards + 1, 1, 3);
   }
-  ctx.drawImage(birchSprites.get(converted), x - 18, y - 39);
+  paint('#d3a571', x - 18, y - 21, 2, 19);
+  paint('#c59666', x + 16, y - 21, 2, 19);
+  paint('#5a4037', x - 12, y - 17, 11, 15);
+  paint('#241f28', x - 10, y - 15, 7, 13);
+  paint('#77533c', x - 9, y - 14, 5, 11);
+  paint('#433131', x - 8, y - 14, 1, 11);
+  paint('#d7a46c', x - 5, y - 8, 1, 2);
+  paint('#463637', x + 3, y - 17, 12, 11);
+  rect(ctx, converted ? '#8eb8e3' : '#f1bd78', x + 5, y - 15, 8, 7);
+  rect(ctx, converted ? '#c6e0ef' : '#ffdda3', x + 5, y - 15, 7, 2);
+  paint('#6d5246', x + 8, y - 15, 1, 7);
+  paint('#6d5246', x + 5, y - 12, 8, 1);
+  paint('#c4915a', x + 2, y - 7, 14, 2);
+
+  paint('#47383a', x + 10, y - 34, 8, 11);
+  paint('#826253', x + 11, y - 32, 5, 8);
+  paint('#c29a78', x + 10, y - 34, 8, 2);
+  paint('#513c3b', x + 11, y - 29, 6, 1);
+  for (let course = 0; course < 6; course++) {
+    const half = 7 + 3 * course;
+    const top = y - 33 + course * 2;
+    paint('#623b37', x - half, top, half * 2, 2);
+    paint(course % 2 ? '#be7953' : '#d39261', x - half + 1, top, half * 2 - 2, 1);
+    for (let seam = -half + 5; seam < half - 4; seam += 6) {
+      paint('#9d603f', x + seam, top + 1, 1, 1);
+    }
+  }
+  paint('#563b36', x - 24, y - 21, 48, 3);
+  paint('#ab7952', x - 23, y - 21, 46, 1);
+  paint('#503c38', x - 21, y - 3, 42, 3);
+  paint('#cf9a63', x - 21, y - 3, 42, 1);
+  paint('#916744', x - 13, y - 2, 14, 2);
 }
 
 function drawScenery(ctx, type, x, y, converted) {
   const paint = sceneBrush(ctx, converted);
   if (type === 'birch') {
-    drawPlacedBirch(ctx, x, y, converted);
+    drawPlacedBirch(paint, x, y);
   } else if (type === 'dock') {
-    paint('#554138', x - 8, y + 1, 2, 16);
-    paint('#73513d', x + 5, y + 1, 2, 10);
-    paint('#6a4b3c', x - 12, y, 25, 3);
-    paint('#a07450', x - 12, y - 1, 25, 1);
+    paint('#51403a', x - 9, y + 1, 4, 16);
+    paint('#916a4a', x - 9, y + 2, 1, 12);
+    paint('#5c463c', x + 6, y + 1, 4, 10);
+    paint('#b07a4f', x + 6, y + 2, 1, 8);
+    paint('#5a4138', x - 13, y + 4, 25, 2);
+    paint('#7a533e', x - 13, y, 27, 3);
+    paint('#b78453', x - 13, y - 1, 27, 1);
+    for (let seam = -10; seam < 13; seam += 5) {
+      paint('#4c3934', x + seam, y, 1, 2);
+      paint('#bb966e', x + seam + 2, y + 1, 1, 1);
+    }
     for (let step = 0; step < 5; step++) {
-      paint('#906442', x + 11 + step * 2, y - 2 - step * 3, 4, 2);
+      paint('#563d36', x + 11 + step * 2, y - 2 - step * 3, 4, 4);
+      paint('#ba8556', x + 11 + step * 2, y - 3 - step * 3, 4, 1);
     }
   } else if (type === 'pump') {
-    paint('#25242c', x - 11, y - 2, 23, 3);
-    paint('#25282f', x - 9, y - 13, 13, 11);
-    paint('#644239', x - 7, y - 12, 9, 3);
-    paint('#9a5d45', x - 9, y - 14, 13, 2);
-    paint('#171b25', x + 4, y - 18, 2, 17);
-    paint('#5e4a47', x + 4, y - 18, 7, 2);
-    drawLamp(ctx, x + 10, y - 14, converted);
+    paint('#393035', x - 12, y - 3, 25, 3);
+    paint('#55565c', x - 11, y - 13, 15, 11);
+    paint('#754c3e', x - 10, y - 15, 12, 4);
+    paint('#b97d52', x - 8, y - 15, 9, 2);
+    paint('#373c46', x - 9, y - 10, 10, 6);
+    paint('#acaa88', x - 8, y - 9, 1, 1);
+    paint('#acaa88', x, y - 5, 1, 1);
+    paint('#35534f', x + 2, y - 19, 4, 17);
+    paint('#638676', x + 3, y - 18, 1, 15);
+    paint('#65534c', x + 4, y - 19, 8, 3);
+    paint('#bf8b5d', x + 6, y - 19, 5, 1);
+    paint('#7c6859', x + 7, y - 11, 5, 4);
+    rect(ctx, converted ? '#9cbfe0' : '#d0a786', x + 9, y - 10, 2, 2);
+    paint('#70635a', x + 5, y - 5, 8, 3);
   } else if (type === 'hut') {
-    paint('#3b2e30', x - 11, y - 15, 23, 15);
-    for (let row = 0; row < 5; row++) {
-      paint(row % 2 ? '#65483b' : '#75503c', x - 10, y - 14 + row * 3, 21, 2);
-    }
-    paint('#a47452', x - 11, y - 14, 2, 14);
-    paint('#4b3935', x + 10, y - 14, 2, 14);
-    paint('#211e26', x - 6, y - 10, 5, 10);
-    paint('#4d403a', x + 4, y - 11, 5, 6);
-    for (let row = 0; row < 6; row++) {
-      const span = 4 + row * 2;
-      paint(row % 2 ? '#98583f' : '#be7953', x - span, y - 22 + row * 1.3 | 0, span * 2 + 1, 2);
-    }
-    paint('#664838', x - 14, y - 14, 29, 2);
-    paint('#b8885c', x - 13, y - 1, 27, 2);
-    drawLamp(ctx, x + 6, y - 8, converted);
+    drawHut(ctx, paint, x, y, converted);
   } else if (type === 'posts') {
-    paint('#51413e', x - 3, y - 6, 2, 6);
-    paint('#51413e', x + 4, y - 7, 2, 7);
-    paint('#7c5444', x - 3, y - 5, 9, 1);
+    paint('#6f5140', x - 8, y - 7, 17, 2);
+    paint('#946946', x - 8, y - 4, 17, 1);
+    for (const offset of [-7, 5]) {
+      paint('#513c35', x + offset, y - 10, 3, 10);
+      paint('#af8056', x + offset, y - 9, 1, 8);
+      paint('#d3ab79', x + offset + 1, y - 7, 1, 1);
+    }
   }
 }
 
-function drawStructures(ctx, quarry, left, chipper, hideHuts) {
+function drawStructures(ctx, quarry, left, chipper, skipDecoration) {
   const right = left + VIEW_WIDTH;
   for (const decoration of DECORATIONS) {
     const { x, type } = decoration;
-    if (x < left - 30 || x >= right + 30 || (hideHuts && type === 'hut')) continue;
+    if (x < left - 30 || x >= right + 30 || skipDecoration?.(decoration)) continue;
     const y = quarryHeight(x);
     if (quarry.at(x, y) !== ROCK || (type !== 'posts' && quarry.at(x - 3, y + 3) !== ROCK)) continue;
     const converted = quarry.isTriAt(x, y);
@@ -658,7 +703,7 @@ function drawTriCore(ctx, x, y, tick = 0) {
     }
     rect(ctx, '#8b316b', left - 1, top + 1, size + 2, 3);
     rect(ctx, '#ffd4dc', left, top, size, 5);
-    rect(ctx, '#609cf7', x + dx - 1, top + 1, 3, 3);
+    rect(ctx, TRI_IRIS, x + dx - 1, top + 1, 3, 3);
     rect(ctx, '#281c44', x + dx, top + 2, 1, 2);
     rect(ctx, '#ffffff', x + dx - 1, top + 1, 1, 1);
   }
@@ -677,7 +722,7 @@ function watcherEye(ctx, x, y, size) {
   const half = size >> 1;
   rect(ctx, '#78375f', x - half - 1, y - half, size + 2, size);
   rect(ctx, '#ffd7cd', x - half, y - half, size, size);
-  rect(ctx, '#e89147', x - 1, y - half + 1, 3, size - 1);
+  rect(ctx, TRI_IRIS, x - 1, y - half + 1, 3, size - 1);
   rect(ctx, '#321a35', x, y, 1, Math.max(1, half));
   rect(ctx, '#fff2d8', x - 1, y - 1, 1, 1);
 }
@@ -686,7 +731,7 @@ function drawTriBlobEye(ctx, x, y) {
   rect(ctx, '#733458', x, y, 7, 8);
   rect(ctx, '#ffe3ec', x + 1, y + 1, 6, 6);
   rect(ctx, '#ffe3ec', x + 2, y, 4, 8);
-  rect(ctx, '#60b4e6', x + 4, y + 2, 3, 5);
+  rect(ctx, TRI_IRIS, x + 4, y + 2, 3, 5);
   rect(ctx, '#291d3b', x + 5, y + 2, 2, 4);
   rect(ctx, '#fff6f9', x + 4, y + 2, 1, 1);
 }
@@ -706,12 +751,88 @@ export function drawTriBlob(ctx, x, y, direction, stride) {
   ctx.restore();
 }
 
+function drawOpusLeg(ctx, hip, phase, walking, near, groundOffset) {
+  // During support, the foot moves backward relative to the advancing body.
+  const progress = phase % 1;
+  const swinging = walking && phase >= 1;
+  const offset = walking ? Math.round(swinging ? -6 + progress * 12 : 6 - progress * 12) : 0;
+  const foot = hip + offset;
+  const lift = swinging ? Math.round(3 * Math.sin(progress * Math.PI)) : 0;
+  const sole = (groundOffset?.(foot + 1) ?? 0) - lift;
+  const knee = Math.round((hip + foot) / 2) + 1;
+  const kneeY = Math.round((-9 + sole) / 2);
+  const shade = near ? '#a94d71' : '#74334f';
+  rect(ctx, shade, Math.min(hip, knee) - 1, -10, Math.abs(hip - knee) + 4, kneeY + 12);
+  rect(ctx, shade, Math.min(knee, foot) - 1, kneeY, Math.abs(knee - foot) + 3, sole - kneeY);
+  rect(ctx, near ? '#e283a3' : '#b35c7c', foot - 1, sole - 2, 6, 2);
+  if (near) rect(ctx, '#f29ab4', foot + 2, sole - 2, 2, 1);
+}
+
+function drawOpusTentacle(ctx, x, y, length, phase, near) {
+  const outline = near ? '#254e86' : '#253b66';
+  const blue = near ? '#59aaf1' : '#4577b7';
+  let tipY = y;
+  for (let i = 0; i <= length; i++) {
+    const progress = i / length;
+    const thickness = 2 + Math.round(3 * (1 - progress));
+    tipY = y + Math.round(progress * (7 + 4 * Math.sin(progress * 5 + phase)));
+    rect(ctx, outline, x + i, tipY, 2, thickness);
+    rect(ctx, blue, x + i, tipY + 1, 1, thickness - 1);
+    if (near && i % 4 < 2) rect(ctx, '#a5e3fd', x + i, tipY + 1, 1, 1);
+  }
+  return tipY;
+}
+
+export function drawTriOpus(ctx, { stride, tick, walking = true, striking = false, groundOffset }) {
+  const phase = (stride % 16) / 8;
+  const sway = walking ? Math.round(3 * Math.cos(phase * Math.PI)) : 0;
+  const bob = walking ? Math.round(Math.sin(phase * Math.PI) ** 2) : 0;
+  ctx.save();
+  drawOpusLeg(ctx, 1, (phase + 1) % 2, walking, false, groundOffset);
+  drawOpusLeg(ctx, -4, phase, walking, true, groundOffset);
+  ctx.translate(0, -bob);
+
+  const curl = tick / 9 + stride / 16;
+  drawOpusTentacle(ctx, 2, -13, 9 + sway, curl + Math.PI, false);
+  rect(ctx, '#582641', -8, -15, 15, 7);
+  rect(ctx, '#8f3b60', -7, -14, 13, 5);
+  rect(ctx, '#c76188', -6, -16, 12, 6);
+  rect(ctx, '#e18aa6', -6, -15, 5, 2);
+  rect(ctx, '#f5aac2', -5, -15, 2, 1);
+
+  rect(ctx, '#582641', -2, -21, 12, 12);
+  rect(ctx, '#582641', 9, -18, 5, 9);
+  rect(ctx, '#b04d73', -1, -20, 12, 10);
+  rect(ctx, '#d87196', 1, -20, 8, 7);
+  rect(ctx, '#e18cab', 5, -18, 8, 8);
+  rect(ctx, '#f5aac2', 3, -20, 5, 1);
+  rect(ctx, '#a94d71', 3, -12, 3, 1);
+  rect(ctx, '#893958', 8, -17, 5, 7);
+  rect(ctx, '#ffe4ea', 8, -16, 4, 5);
+  rect(ctx, TRI_IRIS, 9, -16, 3, 5);
+  rect(ctx, '#2f2445', 11, -15, 2, 3);
+  rect(ctx, '#fffaf2', 10, -16, 1, 1);
+
+  const armX = -4;
+  const armLength = striking ? 19 : 14 - sway;
+  const tipY = drawOpusTentacle(ctx, armX, -13, armLength, striking ? -1 : curl, true);
+  if (striking) {
+    const tipX = armX + armLength;
+    rect(ctx, '#9fe9ff', tipX + 1, tipY, 4, 2);
+    rect(ctx, '#def8ff', tipX + 4, tipY + 1, 2, 4);
+    rect(ctx, '#88b4ef', tipX + 5, tipY + 4, 3, 2);
+  }
+  ctx.restore();
+}
+
 function drawTriAnimal(ctx, type, x, y, stride, emergence) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(1, Math.max(0.08, emergence));
   const bob = stride % 2;
-  if (type === 'blob') {
+  if (type === 'opus') {
+    drawTriOpus(ctx, { stride, tick: stride * 2 });
+  } else if (type === 'blob') {
     drawTriBlob(ctx, 0, 0, 1, stride);
   } else if (type === 'brain') {
     const hover = Math.round(1.2 * Math.sin(stride * 0.7));
@@ -785,7 +906,7 @@ function drawAnimal(ctx, type, x, y, direction = 1, stride = 0, wet = false, con
   if (converted) {
     const eye = type === 'duck' ? -9 : -6;
     rect(ctx, '#ffd2ee', 2, eye, 5, 3);
-    rect(ctx, '#6cc6ff', 3, eye, 3, 3);
+    rect(ctx, TRI_IRIS, 3, eye, 3, 3);
     rect(ctx, '#382251', 4, eye + 1, 1, 2);
     rect(ctx, '#73baff', -3, -4, 4, 1);
   }
@@ -820,7 +941,7 @@ function drawCopperGiant(ctx, x, y, stride, direction, converted) {
   paint('#d38a58', -8, -55, 17, 5);
   paint('#ba6c4a', -6, -46, 13, 7);
   rect(ctx, '#2b2634', -5, -50, 11, 5);
-  rect(ctx, converted ? '#ed9feb' : '#ffdc82', 0, -51, 3, 8);
+  rect(ctx, converted ? TRI_IRIS : '#ffdc82', 0, -51, 3, 8);
   ctx.restore();
 }
 
@@ -869,7 +990,7 @@ function drawSkyEye(ctx, x, y, age) {
   rect(ctx, '#ffe0cb', -17, -5, 34, 12);
   rect(ctx, '#ffe0cb', -11, -10, 22, 20);
   const glance = Math.round(Math.sin(age * 0.033) * 5);
-  rect(ctx, '#f5a450', glance - 6, -9, 12, 18);
+  rect(ctx, TRI_IRIS, glance - 6, -9, 12, 18);
   rect(ctx, '#b8524a', glance - 3, -9, 6, 18);
   rect(ctx, '#392349', glance - 1, -7, 3, 14);
   rect(ctx, '#fff4db', glance - 4, -6, 3, 3);
@@ -964,7 +1085,7 @@ export class QuarryRenderer {
     }
   }
 
-  draw(quarry, cursor, left, { hideHuts = false } = {}) {
+  draw(quarry, cursor, left, { skipDecoration } = {}) {
     const ctx = this.ctx;
     this.frameTick = quarry.tick;
     this.left = left;
@@ -973,7 +1094,7 @@ export class QuarryRenderer {
     if (quarry.skyMode !== 'day') drawSceneSky(ctx, quarry.night, quarry.skyProgress);
     ctx.save();
     ctx.translate(-left, 0);
-    drawStructures(ctx, quarry, left, this.chipper, hideHuts);
+    drawStructures(ctx, quarry, left, this.chipper, skipDecoration);
     const opening = quarry.portalOpening;
     for (const portal of quarry.portals) {
       const { x, y, direction } = portal;
@@ -983,8 +1104,9 @@ export class QuarryRenderer {
     }
     drawTri(ctx, quarry, left, this.chipper);
     for (const creature of quarry.creatures) {
-      if (creature.x < left - 12 || creature.x >= left + VIEW_WIDTH + 12) continue;
-      const stride = Math.floor(quarry.tick / 5 + creature.phase);
+      const margin = creature.type === 'opus' ? 17 : 12;
+      if (creature.x < left - margin || creature.x >= left + VIEW_WIDTH + margin) continue;
+      const stride = Math.floor(quarry.tick / (creature.type === 'opus' ? 2 : 5) + creature.phase);
       const duration = creature.readyAt - creature.bornAt;
       const emergence = duration ? Math.min(1, (quarry.tick - creature.bornAt) / duration) : 1;
       const { type, x, y, wet } = creature;
@@ -1027,6 +1149,10 @@ export function drawToolIcon(canvas, type, converted = false) {
     ctx.translate(12, type === 'brain' ? 22 : 19);
     if (type === 'brain') ctx.scale(0.78, 0.78);
     drawTriAnimal(ctx, type, 0, 0, 0, 1);
+  } else if (type === 'opus') {
+    ctx.translate(12, 22);
+    ctx.scale(0.6, 0.6);
+    drawTriOpus(ctx, { stride: 0, tick: 0, walking: false });
   } else if (type === 'portal') {
     ctx.translate(12, 22);
     ctx.scale(0.42, 0.42);
@@ -1047,7 +1173,8 @@ export function drawToolIcon(canvas, type, converted = false) {
     }
   } else if (Object.hasOwn(SCENERY, type)) {
     ctx.translate(type === 'dock' ? 10 : 12, type === 'dock' ? 12 : 21);
-    const scale = type === 'birch' ? 0.52 : type === 'dock' ? 0.56 : 0.69;
+    const { width, height } = SCENERY[type];
+    const scale = Math.min(0.69, 21 / width, 21 / height);
     ctx.scale(scale, scale);
     ctx.imageSmoothingEnabled = false;
     drawScenery(ctx, type, 0, 0, converted);

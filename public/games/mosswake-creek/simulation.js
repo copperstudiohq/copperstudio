@@ -23,13 +23,13 @@ export const ICHOR = 9;
 export const GRASS = 10;
 
 export const WEATHER = Object.freeze({ off: 0, rain: 270, storm: 470 });
-export const CREATURES = { lizard: 'Copperback', duck: 'Duck', blob: 'Tri Blob', ling: 'Tri Ling', brain: 'Tri Brain' };
+export const CREATURES = { lizard: 'Copperback', duck: 'Duck', blob: 'Tri Blob', ling: 'Tri Ling', brain: 'Tri Brain', opus: 'Tri Opus' };
 export const SCENERY = {
   birch: { label: 'Birch', width: 28, height: 38 },
-  hut: { label: 'Hut', width: 30, height: 23 },
-  pump: { label: 'Pump', width: 24, height: 18 },
-  posts: { label: 'Fence', width: 12, height: 7 },
-  dock: { label: 'Dock', width: 42, height: 14 }
+  hut: { label: 'Hut', width: 48, height: 34 },
+  pump: { label: 'Pump', width: 26, height: 20 },
+  posts: { label: 'Fence', width: 18, height: 10 },
+  dock: { label: 'Dock', width: 46, height: 16 }
 };
 export const TRI_PORTAL = { label: 'Tri Portal', halfWidth: 26, height: 44, limit: 8 };
 export const BOSSES = {
@@ -48,7 +48,7 @@ const TRI_BIRTHS = [
 ];
 const TRI_SPAWN_OFFSETS = [18, -18, 25, -25, 34, -34, 43, -43, 54, -54];
 const TRI_EMERGENCE = Math.round(3.2 * TICKS_PER_SECOND);
-const TRI_CREATURE_STRIDE = { blob: 8, ling: 4, brain: 6 };
+const TRI_CREATURE_STRIDE = { blob: 8, ling: 4, brain: 6, opus: 6 };
 const COPPER_MATERIALS = [COPPER, PATINA];
 const ANIMAL_LIMIT = 24;
 const SCENERY_LIMIT = 80;
@@ -261,8 +261,8 @@ export class Quarry {
         if (!Object.hasOwn(TRI_CREATURE_STRIDE, animal.type)) {
           return Math.hypot(animal.x - x, animal.y - y) > radius + 2;
         }
-        const height = animal.type === 'brain' ? 26 : animal.type === 'ling' ? 15 : 11;
-        const halfWidth = animal.type === 'blob' ? 8 : 6;
+        const height = animal.type === 'brain' ? 26 : animal.type === 'opus' ? 22 : animal.type === 'ling' ? 15 : 11;
+        const halfWidth = animal.type === 'opus' ? 16 : animal.type === 'blob' ? 8 : 6;
         return Math.abs(animal.x - x) > radius + halfWidth || y + radius < animal.y - height || y - radius > animal.y + 2;
       });
       this.scenery = this.scenery.filter((item) => {

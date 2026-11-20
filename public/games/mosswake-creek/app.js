@@ -1,6 +1,6 @@
 import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_SECOND, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, ERASE, CREATURES, SCENERY, BOSSES, TRI_PORTAL } from './simulation.js';
 import { QuarryRenderer, drawToolIcon } from './art.js';
-import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_PORTALS, WATCH_SIGNAL } from './watch.js';
+import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_CAMP_GROUPS, WATCH_PORTALS, WATCH_SIGNAL } from './watch.js';
 import { listWatchSlots, loadWatchSlot, saveWatchSlot, WATCH_SAVE_NAME_LIMIT } from './watch-saves.js';
 import { drawCreekWatch } from './watch-art.js';
 
@@ -46,7 +46,7 @@ const TRI_TOOLS = [
       : tool.entity ? `Click or tap to place a ${label}.` : `Drag to paint ${label.toLowerCase()}.`;
     return { ...tool, label, hint, converted: true };
   }),
-  ...['blob', 'ling', 'brain'].map((entity) => ({
+  ...['blob', 'ling', 'brain', 'opus'].map((entity) => ({
     entity, label: CREATURES[entity], hint: `Click or tap to place a ${CREATURES[entity]}.`
   }))
 ];
@@ -102,18 +102,23 @@ const watchArea = document.querySelector('#watch-area');
 const watchPosition = document.querySelector('#watch-position');
 const watchPortalState = document.querySelector('#watch-portal-state');
 const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
-for (const camp of WATCH_CAMPS) {
+for (const { name, side, locations } of WATCH_CAMP_GROUPS) {
   const marker = document.createElement('button');
-  const destination = `camp-${camp.x}`;
+  // Arrive within recruiting range with the whole group in view.
+  const x = locations[side === -1 ? 2 : 1] + side * 12;
+  const destination = `camp-${side}`;
   marker.type = 'button';
   marker.className = 'watch-camp-marker';
   marker.dataset.watchDestination = destination;
-  marker.style.left = `${camp.x / WATCH_BOUNDS.right * 100}%`;
-  marker.title = 'Walk to the recruiting camp beside the lake bridge';
+  marker.style.left = `${x / WATCH_BOUNDS.right * 100}%`;
+  marker.title = `Walk to the ${name.toLowerCase()} camps`;
   marker.setAttribute('aria-label', marker.title);
-  watchDestinations[destination] = camp.x;
+  watchDestinations[destination] = x;
   watchPosition.before(marker);
 }
+const watchRenderOptions = {
+  skipDecoration: ({ x, type }) => type === 'hut' || WATCH_CAMPS.some((camp) => Math.abs(camp.x - x) <= 44)
+};
 const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
 const watchMoveKeys = { a: -1, d: 1, arrowleft: -1, arrowright: 1 };
 const watchSavesDialog = document.querySelector('#watch-saves');
@@ -343,7 +348,7 @@ function drawWatchMode() {
   }
   watchQuarry.tick = watch.tick;
   watchQuarry.weather = watch.phase === 'night' ? 'storm' : 'rain';
-  watchRenderer.draw(watchQuarry, null, watch.camera, { hideHuts: true });
+  watchRenderer.draw(watchQuarry, null, watch.camera, watchRenderOptions);
   drawCreekWatch(watchRenderer.ctx, watch);
   const active = watch.status === 'running';
   const finished = watch.status === 'lost';

@@ -1,4 +1,4 @@
-import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS, TRI_PORTAL_OPEN_TICKS, quarryHeight } from './simulation.js';
+import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS, TRI_PORTAL_OPEN_TICKS, CREATURES, quarryHeight } from './simulation.js';
 
 export const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
 export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
@@ -12,7 +12,8 @@ export const WATCH_DAY = DAY_TICKS;
 export const WATCH_NIGHT = NIGHT_TICKS;
 const WATCH_GUARD_LIMIT = 3;
 const WATCH_RAIDER_LIMIT = 12;
-export const WATCH_WISP_REACH = 12;
+export const WATCH_ENEMY_NAME = CREATURES.opus;
+export const WATCH_OPUS_REACH = 12;
 const WATCH_NO_ACTION = -TICKS_PER_SECOND;
 const WATCH_GUARD_STATS = [
   { range: 88, damage: 1, cooldown: 22 },
@@ -24,7 +25,14 @@ const WATCH_POSTS = [
   { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44 },
   { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44 }
 ];
-export const WATCH_CAMPS = [{ x: WATCH_BRIDGE.left - 86, side: -1 }];
+export const WATCH_PIGEONS = WATCH_POSTS.flatMap(({ side, wallX }) =>
+  [49, 94, 143].map((offset) => ({ side, x: wallX + side * offset })));
+export const WATCH_CAMP_GROUPS = [
+  { name: 'West', side: -1, locations: [VIEW_WIDTH - 60, VIEW_WIDTH + 24, VIEW_WIDTH + 117, VIEW_WIDTH + 194] },
+  { name: 'East', side: 1, locations: [3 * VIEW_WIDTH + 140, 3 * VIEW_WIDTH + 224, 3 * VIEW_WIDTH + 308, 4 * VIEW_WIDTH + 8] }
+];
+export const WATCH_CAMPS = WATCH_CAMP_GROUPS.flatMap(({ side, locations }) => locations.map((x) => ({ x, side })));
+export const WATCH_CAMP_HINT = 'Use either tent marker to walk to a group of four recruiting camps.';
 const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
   .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
 
@@ -33,9 +41,25 @@ export function watchGround(x) {
   return quarryHeight(Math.round(x));
 }
 
-export function watchWispWall(wisp, posts) {
-  const post = posts[wisp.side === -1 ? 0 : 1];
-  return post.health > 0 && (wisp.x - post.wallX) * wisp.side >= 0 ? post : null;
+export function watchOpusWall(opus, posts) {
+  const post = posts[opus.side === -1 ? 0 : 1];
+  return post.health > 0 && (opus.x - post.wallX) * opus.side >= 0 ? post : null;
+}
+
+export function watchPigeonPose(pigeon, tick) {
+  const phase = tick / 24 + pigeon.x;
+  const velocity = Math.cos(phase);
+  return { x: pigeon.x + Math.round(5 * Math.sin(phase)), direction: velocity < 0 ? -1 : 1,
+    walking: Math.abs(velocity) > 0.25 };
+}
+
+function walkWatchGuard(guard, from, target, speed) {
+  const distance = target - from;
+  guard.walking = distance !== 0;
+  if (!guard.walking) return;
+  guard.direction = Math.sign(distance);
+  guard.x = Math.abs(distance) <= speed ? target : from + guard.direction * speed;
+  guard.stride = (guard.stride ?? 0) + 1;
 }
 
 export class CreekWatch {
@@ -56,6 +80,7 @@ export class CreekWatch {
     this.raiders = [];
     this.shots = [];
     this.loot = [];
+    this.huntedPigeons = 0;
     this.stockCaches();
     this.queue = [];
     this.message = 'Build palisades and hire guards before the first raid.';
@@ -91,7 +116,7 @@ export class CreekWatch {
   start() {
     if (this.status !== 'ready') return false;
     this.status = 'running';
-    this.message = 'The tent marker leads to the camp beside the lake bridge. Guards alternate west and east.';
+    this.message = WATCH_CAMP_HINT;
     return true;
   }
 
@@ -139,7 +164,7 @@ export class CreekWatch {
     if (this.status === 'ready') return this.start();
     const action = this.getAction();
     if (!action) {
-      if (this.status === 'running') this.message = 'Walk up to the camp, a palisade, or the signal tower. Each bank can hold three veterans.';
+      if (this.status === 'running') this.message = 'Walk up to a camp, a palisade, or the signal tower. Each bank can hold three veterans.';
       return false;
     }
     if (this.coins < action.cost) {
@@ -194,7 +219,7 @@ export class CreekWatch {
       }
     }
     this.queue.sort((a, b) => a.due - b.due);
-    this.message = `Night ${this.day}. Ichor Wisps are coming through both portals.`;
+    this.message = `Night ${this.day}. ${WATCH_ENEMY_NAME} are coming through both portals.`;
   }
 
   finishNight() {
@@ -203,6 +228,7 @@ export class CreekWatch {
     this.phase = 'day';
     this.phaseTick = 0;
     this.day++;
+    this.huntedPigeons = 0;
     this.coins += 3;
     this.stockCaches();
     this.message = `Dawn of day ${this.day}. You earned 3 copper. Repair and prepare for the next raid.`;
@@ -225,10 +251,16 @@ export class CreekWatch {
     this.shots = this.shots.filter(({ end }) => end > this.tick);
     if (this.phase === 'day') {
       if (this.phaseTick >= WATCH_DAY) this.startNight();
-      else if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
-        this.message = 'Dusk in 10 seconds. The edge portals are about to open.';
+      else {
+        if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
+          this.message = 'Dusk in 10 seconds. The guards are heading back to their posts.';
+        }
+        this.patrolGuards();
       }
       return;
+    }
+    for (const post of this.posts) {
+      post.guards.forEach((guard, index) => walkWatchGuard(guard, this.guardPosition(post, index), this.guardX(post, index), 1.35));
     }
     while (this.queue[0]?.due <= this.phaseTick) {
       const { side } = this.queue.shift();
@@ -239,7 +271,7 @@ export class CreekWatch {
     for (const raider of this.raiders) this.moveRaider(raider);
     if (this.signal <= 0) {
       this.status = 'lost';
-      this.message = 'The wisps extinguished the signal. Start a new watch to try again.';
+      this.message = `The ${WATCH_ENEMY_NAME} extinguished the signal. Start a new watch to try again.`;
       return;
     }
     this.fireGuards();
@@ -253,19 +285,19 @@ export class CreekWatch {
   }
 
   moveRaider(raider) {
-    const post = watchWispWall(raider, this.posts);
+    const post = watchOpusWall(raider, this.posts);
     const target = post?.wallX ?? WATCH_SIGNAL;
     const distance = Math.abs(raider.x - target);
-    if (distance > WATCH_WISP_REACH) {
+    if (distance > WATCH_OPUS_REACH) {
       const speed = 1.58 + 0.18 * Math.sin(this.tick / 16 + raider.x / 36);
-      raider.x += Math.sign(target - raider.x) * Math.min(distance - WATCH_WISP_REACH, speed);
+      raider.x += Math.sign(target - raider.x) * Math.min(distance - WATCH_OPUS_REACH, speed);
       raider.stride++;
     } else if (this.tick >= raider.attackAt) {
       raider.struckAt = this.tick;
       raider.attackAt = this.tick + (post ? 44 : 36);
       if (post) {
         post.health--;
-        if (post.health === 0) this.message = `${post.name} palisade fell. Wisps are heading for the signal.`;
+        if (post.health === 0) this.message = `${post.name} palisade fell. ${WATCH_ENEMY_NAME} are heading for the signal.`;
       } else {
         this.signal = Math.max(0, this.signal - 1);
       }
@@ -276,11 +308,52 @@ export class CreekWatch {
     return post.wallX - post.side * (17 + index * 8);
   }
 
+  guardPosition(post, index) {
+    return post.guards[index].x ?? this.guardX(post, index);
+  }
+
+  patrolGuards() {
+    const dusk = this.phaseTick >= WATCH_DAY - 10 * TICKS_PER_SECOND;
+    for (const post of this.posts) {
+      post.guards.forEach((guard, index) => {
+        const home = this.guardX(post, index);
+        if (!dusk && this.tick - guard.shotAt < 9) {
+          guard.walking = false;
+          return;
+        }
+        const outer = post.wallX + post.side * (151 + index * 8);
+        const target = dusk || guard.returning ? home : outer;
+        walkWatchGuard(guard, this.guardPosition(post, index), target, 1.1);
+        const from = this.guardPosition(post, index);
+        if (from === target) guard.returning = !dusk && target === outer;
+        if (dusk || Math.abs(from - home) < 21 || guard.fireAt > this.tick) return;
+
+        for (const [bird, pigeon] of WATCH_PIGEONS.entries()) {
+          if (pigeon.side !== post.side || (this.huntedPigeons & (1 << bird))) continue;
+          const { x: to } = watchPigeonPose(pigeon, this.tick);
+          if (Math.abs(to - from) > 42) continue;
+          this.huntedPigeons |= 1 << bird;
+          if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
+          this.shootWatchArrow(guard, from, to, 44, 'pigeon');
+          this.message = 'A guard hunted a pigeon. Pick up the copper it dropped.';
+          break;
+        }
+      });
+    }
+  }
+
+  shootWatchArrow(guard, from, to, cooldown, kind) {
+    guard.direction = Math.sign(to - from) || guard.direction;
+    guard.shotAt = this.tick;
+    guard.fireAt = this.tick + cooldown;
+    this.shots.push({ from, to, end: this.tick + 9, kind });
+  }
+
   fireGuards() {
     for (const post of this.posts) {
       post.guards.forEach((guard, index) => {
         if (guard.fireAt > this.tick) return;
-        const from = this.guardX(post, index);
+        const from = this.guardPosition(post, index);
         const { range, damage, cooldown } = WATCH_GUARD_STATS[guard.rank];
         let target;
         let closest = Infinity;
@@ -293,10 +366,7 @@ export class CreekWatch {
         }
         if (!target) return;
         target.hp -= damage;
-        guard.direction = Math.sign(target.x - from) || guard.direction;
-        guard.shotAt = this.tick;
-        guard.fireAt = this.tick + cooldown;
-        this.shots.push({ from, to: target.x, end: this.tick + 9 });
+        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid');
       });
     }
   }

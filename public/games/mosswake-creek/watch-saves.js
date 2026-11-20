@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_BOUNDS, WATCH_DAY, WATCH_HEALTH, WATCH_NIGHT } from './watch.js';
+import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_HEALTH, WATCH_NIGHT, WATCH_PIGEONS } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -29,36 +29,45 @@ const validWatchCount = (value) => Number.isSafeInteger(value) && value >= 0;
 const validWatchStamp = (value) => Number.isSafeInteger(value) && value >= -TICKS_PER_SECOND;
 const validWatchSide = (value) => value === -1 || value === 1;
 const validWatchX = (value) => Number.isFinite(value) && value >= WATCH_BOUNDS.left && value <= WATCH_BOUNDS.right;
+const validWatchFlag = (value) => typeof value === 'boolean';
+const optionalWatchField = (value, isValid) => value === undefined || isValid(value);
 const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.length <= limit
   && items.every((item) => item && isValid(item));
 
 function validWatchState(state) {
   if (!state) return false;
-  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, shots, loot, queue, message } = state;
+  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
+    shots, loot, huntedPigeons = 0, queue, message } = state;
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
       || !validWatchCount(coins) || !validWatchCount(signal) || signal > WATCH_HEALTH
-      || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500) return false;
+      || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
+      || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length) return false;
 
   return player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
     && validWatchList(posts, 2, ({ tier, health, guards }) =>
       [0, 1, 2].includes(tier) && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0)
-      && validWatchList(guards, 3, ({ rank, direction, fireAt, shotAt }) =>
-        [0, 1].includes(rank) && validWatchSide(direction) && validWatchCount(fireAt) && validWatchStamp(shotAt)))
+      && validWatchList(guards, 3, ({ rank, direction, fireAt, shotAt, x, stride, returning, walking }) =>
+        [0, 1].includes(rank) && validWatchSide(direction) && validWatchCount(fireAt) && validWatchStamp(shotAt)
+        && optionalWatchField(x, validWatchX) && optionalWatchField(stride, validWatchCount)
+        && optionalWatchField(returning, validWatchFlag) && optionalWatchField(walking, validWatchFlag)
+        && (!walking || validWatchCount(stride))))
     && posts.length === 2
     && validWatchList(raiders, 64, ({ side, x, stride, hp, attackAt, struckAt }) =>
       validWatchSide(side) && validWatchX(x) && validWatchCount(stride)
       && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt))
-    && validWatchList(shots, 64, ({ from, to, end }) => validWatchX(from) && validWatchX(to) && validWatchCount(end))
+    && validWatchList(shots, 64, ({ from, to, end, kind }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
+      && (kind === undefined || kind === 'pigeon' || kind === 'raid'))
     && validWatchList(loot, 128, ({ x, amount }) => validWatchX(x) && validWatchCount(amount) && amount > 0)
     && validWatchList(queue, 64, ({ side, due }) => validWatchSide(side) && validWatchCount(due) && due <= WATCH_NIGHT)
     && queue.every(({ due }, index) => index === 0 || queue[index - 1].due <= due);
 }
 
 function captureWatchState(watch) {
-  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, shots, loot, queue, message } = watch;
-  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, queue, message,
+  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
+    shots, loot, huntedPigeons = 0, queue, message } = watch;
+  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message,
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }
 
@@ -95,6 +104,10 @@ export function loadWatchSlot(storage, id) {
   const { state } = readWatchRecord(storage, id);
   const watch = new CreekWatch();
   const { posts, ...progress } = captureWatchState(state);
+  progress.message = progress.message.replace(/\b(?:Ichor Wisps|Wisps|Tri Raiders)\b/gi, WATCH_ENEMY_NAME);
+  if (progress.message === 'The tent marker leads to the camp beside the lake bridge. Guards alternate west and east.') {
+    progress.message = WATCH_CAMP_HINT;
+  }
   const restoredPosts = watch.posts.map((post, index) => ({ ...post, ...posts[index] }));
   return Object.assign(watch, progress, { posts: restoredPosts });
 }

@@ -276,7 +276,7 @@ dialog dd { margin: 2px 0 0; }
           <button class="menu-option watch-option" type="button" data-menu-play="watch"
               aria-labelledby="play-watch-title" aria-describedby="play-watch-detail">
             <span class="menu-mode-icon" aria-hidden="true"><canvas width="24" height="24" data-icon="signal"></canvas></span>
-            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Defend the lake tower through endless waves of wisps.</small></span>
+            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Defend the lake tower through endless waves of Tri Opus.</small></span>
             <span class="menu-arrow" aria-hidden="true">›</span>
           </button>
         </div>
@@ -344,7 +344,7 @@ dialog dd { margin: 2px 0 0; }
             <div class="location"><span>Map</span><strong id="watch-area">Mosswake Pond</strong></div>
             <span id="watch-portal-state">Portals dormant</span>
           </div>
-          <div class="watch-route" role="group" aria-label="Recruiting camp"><i id="watch-position" aria-hidden="true"></i></div>
+          <div class="watch-route" role="group" aria-label="Recruiting camps"><i id="watch-position" aria-hidden="true"></i></div>
           <div class="watch-destinations" role="group" aria-label="Walk to a landmark">
             <button class="button" type="button" data-watch-destination="west">West portal</button>
             <button class="button" type="button" data-watch-destination="tower">Signal tower</button>
@@ -435,6 +435,7 @@ dialog dd { margin: 2px 0 0; }
       <div><dt>Break pixels</dt><dd>Press B or choose Break to chip terrain, trees, buildings, creatures, and bosses into falling debris. Use a 1 px brush for single pixels.</dd></div>
       <div><dt>Change the sky</dt><dd>Pick Day or Night to hold the sky, or Auto for a moving sun and moon. Rainfall has its own Off, Rain, and Storm controls.</dd></div>
       <div><dt>Place a Tri Portal</dt><dd>Choose Tri Portal under Scenery and place it on dry ground. It opens into a mouth and releases Tri Blobs at night. Use Eraser or Break to remove it.</dd></div>
+      <div><dt>Place Tri Opus</dt><dd>Open Tri variants, choose Creatures, and select Tri Opus. Click or tap the quarry to spawn one.</dd></div>
       <div><dt>Explore Mosswake</dt><dd>Use the map arrows, drag the map slider, or press A and D to move the view across all five areas.</dd></div>
       <div><dt>Add life</dt><dd>Place copperbacks or Mosswake ducks, or plant Tri on dry ground. When Tri touches a pool, it turns the water into thick, flesh-colored ichor. Erase the clump to remove its growth and clear the pool.</dd></div>
       <div><dt>Choose a variant</dt><dd>Switch between Normal and Tri variants above Materials, Creatures, and Scenery. Place birches, huts, pumps, fences, or docks in either palette. Growing Tri converts normal scenery it reaches and produces Tri Blobs, Tri Lings, and floating Tri Brains.</dd></div>
@@ -443,8 +444,9 @@ dialog dd { margin: 2px 0 0; }
     </dl>
     <dl data-watch-view hidden>
       <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
-      <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Select the tent marker to walk to the one recruiting camp beside the lake bridge. Press E or use the action button there to hire guards for 3 copper each. They appear at the west and east banks in turn, starting west, up to three on each bank. Once both banks are full, train veterans for 4 copper each.</dd></div>
-      <div><dt>Keep the light burning</dt><dd>At dusk, Ichor Wisps walk out of both portals and strike your defenses with pulses of light. Each dawn starts a new day until the tower falls.</dd></div>
+      <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. The west and east tent markers each lead to a group of four camps. Press E or use the action button at any tent to hire guards for 3 copper each. They appear at the west and east banks in turn, up to three on each bank. Once both banks are full, train veterans for 4 copper each.</dd></div>
+      <div><dt>Keep the light burning</dt><dd>At dusk, Tri Opus walk out of both portals and strike your defenses with pulses of light. Each dawn starts a new day until the tower falls.</dd></div>
+      <div><dt>Daytime patrols</dt><dd>Guards patrol the banks and hunt pigeons. Walk over dropped copper to collect it. Guards return to their posts at dusk.</dd></div>
       <div><dt>Ring the dusk bell</dt><dd>Use the tower in the middle of the bridge to start a raid early. Repair it there during the day if it took damage.</dd></div>
       <div><dt>Save the watch</dt><dd>Open Save slots to create a named save or update one. Load a slot to return to the day or raid you saved.</dd></div>
     </dl>
@@ -499,13 +501,13 @@ const ICHOR = 9;
 const GRASS = 10;
 
 const WEATHER = Object.freeze({ off: 0, rain: 270, storm: 470 });
-const CREATURES = { lizard: 'Copperback', duck: 'Duck', blob: 'Tri Blob', ling: 'Tri Ling', brain: 'Tri Brain' };
+const CREATURES = { lizard: 'Copperback', duck: 'Duck', blob: 'Tri Blob', ling: 'Tri Ling', brain: 'Tri Brain', opus: 'Tri Opus' };
 const SCENERY = {
   birch: { label: 'Birch', width: 28, height: 38 },
-  hut: { label: 'Hut', width: 30, height: 23 },
-  pump: { label: 'Pump', width: 24, height: 18 },
-  posts: { label: 'Fence', width: 12, height: 7 },
-  dock: { label: 'Dock', width: 42, height: 14 }
+  hut: { label: 'Hut', width: 48, height: 34 },
+  pump: { label: 'Pump', width: 26, height: 20 },
+  posts: { label: 'Fence', width: 18, height: 10 },
+  dock: { label: 'Dock', width: 46, height: 16 }
 };
 const TRI_PORTAL = { label: 'Tri Portal', halfWidth: 26, height: 44, limit: 8 };
 const BOSSES = {
@@ -524,7 +526,7 @@ const TRI_BIRTHS = [
 ];
 const TRI_SPAWN_OFFSETS = [18, -18, 25, -25, 34, -34, 43, -43, 54, -54];
 const TRI_EMERGENCE = Math.round(3.2 * TICKS_PER_SECOND);
-const TRI_CREATURE_STRIDE = { blob: 8, ling: 4, brain: 6 };
+const TRI_CREATURE_STRIDE = { blob: 8, ling: 4, brain: 6, opus: 6 };
 const COPPER_MATERIALS = [COPPER, PATINA];
 const ANIMAL_LIMIT = 24;
 const SCENERY_LIMIT = 80;
@@ -737,8 +739,8 @@ class Quarry {
         if (!Object.hasOwn(TRI_CREATURE_STRIDE, animal.type)) {
           return Math.hypot(animal.x - x, animal.y - y) > radius + 2;
         }
-        const height = animal.type === 'brain' ? 26 : animal.type === 'ling' ? 15 : 11;
-        const halfWidth = animal.type === 'blob' ? 8 : 6;
+        const height = animal.type === 'brain' ? 26 : animal.type === 'opus' ? 22 : animal.type === 'ling' ? 15 : 11;
+        const halfWidth = animal.type === 'opus' ? 16 : animal.type === 'blob' ? 8 : 6;
         return Math.abs(animal.x - x) > radius + halfWidth || y + radius < animal.y - height || y - radius > animal.y + 2;
       });
       this.scenery = this.scenery.filter((item) => {
@@ -1342,6 +1344,7 @@ const DECORATIONS = [
   { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'pump' }
 ];
 const POND_DOCK = { x: START_VIEW + 258, y: 128 };
+const TRI_IRIS = '#e89147';
 const rainRandom = makeRandom(23691);
 const streaks = Array.from({ length: WEATHER.storm * WORLD_AREAS.length }, () => ({
   x: rainRandom() * WIDTH, y: rainRandom() * HEIGHT, speed: 1.7 + rainRandom() * 3.8, length: 2 + rainRandom() * 7,
@@ -1819,80 +1822,124 @@ function sceneBrush(ctx, converted) {
   };
 }
 
-function drawLamp(ctx, x, y, converted) {
-  const halo = ctx.createRadialGradient(x, y, 0, x, y, 13);
-  halo.addColorStop(0, converted ? '#76b7ff66' : 'rgba(255,166,90,.35)');
-  halo.addColorStop(1, 'transparent');
-  rect(ctx, halo, x - 13, y - 13, 26, 26);
-  rect(ctx, converted ? '#875889' : '#a55539', x - 2, y - 2, 5, 4);
-  rect(ctx, converted ? '#9ed1ff' : '#ffc888', x - 1, y - 1, 3, 2);
+function drawPlacedBirch(paint, x, y) {
+  paint('#5e6156', x - 2, y - 29, 5, 29);
+  paint('#c0bda2', x - 1, y - 28, 3, 27);
+  paint('#e0d8b6', x - 1, y - 27, 1, 24);
+  for (let height = 5; height < 23; height += 5) {
+    paint('#666358', x - 1 + height % 2, y - height, 2, 1);
+  }
+  paint('#898779', x + 2, y - 23, 6, 2);
+  paint('#898779', x - 7, y - 19, 5, 2);
+  paint('#2c403b', x - 13, y - 31, 27, 12);
+  paint('#344c3e', x - 8, y - 35, 20, 15);
+  paint('#547157', x - 5, y - 38, 11, 9);
+  paint('#577357', x - 12, y - 31, 15, 7);
+  paint('#6e8860', x - 9, y - 33, 7, 4);
+  paint('#425d48', x + 2, y - 28, 12, 7);
+  paint('#65805b', x + 4, y - 31, 6, 4);
+  paint('#a49b70', x - 6, y - 31, 2, 2);
+  paint('#898855', x + 7, y - 29, 3, 1);
 }
 
-const birchSprites = new Map();
-
-function drawPlacedBirch(ctx, x, y, converted) {
-  if (!birchSprites.has(converted)) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 36;
-    canvas.height = 40;
-    const sprite = canvas.getContext('2d');
-    drawBirch(18, 39, 34, 71, true, false, (px, py, color, _, triColor) => {
-      const barkOrLeaf = converted && triColor ? channels(triColor) : color;
-      rect(sprite, `rgb(${barkOrLeaf.join(',')})`, px, py, 1, 1);
-    });
-    birchSprites.set(converted, canvas);
+function drawHut(ctx, paint, x, y, converted) {
+  paint('#362c30', x - 19, y - 22, 39, 22);
+  paint('#765742', x - 17, y - 20, 34, 18);
+  paint('#9c7351', x - 16, y - 19, 26, 16);
+  paint('#654638', x + 11, y - 20, 7, 18);
+  for (let row = 0; row < 4; row++) {
+    const boards = y - 17 + row * 4;
+    paint('#614539', x - 16, boards, 33, 1);
+    paint('#b98a5d', x - 16, boards + 1, 25, 1);
+    paint('#78523c', x + ((row % 2) ? -5 : -12), boards + 1, 1, 3);
   }
-  ctx.drawImage(birchSprites.get(converted), x - 18, y - 39);
+  paint('#d3a571', x - 18, y - 21, 2, 19);
+  paint('#c59666', x + 16, y - 21, 2, 19);
+  paint('#5a4037', x - 12, y - 17, 11, 15);
+  paint('#241f28', x - 10, y - 15, 7, 13);
+  paint('#77533c', x - 9, y - 14, 5, 11);
+  paint('#433131', x - 8, y - 14, 1, 11);
+  paint('#d7a46c', x - 5, y - 8, 1, 2);
+  paint('#463637', x + 3, y - 17, 12, 11);
+  rect(ctx, converted ? '#8eb8e3' : '#f1bd78', x + 5, y - 15, 8, 7);
+  rect(ctx, converted ? '#c6e0ef' : '#ffdda3', x + 5, y - 15, 7, 2);
+  paint('#6d5246', x + 8, y - 15, 1, 7);
+  paint('#6d5246', x + 5, y - 12, 8, 1);
+  paint('#c4915a', x + 2, y - 7, 14, 2);
+
+  paint('#47383a', x + 10, y - 34, 8, 11);
+  paint('#826253', x + 11, y - 32, 5, 8);
+  paint('#c29a78', x + 10, y - 34, 8, 2);
+  paint('#513c3b', x + 11, y - 29, 6, 1);
+  for (let course = 0; course < 6; course++) {
+    const half = 7 + 3 * course;
+    const top = y - 33 + course * 2;
+    paint('#623b37', x - half, top, half * 2, 2);
+    paint(course % 2 ? '#be7953' : '#d39261', x - half + 1, top, half * 2 - 2, 1);
+    for (let seam = -half + 5; seam < half - 4; seam += 6) {
+      paint('#9d603f', x + seam, top + 1, 1, 1);
+    }
+  }
+  paint('#563b36', x - 24, y - 21, 48, 3);
+  paint('#ab7952', x - 23, y - 21, 46, 1);
+  paint('#503c38', x - 21, y - 3, 42, 3);
+  paint('#cf9a63', x - 21, y - 3, 42, 1);
+  paint('#916744', x - 13, y - 2, 14, 2);
 }
 
 function drawScenery(ctx, type, x, y, converted) {
   const paint = sceneBrush(ctx, converted);
   if (type === 'birch') {
-    drawPlacedBirch(ctx, x, y, converted);
+    drawPlacedBirch(paint, x, y);
   } else if (type === 'dock') {
-    paint('#554138', x - 8, y + 1, 2, 16);
-    paint('#73513d', x + 5, y + 1, 2, 10);
-    paint('#6a4b3c', x - 12, y, 25, 3);
-    paint('#a07450', x - 12, y - 1, 25, 1);
+    paint('#51403a', x - 9, y + 1, 4, 16);
+    paint('#916a4a', x - 9, y + 2, 1, 12);
+    paint('#5c463c', x + 6, y + 1, 4, 10);
+    paint('#b07a4f', x + 6, y + 2, 1, 8);
+    paint('#5a4138', x - 13, y + 4, 25, 2);
+    paint('#7a533e', x - 13, y, 27, 3);
+    paint('#b78453', x - 13, y - 1, 27, 1);
+    for (let seam = -10; seam < 13; seam += 5) {
+      paint('#4c3934', x + seam, y, 1, 2);
+      paint('#bb966e', x + seam + 2, y + 1, 1, 1);
+    }
     for (let step = 0; step < 5; step++) {
-      paint('#906442', x + 11 + step * 2, y - 2 - step * 3, 4, 2);
+      paint('#563d36', x + 11 + step * 2, y - 2 - step * 3, 4, 4);
+      paint('#ba8556', x + 11 + step * 2, y - 3 - step * 3, 4, 1);
     }
   } else if (type === 'pump') {
-    paint('#25242c', x - 11, y - 2, 23, 3);
-    paint('#25282f', x - 9, y - 13, 13, 11);
-    paint('#644239', x - 7, y - 12, 9, 3);
-    paint('#9a5d45', x - 9, y - 14, 13, 2);
-    paint('#171b25', x + 4, y - 18, 2, 17);
-    paint('#5e4a47', x + 4, y - 18, 7, 2);
-    drawLamp(ctx, x + 10, y - 14, converted);
+    paint('#393035', x - 12, y - 3, 25, 3);
+    paint('#55565c', x - 11, y - 13, 15, 11);
+    paint('#754c3e', x - 10, y - 15, 12, 4);
+    paint('#b97d52', x - 8, y - 15, 9, 2);
+    paint('#373c46', x - 9, y - 10, 10, 6);
+    paint('#acaa88', x - 8, y - 9, 1, 1);
+    paint('#acaa88', x, y - 5, 1, 1);
+    paint('#35534f', x + 2, y - 19, 4, 17);
+    paint('#638676', x + 3, y - 18, 1, 15);
+    paint('#65534c', x + 4, y - 19, 8, 3);
+    paint('#bf8b5d', x + 6, y - 19, 5, 1);
+    paint('#7c6859', x + 7, y - 11, 5, 4);
+    rect(ctx, converted ? '#9cbfe0' : '#d0a786', x + 9, y - 10, 2, 2);
+    paint('#70635a', x + 5, y - 5, 8, 3);
   } else if (type === 'hut') {
-    paint('#3b2e30', x - 11, y - 15, 23, 15);
-    for (let row = 0; row < 5; row++) {
-      paint(row % 2 ? '#65483b' : '#75503c', x - 10, y - 14 + row * 3, 21, 2);
-    }
-    paint('#a47452', x - 11, y - 14, 2, 14);
-    paint('#4b3935', x + 10, y - 14, 2, 14);
-    paint('#211e26', x - 6, y - 10, 5, 10);
-    paint('#4d403a', x + 4, y - 11, 5, 6);
-    for (let row = 0; row < 6; row++) {
-      const span = 4 + row * 2;
-      paint(row % 2 ? '#98583f' : '#be7953', x - span, y - 22 + row * 1.3 | 0, span * 2 + 1, 2);
-    }
-    paint('#664838', x - 14, y - 14, 29, 2);
-    paint('#b8885c', x - 13, y - 1, 27, 2);
-    drawLamp(ctx, x + 6, y - 8, converted);
+    drawHut(ctx, paint, x, y, converted);
   } else if (type === 'posts') {
-    paint('#51413e', x - 3, y - 6, 2, 6);
-    paint('#51413e', x + 4, y - 7, 2, 7);
-    paint('#7c5444', x - 3, y - 5, 9, 1);
+    paint('#6f5140', x - 8, y - 7, 17, 2);
+    paint('#946946', x - 8, y - 4, 17, 1);
+    for (const offset of [-7, 5]) {
+      paint('#513c35', x + offset, y - 10, 3, 10);
+      paint('#af8056', x + offset, y - 9, 1, 8);
+      paint('#d3ab79', x + offset + 1, y - 7, 1, 1);
+    }
   }
 }
 
-function drawStructures(ctx, quarry, left, chipper, hideHuts) {
+function drawStructures(ctx, quarry, left, chipper, skipDecoration) {
   const right = left + VIEW_WIDTH;
   for (const decoration of DECORATIONS) {
     const { x, type } = decoration;
-    if (x < left - 30 || x >= right + 30 || (hideHuts && type === 'hut')) continue;
+    if (x < left - 30 || x >= right + 30 || skipDecoration?.(decoration)) continue;
     const y = quarryHeight(x);
     if (quarry.at(x, y) !== ROCK || (type !== 'posts' && quarry.at(x - 3, y + 3) !== ROCK)) continue;
     const converted = quarry.isTriAt(x, y);
@@ -1962,7 +2009,7 @@ function drawTriCore(ctx, x, y, tick = 0) {
     }
     rect(ctx, '#8b316b', left - 1, top + 1, size + 2, 3);
     rect(ctx, '#ffd4dc', left, top, size, 5);
-    rect(ctx, '#609cf7', x + dx - 1, top + 1, 3, 3);
+    rect(ctx, TRI_IRIS, x + dx - 1, top + 1, 3, 3);
     rect(ctx, '#281c44', x + dx, top + 2, 1, 2);
     rect(ctx, '#ffffff', x + dx - 1, top + 1, 1, 1);
   }
@@ -1981,7 +2028,7 @@ function watcherEye(ctx, x, y, size) {
   const half = size >> 1;
   rect(ctx, '#78375f', x - half - 1, y - half, size + 2, size);
   rect(ctx, '#ffd7cd', x - half, y - half, size, size);
-  rect(ctx, '#e89147', x - 1, y - half + 1, 3, size - 1);
+  rect(ctx, TRI_IRIS, x - 1, y - half + 1, 3, size - 1);
   rect(ctx, '#321a35', x, y, 1, Math.max(1, half));
   rect(ctx, '#fff2d8', x - 1, y - 1, 1, 1);
 }
@@ -1990,7 +2037,7 @@ function drawTriBlobEye(ctx, x, y) {
   rect(ctx, '#733458', x, y, 7, 8);
   rect(ctx, '#ffe3ec', x + 1, y + 1, 6, 6);
   rect(ctx, '#ffe3ec', x + 2, y, 4, 8);
-  rect(ctx, '#60b4e6', x + 4, y + 2, 3, 5);
+  rect(ctx, TRI_IRIS, x + 4, y + 2, 3, 5);
   rect(ctx, '#291d3b', x + 5, y + 2, 2, 4);
   rect(ctx, '#fff6f9', x + 4, y + 2, 1, 1);
 }
@@ -2010,12 +2057,88 @@ function drawTriBlob(ctx, x, y, direction, stride) {
   ctx.restore();
 }
 
+function drawOpusLeg(ctx, hip, phase, walking, near, groundOffset) {
+  // During support, the foot moves backward relative to the advancing body.
+  const progress = phase % 1;
+  const swinging = walking && phase >= 1;
+  const offset = walking ? Math.round(swinging ? -6 + progress * 12 : 6 - progress * 12) : 0;
+  const foot = hip + offset;
+  const lift = swinging ? Math.round(3 * Math.sin(progress * Math.PI)) : 0;
+  const sole = (groundOffset?.(foot + 1) ?? 0) - lift;
+  const knee = Math.round((hip + foot) / 2) + 1;
+  const kneeY = Math.round((-9 + sole) / 2);
+  const shade = near ? '#a94d71' : '#74334f';
+  rect(ctx, shade, Math.min(hip, knee) - 1, -10, Math.abs(hip - knee) + 4, kneeY + 12);
+  rect(ctx, shade, Math.min(knee, foot) - 1, kneeY, Math.abs(knee - foot) + 3, sole - kneeY);
+  rect(ctx, near ? '#e283a3' : '#b35c7c', foot - 1, sole - 2, 6, 2);
+  if (near) rect(ctx, '#f29ab4', foot + 2, sole - 2, 2, 1);
+}
+
+function drawOpusTentacle(ctx, x, y, length, phase, near) {
+  const outline = near ? '#254e86' : '#253b66';
+  const blue = near ? '#59aaf1' : '#4577b7';
+  let tipY = y;
+  for (let i = 0; i <= length; i++) {
+    const progress = i / length;
+    const thickness = 2 + Math.round(3 * (1 - progress));
+    tipY = y + Math.round(progress * (7 + 4 * Math.sin(progress * 5 + phase)));
+    rect(ctx, outline, x + i, tipY, 2, thickness);
+    rect(ctx, blue, x + i, tipY + 1, 1, thickness - 1);
+    if (near && i % 4 < 2) rect(ctx, '#a5e3fd', x + i, tipY + 1, 1, 1);
+  }
+  return tipY;
+}
+
+function drawTriOpus(ctx, { stride, tick, walking = true, striking = false, groundOffset }) {
+  const phase = (stride % 16) / 8;
+  const sway = walking ? Math.round(3 * Math.cos(phase * Math.PI)) : 0;
+  const bob = walking ? Math.round(Math.sin(phase * Math.PI) ** 2) : 0;
+  ctx.save();
+  drawOpusLeg(ctx, 1, (phase + 1) % 2, walking, false, groundOffset);
+  drawOpusLeg(ctx, -4, phase, walking, true, groundOffset);
+  ctx.translate(0, -bob);
+
+  const curl = tick / 9 + stride / 16;
+  drawOpusTentacle(ctx, 2, -13, 9 + sway, curl + Math.PI, false);
+  rect(ctx, '#582641', -8, -15, 15, 7);
+  rect(ctx, '#8f3b60', -7, -14, 13, 5);
+  rect(ctx, '#c76188', -6, -16, 12, 6);
+  rect(ctx, '#e18aa6', -6, -15, 5, 2);
+  rect(ctx, '#f5aac2', -5, -15, 2, 1);
+
+  rect(ctx, '#582641', -2, -21, 12, 12);
+  rect(ctx, '#582641', 9, -18, 5, 9);
+  rect(ctx, '#b04d73', -1, -20, 12, 10);
+  rect(ctx, '#d87196', 1, -20, 8, 7);
+  rect(ctx, '#e18cab', 5, -18, 8, 8);
+  rect(ctx, '#f5aac2', 3, -20, 5, 1);
+  rect(ctx, '#a94d71', 3, -12, 3, 1);
+  rect(ctx, '#893958', 8, -17, 5, 7);
+  rect(ctx, '#ffe4ea', 8, -16, 4, 5);
+  rect(ctx, TRI_IRIS, 9, -16, 3, 5);
+  rect(ctx, '#2f2445', 11, -15, 2, 3);
+  rect(ctx, '#fffaf2', 10, -16, 1, 1);
+
+  const armX = -4;
+  const armLength = striking ? 19 : 14 - sway;
+  const tipY = drawOpusTentacle(ctx, armX, -13, armLength, striking ? -1 : curl, true);
+  if (striking) {
+    const tipX = armX + armLength;
+    rect(ctx, '#9fe9ff', tipX + 1, tipY, 4, 2);
+    rect(ctx, '#def8ff', tipX + 4, tipY + 1, 2, 4);
+    rect(ctx, '#88b4ef', tipX + 5, tipY + 4, 3, 2);
+  }
+  ctx.restore();
+}
+
 function drawTriAnimal(ctx, type, x, y, stride, emergence) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(1, Math.max(0.08, emergence));
   const bob = stride % 2;
-  if (type === 'blob') {
+  if (type === 'opus') {
+    drawTriOpus(ctx, { stride, tick: stride * 2 });
+  } else if (type === 'blob') {
     drawTriBlob(ctx, 0, 0, 1, stride);
   } else if (type === 'brain') {
     const hover = Math.round(1.2 * Math.sin(stride * 0.7));
@@ -2089,7 +2212,7 @@ function drawAnimal(ctx, type, x, y, direction = 1, stride = 0, wet = false, con
   if (converted) {
     const eye = type === 'duck' ? -9 : -6;
     rect(ctx, '#ffd2ee', 2, eye, 5, 3);
-    rect(ctx, '#6cc6ff', 3, eye, 3, 3);
+    rect(ctx, TRI_IRIS, 3, eye, 3, 3);
     rect(ctx, '#382251', 4, eye + 1, 1, 2);
     rect(ctx, '#73baff', -3, -4, 4, 1);
   }
@@ -2124,7 +2247,7 @@ function drawCopperGiant(ctx, x, y, stride, direction, converted) {
   paint('#d38a58', -8, -55, 17, 5);
   paint('#ba6c4a', -6, -46, 13, 7);
   rect(ctx, '#2b2634', -5, -50, 11, 5);
-  rect(ctx, converted ? '#ed9feb' : '#ffdc82', 0, -51, 3, 8);
+  rect(ctx, converted ? TRI_IRIS : '#ffdc82', 0, -51, 3, 8);
   ctx.restore();
 }
 
@@ -2173,7 +2296,7 @@ function drawSkyEye(ctx, x, y, age) {
   rect(ctx, '#ffe0cb', -17, -5, 34, 12);
   rect(ctx, '#ffe0cb', -11, -10, 22, 20);
   const glance = Math.round(Math.sin(age * 0.033) * 5);
-  rect(ctx, '#f5a450', glance - 6, -9, 12, 18);
+  rect(ctx, TRI_IRIS, glance - 6, -9, 12, 18);
   rect(ctx, '#b8524a', glance - 3, -9, 6, 18);
   rect(ctx, '#392349', glance - 1, -7, 3, 14);
   rect(ctx, '#fff4db', glance - 4, -6, 3, 3);
@@ -2268,7 +2391,7 @@ class QuarryRenderer {
     }
   }
 
-  draw(quarry, cursor, left, { hideHuts = false } = {}) {
+  draw(quarry, cursor, left, { skipDecoration } = {}) {
     const ctx = this.ctx;
     this.frameTick = quarry.tick;
     this.left = left;
@@ -2277,7 +2400,7 @@ class QuarryRenderer {
     if (quarry.skyMode !== 'day') drawSceneSky(ctx, quarry.night, quarry.skyProgress);
     ctx.save();
     ctx.translate(-left, 0);
-    drawStructures(ctx, quarry, left, this.chipper, hideHuts);
+    drawStructures(ctx, quarry, left, this.chipper, skipDecoration);
     const opening = quarry.portalOpening;
     for (const portal of quarry.portals) {
       const { x, y, direction } = portal;
@@ -2287,8 +2410,9 @@ class QuarryRenderer {
     }
     drawTri(ctx, quarry, left, this.chipper);
     for (const creature of quarry.creatures) {
-      if (creature.x < left - 12 || creature.x >= left + VIEW_WIDTH + 12) continue;
-      const stride = Math.floor(quarry.tick / 5 + creature.phase);
+      const margin = creature.type === 'opus' ? 17 : 12;
+      if (creature.x < left - margin || creature.x >= left + VIEW_WIDTH + margin) continue;
+      const stride = Math.floor(quarry.tick / (creature.type === 'opus' ? 2 : 5) + creature.phase);
       const duration = creature.readyAt - creature.bornAt;
       const emergence = duration ? Math.min(1, (quarry.tick - creature.bornAt) / duration) : 1;
       const { type, x, y, wet } = creature;
@@ -2331,6 +2455,10 @@ function drawToolIcon(canvas, type, converted = false) {
     ctx.translate(12, type === 'brain' ? 22 : 19);
     if (type === 'brain') ctx.scale(0.78, 0.78);
     drawTriAnimal(ctx, type, 0, 0, 0, 1);
+  } else if (type === 'opus') {
+    ctx.translate(12, 22);
+    ctx.scale(0.6, 0.6);
+    drawTriOpus(ctx, { stride: 0, tick: 0, walking: false });
   } else if (type === 'portal') {
     ctx.translate(12, 22);
     ctx.scale(0.42, 0.42);
@@ -2351,7 +2479,8 @@ function drawToolIcon(canvas, type, converted = false) {
     }
   } else if (Object.hasOwn(SCENERY, type)) {
     ctx.translate(type === 'dock' ? 10 : 12, type === 'dock' ? 12 : 21);
-    const scale = type === 'birch' ? 0.52 : type === 'dock' ? 0.56 : 0.69;
+    const { width, height } = SCENERY[type];
+    const scale = Math.min(0.69, 21 / width, 21 / height);
     ctx.scale(scale, scale);
     ctx.imageSmoothingEnabled = false;
     drawScenery(ctx, type, 0, 0, converted);
@@ -2413,7 +2542,8 @@ const WATCH_DAY = DAY_TICKS;
 const WATCH_NIGHT = NIGHT_TICKS;
 const WATCH_GUARD_LIMIT = 3;
 const WATCH_RAIDER_LIMIT = 12;
-const WATCH_WISP_REACH = 12;
+const WATCH_ENEMY_NAME = CREATURES.opus;
+const WATCH_OPUS_REACH = 12;
 const WATCH_NO_ACTION = -TICKS_PER_SECOND;
 const WATCH_GUARD_STATS = [
   { range: 88, damage: 1, cooldown: 22 },
@@ -2425,7 +2555,14 @@ const WATCH_POSTS = [
   { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44 },
   { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44 }
 ];
-const WATCH_CAMPS = [{ x: WATCH_BRIDGE.left - 86, side: -1 }];
+const WATCH_PIGEONS = WATCH_POSTS.flatMap(({ side, wallX }) =>
+  [49, 94, 143].map((offset) => ({ side, x: wallX + side * offset })));
+const WATCH_CAMP_GROUPS = [
+  { name: 'West', side: -1, locations: [VIEW_WIDTH - 60, VIEW_WIDTH + 24, VIEW_WIDTH + 117, VIEW_WIDTH + 194] },
+  { name: 'East', side: 1, locations: [3 * VIEW_WIDTH + 140, 3 * VIEW_WIDTH + 224, 3 * VIEW_WIDTH + 308, 4 * VIEW_WIDTH + 8] }
+];
+const WATCH_CAMPS = WATCH_CAMP_GROUPS.flatMap(({ side, locations }) => locations.map((x) => ({ x, side })));
+const WATCH_CAMP_HINT = 'Use either tent marker to walk to a group of four recruiting camps.';
 const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
   .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
 
@@ -2434,9 +2571,25 @@ function watchGround(x) {
   return quarryHeight(Math.round(x));
 }
 
-function watchWispWall(wisp, posts) {
-  const post = posts[wisp.side === -1 ? 0 : 1];
-  return post.health > 0 && (wisp.x - post.wallX) * wisp.side >= 0 ? post : null;
+function watchOpusWall(opus, posts) {
+  const post = posts[opus.side === -1 ? 0 : 1];
+  return post.health > 0 && (opus.x - post.wallX) * opus.side >= 0 ? post : null;
+}
+
+function watchPigeonPose(pigeon, tick) {
+  const phase = tick / 24 + pigeon.x;
+  const velocity = Math.cos(phase);
+  return { x: pigeon.x + Math.round(5 * Math.sin(phase)), direction: velocity < 0 ? -1 : 1,
+    walking: Math.abs(velocity) > 0.25 };
+}
+
+function walkWatchGuard(guard, from, target, speed) {
+  const distance = target - from;
+  guard.walking = distance !== 0;
+  if (!guard.walking) return;
+  guard.direction = Math.sign(distance);
+  guard.x = Math.abs(distance) <= speed ? target : from + guard.direction * speed;
+  guard.stride = (guard.stride ?? 0) + 1;
 }
 
 class CreekWatch {
@@ -2457,6 +2610,7 @@ class CreekWatch {
     this.raiders = [];
     this.shots = [];
     this.loot = [];
+    this.huntedPigeons = 0;
     this.stockCaches();
     this.queue = [];
     this.message = 'Build palisades and hire guards before the first raid.';
@@ -2492,7 +2646,7 @@ class CreekWatch {
   start() {
     if (this.status !== 'ready') return false;
     this.status = 'running';
-    this.message = 'The tent marker leads to the camp beside the lake bridge. Guards alternate west and east.';
+    this.message = WATCH_CAMP_HINT;
     return true;
   }
 
@@ -2540,7 +2694,7 @@ class CreekWatch {
     if (this.status === 'ready') return this.start();
     const action = this.getAction();
     if (!action) {
-      if (this.status === 'running') this.message = 'Walk up to the camp, a palisade, or the signal tower. Each bank can hold three veterans.';
+      if (this.status === 'running') this.message = 'Walk up to a camp, a palisade, or the signal tower. Each bank can hold three veterans.';
       return false;
     }
     if (this.coins < action.cost) {
@@ -2595,7 +2749,7 @@ class CreekWatch {
       }
     }
     this.queue.sort((a, b) => a.due - b.due);
-    this.message = `Night ${this.day}. Ichor Wisps are coming through both portals.`;
+    this.message = `Night ${this.day}. ${WATCH_ENEMY_NAME} are coming through both portals.`;
   }
 
   finishNight() {
@@ -2604,6 +2758,7 @@ class CreekWatch {
     this.phase = 'day';
     this.phaseTick = 0;
     this.day++;
+    this.huntedPigeons = 0;
     this.coins += 3;
     this.stockCaches();
     this.message = `Dawn of day ${this.day}. You earned 3 copper. Repair and prepare for the next raid.`;
@@ -2626,10 +2781,16 @@ class CreekWatch {
     this.shots = this.shots.filter(({ end }) => end > this.tick);
     if (this.phase === 'day') {
       if (this.phaseTick >= WATCH_DAY) this.startNight();
-      else if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
-        this.message = 'Dusk in 10 seconds. The edge portals are about to open.';
+      else {
+        if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
+          this.message = 'Dusk in 10 seconds. The guards are heading back to their posts.';
+        }
+        this.patrolGuards();
       }
       return;
+    }
+    for (const post of this.posts) {
+      post.guards.forEach((guard, index) => walkWatchGuard(guard, this.guardPosition(post, index), this.guardX(post, index), 1.35));
     }
     while (this.queue[0]?.due <= this.phaseTick) {
       const { side } = this.queue.shift();
@@ -2640,7 +2801,7 @@ class CreekWatch {
     for (const raider of this.raiders) this.moveRaider(raider);
     if (this.signal <= 0) {
       this.status = 'lost';
-      this.message = 'The wisps extinguished the signal. Start a new watch to try again.';
+      this.message = `The ${WATCH_ENEMY_NAME} extinguished the signal. Start a new watch to try again.`;
       return;
     }
     this.fireGuards();
@@ -2654,19 +2815,19 @@ class CreekWatch {
   }
 
   moveRaider(raider) {
-    const post = watchWispWall(raider, this.posts);
+    const post = watchOpusWall(raider, this.posts);
     const target = post?.wallX ?? WATCH_SIGNAL;
     const distance = Math.abs(raider.x - target);
-    if (distance > WATCH_WISP_REACH) {
+    if (distance > WATCH_OPUS_REACH) {
       const speed = 1.58 + 0.18 * Math.sin(this.tick / 16 + raider.x / 36);
-      raider.x += Math.sign(target - raider.x) * Math.min(distance - WATCH_WISP_REACH, speed);
+      raider.x += Math.sign(target - raider.x) * Math.min(distance - WATCH_OPUS_REACH, speed);
       raider.stride++;
     } else if (this.tick >= raider.attackAt) {
       raider.struckAt = this.tick;
       raider.attackAt = this.tick + (post ? 44 : 36);
       if (post) {
         post.health--;
-        if (post.health === 0) this.message = `${post.name} palisade fell. Wisps are heading for the signal.`;
+        if (post.health === 0) this.message = `${post.name} palisade fell. ${WATCH_ENEMY_NAME} are heading for the signal.`;
       } else {
         this.signal = Math.max(0, this.signal - 1);
       }
@@ -2677,11 +2838,52 @@ class CreekWatch {
     return post.wallX - post.side * (17 + index * 8);
   }
 
+  guardPosition(post, index) {
+    return post.guards[index].x ?? this.guardX(post, index);
+  }
+
+  patrolGuards() {
+    const dusk = this.phaseTick >= WATCH_DAY - 10 * TICKS_PER_SECOND;
+    for (const post of this.posts) {
+      post.guards.forEach((guard, index) => {
+        const home = this.guardX(post, index);
+        if (!dusk && this.tick - guard.shotAt < 9) {
+          guard.walking = false;
+          return;
+        }
+        const outer = post.wallX + post.side * (151 + index * 8);
+        const target = dusk || guard.returning ? home : outer;
+        walkWatchGuard(guard, this.guardPosition(post, index), target, 1.1);
+        const from = this.guardPosition(post, index);
+        if (from === target) guard.returning = !dusk && target === outer;
+        if (dusk || Math.abs(from - home) < 21 || guard.fireAt > this.tick) return;
+
+        for (const [bird, pigeon] of WATCH_PIGEONS.entries()) {
+          if (pigeon.side !== post.side || (this.huntedPigeons & (1 << bird))) continue;
+          const { x: to } = watchPigeonPose(pigeon, this.tick);
+          if (Math.abs(to - from) > 42) continue;
+          this.huntedPigeons |= 1 << bird;
+          if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
+          this.shootWatchArrow(guard, from, to, 44, 'pigeon');
+          this.message = 'A guard hunted a pigeon. Pick up the copper it dropped.';
+          break;
+        }
+      });
+    }
+  }
+
+  shootWatchArrow(guard, from, to, cooldown, kind) {
+    guard.direction = Math.sign(to - from) || guard.direction;
+    guard.shotAt = this.tick;
+    guard.fireAt = this.tick + cooldown;
+    this.shots.push({ from, to, end: this.tick + 9, kind });
+  }
+
   fireGuards() {
     for (const post of this.posts) {
       post.guards.forEach((guard, index) => {
         if (guard.fireAt > this.tick) return;
-        const from = this.guardX(post, index);
+        const from = this.guardPosition(post, index);
         const { range, damage, cooldown } = WATCH_GUARD_STATS[guard.rank];
         let target;
         let closest = Infinity;
@@ -2694,10 +2896,7 @@ class CreekWatch {
         }
         if (!target) return;
         target.hp -= damage;
-        guard.direction = Math.sign(target.x - from) || guard.direction;
-        guard.shotAt = this.tick;
-        guard.fireAt = this.tick + cooldown;
-        this.shots.push({ from, to: target.x, end: this.tick + 9 });
+        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid');
       });
     }
   }
@@ -2732,36 +2931,45 @@ const validWatchCount = (value) => Number.isSafeInteger(value) && value >= 0;
 const validWatchStamp = (value) => Number.isSafeInteger(value) && value >= -TICKS_PER_SECOND;
 const validWatchSide = (value) => value === -1 || value === 1;
 const validWatchX = (value) => Number.isFinite(value) && value >= WATCH_BOUNDS.left && value <= WATCH_BOUNDS.right;
+const validWatchFlag = (value) => typeof value === 'boolean';
+const optionalWatchField = (value, isValid) => value === undefined || isValid(value);
 const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.length <= limit
   && items.every((item) => item && isValid(item));
 
 function validWatchState(state) {
   if (!state) return false;
-  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, shots, loot, queue, message } = state;
+  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
+    shots, loot, huntedPigeons = 0, queue, message } = state;
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
       || !validWatchCount(coins) || !validWatchCount(signal) || signal > WATCH_HEALTH
-      || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500) return false;
+      || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
+      || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length) return false;
 
   return player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
     && validWatchList(posts, 2, ({ tier, health, guards }) =>
       [0, 1, 2].includes(tier) && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0)
-      && validWatchList(guards, 3, ({ rank, direction, fireAt, shotAt }) =>
-        [0, 1].includes(rank) && validWatchSide(direction) && validWatchCount(fireAt) && validWatchStamp(shotAt)))
+      && validWatchList(guards, 3, ({ rank, direction, fireAt, shotAt, x, stride, returning, walking }) =>
+        [0, 1].includes(rank) && validWatchSide(direction) && validWatchCount(fireAt) && validWatchStamp(shotAt)
+        && optionalWatchField(x, validWatchX) && optionalWatchField(stride, validWatchCount)
+        && optionalWatchField(returning, validWatchFlag) && optionalWatchField(walking, validWatchFlag)
+        && (!walking || validWatchCount(stride))))
     && posts.length === 2
     && validWatchList(raiders, 64, ({ side, x, stride, hp, attackAt, struckAt }) =>
       validWatchSide(side) && validWatchX(x) && validWatchCount(stride)
       && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt))
-    && validWatchList(shots, 64, ({ from, to, end }) => validWatchX(from) && validWatchX(to) && validWatchCount(end))
+    && validWatchList(shots, 64, ({ from, to, end, kind }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
+      && (kind === undefined || kind === 'pigeon' || kind === 'raid'))
     && validWatchList(loot, 128, ({ x, amount }) => validWatchX(x) && validWatchCount(amount) && amount > 0)
     && validWatchList(queue, 64, ({ side, due }) => validWatchSide(side) && validWatchCount(due) && due <= WATCH_NIGHT)
     && queue.every(({ due }, index) => index === 0 || queue[index - 1].due <= due);
 }
 
 function captureWatchState(watch) {
-  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, shots, loot, queue, message } = watch;
-  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, queue, message,
+  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
+    shots, loot, huntedPigeons = 0, queue, message } = watch;
+  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message,
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }
 
@@ -2798,6 +3006,10 @@ function loadWatchSlot(storage, id) {
   const { state } = readWatchRecord(storage, id);
   const watch = new CreekWatch();
   const { posts, ...progress } = captureWatchState(state);
+  progress.message = progress.message.replace(/\b(?:Ichor Wisps|Wisps|Tri Raiders)\b/gi, WATCH_ENEMY_NAME);
+  if (progress.message === 'The tent marker leads to the camp beside the lake bridge. Guards alternate west and east.') {
+    progress.message = WATCH_CAMP_HINT;
+  }
   const restoredPosts = watch.posts.map((post, index) => ({ ...post, ...posts[index] }));
   return Object.assign(watch, progress, { posts: restoredPosts });
 }
@@ -2831,11 +3043,13 @@ function drawWatchBridge(ctx) {
     const depth = quarryHeight(x) - y;
     watchRect(ctx, '#282834', x, y + 3, 4, depth);
     watchRect(ctx, '#776051', x, y + 3, 1, Math.min(20, depth));
-    watchRect(ctx, '#605657', x - 4, y + 6, 12, 2);
     for (let brace = 0; brace < Math.min(8, depth - 6); brace++) {
       watchRect(ctx, '#67483f', x - 6 + brace, y + 5 + brace, 2, 1);
       watchRect(ctx, '#4e3f42', x + 8 - brace, y + 5 + brace, 2, 1);
     }
+    watchRect(ctx, '#605657', x - 4, y + 6, 12, 3);
+    watchRect(ctx, '#ab866e', x - 3, y + 6, 10, 1);
+    watchRect(ctx, '#c69e78', x + 1, y + 7, 2, 1);
     watchRect(ctx, '#83a7a05e', x - 2, POND_LEVEL, 9, depth > POND_LEVEL - y ? 1 : 0);
   }
   watchRect(ctx, '#3d3338', left, y + 5, right - left + 1, 2);
@@ -2844,6 +3058,7 @@ function drawWatchBridge(ctx) {
   for (let x = left + 5; x < right; x += 8) {
     watchRect(ctx, '#4c3939', x, y + 2, 1, 3);
     watchRect(ctx, '#a36a4e', x + 1, y + 2, 4, 1);
+    watchRect(ctx, '#c49c7a', x - 2, y + 3, 1, 1);
   }
 }
 
@@ -2868,8 +3083,18 @@ function drawWatchSignal(ctx, watch) {
   watchRect(ctx, '#a28270', x - 7, y - 19, 14, 17);
   watchRect(ctx, '#24232e', x - 5, y - 16, 10, 16);
   watchRect(ctx, '#24232e', x - 3, y - 18, 6, 4);
+  watchRect(ctx, '#694c42', x - 4, y - 15, 8, 14);
   watchRect(ctx, '#574143', x - 4, y - 13, 2, 12);
+  watchRect(ctx, '#41343a', x + 1, y - 15, 1, 14);
+  watchRect(ctx, '#8b746a', x - 3, y - 11, 7, 1);
+  watchRect(ctx, '#8b746a', x - 3, y - 5, 7, 1);
+  watchRect(ctx, '#dbac73', x + 2, y - 9, 1, 2);
+  watchRect(ctx, '#a28270', x - 7, y - 1, 14, 1);
   watchRect(ctx, '#c48b66', x - 13, y - 24, 26, 2);
+  for (const offset of [-10, 8]) {
+    watchRect(ctx, '#e1b389', x + offset, y - 24, 1, 1);
+    watchRect(ctx, '#473b41', x + offset - 1, y - 22, 3, 2);
+  }
   watchRect(ctx, '#432f37', x - 18, y - 44, 37, 4);
   watchRect(ctx, '#a86750', x - 17, y - 45, 35, 2);
   watchRect(ctx, '#283441', x - 11, y - 56, 22, 13);
@@ -2885,31 +3110,43 @@ function drawWatchSignal(ctx, watch) {
     watchRect(ctx, '#408a81', x - 7, y - 55, 14, 10);
     watchRect(ctx, '#90e6c2', x - 4, y - 51 - flame, 8, 6 + flame);
     watchRect(ctx, '#f2f8c8', x - 2, y - 51, 4, 5);
-    watchRect(ctx, '#e1a972', x - 10, y - 55, 2, 10);
-    watchRect(ctx, '#ad785c', x + 8, y - 55, 2, 10);
     for (let row = 0; row < 5; row++) {
       watchRect(ctx, '#8febbe55', x - 6 + Math.round(Math.sin(watch.tick / 18 + row) * 4),
         POND_LEVEL + row * 3, 13 - row, 1);
     }
   }
+  watchRect(ctx, '#e1a972', x - 10, y - 55, 2, 10);
+  watchRect(ctx, '#ad785c', x + 8, y - 55, 2, 10);
+  watchRect(ctx, '#625358', x, y - 55, 1, 10);
+  watchRect(ctx, '#92725e', x - 8, y - 52, 16, 1);
 }
 
 function drawWatchPost(ctx, post) {
   const x = post.wallX;
   const y = watchGround(x);
   if (!post.health) {
-    watchRect(ctx, '#825b48', x - 4, y - 6, 2, 6);
-    watchRect(ctx, '#825b48', x + 3, y - 7, 2, 7);
-    watchRect(ctx, '#c0926a', x - 5, y - 6, 11, 2);
+    watchRect(ctx, '#543d3a', x - 7, y - 2, 15, 2);
+    watchRect(ctx, '#825b48', x - 4, y - 6, 3, 6);
+    watchRect(ctx, '#825b48', x + 3, y - 7, 3, 7);
+    watchRect(ctx, '#c0926a', x - 5, y - 6, 12, 2);
+    watchRect(ctx, '#e0ae7c', x - 4, y - 6, 1, 1);
+    watchRect(ctx, '#e0ae7c', x + 4, y - 6, 1, 1);
   } else {
-    const height = post.tier === 2 ? 24 : 18;
+    const reinforced = post.tier === 2;
+    const height = reinforced ? 24 : 18;
     for (let i = -2; i <= 2; i++) {
       const top = y - height + Math.abs(i);
       watchRect(ctx, '#5e4141', x + i * 3 - 2, top + 1, 4, y - top);
       watchRect(ctx, '#b27a58', x + i * 3 - 1, top, 2, y - top);
+      watchRect(ctx, '#d0a075', x + i * 3 - 1, top + 1, 1, 4);
     }
-    watchRect(ctx, post.tier === 2 ? '#afd5ca' : '#754945', x - 9, y - 8, 19, 2);
-    const strength = post.health / (post.tier === 2 ? 11 : 6);
+    for (const beam of [-height + 7, -6]) {
+      watchRect(ctx, '#4c383b', x - 9, y + beam, 19, 3);
+      watchRect(ctx, reinforced ? '#7ba99b' : '#967059', x - 8, y + beam, 17, 1);
+      watchRect(ctx, reinforced ? '#c1dfbd' : '#c79b72', x - 6, y + beam + 1, 1, 1);
+      watchRect(ctx, reinforced ? '#c1dfbd' : '#c79b72', x + 6, y + beam + 1, 1, 1);
+    }
+    const strength = post.health / (reinforced ? 11 : 6);
     watchRect(ctx, '#221e2b', x - 9, y - height - 4, 18, 2);
     watchRect(ctx, '#86bfa6', x - 9, y - height - 4, Math.ceil(18 * strength), 2);
   }
@@ -2975,8 +3212,9 @@ function drawWatchGuard(ctx, x, y, guard, tick) {
   ctx.translate(Math.round(x), y);
   ctx.scale(guard.direction, 1);
   watchRect(ctx, '#252433', -6, -1, 13, 2);
-  watchRect(ctx, '#354358', -4, -6, 4, 6);
-  watchRect(ctx, '#68868c', 2, -6, 3, 6);
+  const stride = guard.walking ? Math.round(3 * Math.sin(guard.stride * Math.PI / 8)) : 0;
+  watchRect(ctx, '#354358', -3 - stride, -6, 4, 6 - Number(stride < 0));
+  watchRect(ctx, '#68868c', 1 + stride, -6, 4, 6 - Number(stride > 0));
   watchRect(ctx, '#354258', -5, -16, 11, 11);
   watchRect(ctx, '#6489a5', -4, -15, 8, 7);
   watchRect(ctx, veteran ? '#edc28d' : '#ac7d5b', -4, -8, 9, 2);
@@ -2992,6 +3230,29 @@ function drawWatchGuard(ctx, x, y, guard, tick) {
   watchRect(ctx, '#e3b283', bow - 2, -6, 2, 2);
   watchRect(ctx, '#b6c9c7', bow - 2, -16, 1, 10);
   watchRect(ctx, '#b6cad4', 2, -13, bow - 2, 2);
+  ctx.restore();
+}
+
+function drawWatchPigeon(ctx, { x, direction, walking }, tick) {
+  const stride = walking ? ((tick >> 2) % 2 ? 1 : -1) : 0;
+  const nod = walking ? Number(stride < 0) : 1;
+  ctx.save();
+  ctx.translate(x, watchGround(x));
+  ctx.scale(direction, 1);
+  watchRect(ctx, '#322a3824', -8, -1, 16, 2);
+  watchRect(ctx, '#b7737c', -2 - stride, -3, 2, 3 - Number(stride > 0));
+  watchRect(ctx, '#da8e93', 1 + stride, -3, 2, 3 - Number(stride < 0));
+  watchRect(ctx, '#4d5064', -10, -6, 6, 2);
+  watchRect(ctx, '#57596e', -7, -8, 14, 5);
+  watchRect(ctx, '#767585', -6, -9, 12, 6);
+  watchRect(ctx, '#818398', -4, -5, 10, 3);
+  watchRect(ctx, '#aba9b1', -5, -8, 9, 4);
+  watchRect(ctx, '#606477', -5, -6, 7, 1);
+  watchRect(ctx, '#66677b', -3, -4, 4, 1);
+  watchRect(ctx, '#638980', 4, -8, 3, 4);
+  watchRect(ctx, '#82869d', 5, -11 + nod, 4, 4);
+  watchRect(ctx, '#e2a477', 7, -10 + nod, 1, 1);
+  watchRect(ctx, '#d8b799', 9, -8 + nod, 2, 1);
   ctx.restore();
 }
 
@@ -3026,75 +3287,19 @@ function drawWatchPlayer(ctx, x, y, direction, hemSway) {
   ctx.restore();
 }
 
-function drawWispLeg(ctx, x, ground, direction, hip, phase, walking, near) {
-  // During support, the foot moves backward relative to the advancing body.
-  const progress = phase % 1;
-  const swinging = walking && phase >= 1;
-  const offset = walking ? Math.round(swinging ? -6 + progress * 12 : 6 - progress * 12) : 0;
-  const foot = hip + offset;
-  const footX = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, x + direction * (foot + 1)));
-  const lift = swinging ? Math.round(3 * Math.sin(progress * Math.PI)) : 0;
-  const sole = watchGround(footX) - ground - lift;
-  const knee = Math.round((hip + foot) / 2) + 1;
-  const kneeY = Math.round((-9 + sole) / 2);
-  const shade = near ? '#a94d71' : '#74334f';
-  watchRect(ctx, shade, Math.min(hip, knee) - 1, -10, Math.abs(hip - knee) + 4, kneeY + 12);
-  watchRect(ctx, shade, Math.min(knee, foot) - 1, kneeY, Math.abs(knee - foot) + 3, sole - kneeY);
-  watchRect(ctx, near ? '#e283a3' : '#b35c7c', foot - 1, sole - 2, 6, 2);
-}
-
-function drawWatchWisp(ctx, wisp, watch) {
-  const x = Math.round(wisp.x);
+function drawWatchOpus(ctx, opus, watch) {
+  const x = Math.round(opus.x);
   const ground = watchGround(x);
-  const direction = -wisp.side;
-  const target = watchWispWall(wisp, watch.posts)?.wallX ?? WATCH_SIGNAL;
-  const walking = Math.abs(wisp.x - target) > WATCH_WISP_REACH;
-  const striking = watch.tick - wisp.struckAt < 9;
-  const phase = (wisp.stride % 16) / 8;
-  const sway = walking ? Math.round(3 * Math.cos(phase * Math.PI)) : 0;
-  const bob = walking ? Math.round(Math.sin(phase * Math.PI) ** 2) : 0;
+  const direction = -opus.side;
+  const target = watchOpusWall(opus, watch.posts)?.wallX ?? WATCH_SIGNAL;
+  const groundOffset = (offset) => watchGround(Math.max(WATCH_BOUNDS.left,
+    Math.min(WATCH_BOUNDS.right, x + direction * offset))) - ground;
   watchRect(ctx, '#281a377c', x - 11, ground - 1, 22, 2);
   ctx.save();
   ctx.translate(x, ground);
   ctx.scale(direction, 1);
-  drawWispLeg(ctx, x, ground, direction, 1, (phase + 1) % 2, walking, false);
-  drawWispLeg(ctx, x, ground, direction, -4, phase, walking, true);
-  ctx.translate(0, -bob);
-
-  watchRect(ctx, '#783651', 3, -13, 5, 7);
-  watchRect(ctx, '#a65172', 6 + sway, -8, 6, 3);
-  watchRect(ctx, '#582641', -9, -16, 16, 8);
-  watchRect(ctx, '#8f3b60', -8, -15, 14, 6);
-  watchRect(ctx, '#c76188', -6, -17, 13, 7);
-  watchRect(ctx, '#e18aa6', -6, -17, 6, 3);
-
-  // The head sits back over the shoulder, with the eye facing forward.
-  ctx.save();
-  ctx.translate(-9, 1);
-  watchRect(ctx, '#582641', -2, -24, 13, 14);
-  watchRect(ctx, '#582641', 10, -21, 5, 10);
-  watchRect(ctx, '#b04d73', -1, -23, 12, 12);
-  watchRect(ctx, '#d87196', 1, -23, 9, 8);
-  watchRect(ctx, '#e18cab', 6, -21, 8, 9);
-  watchRect(ctx, '#f5aac2', 3, -23, 6, 2);
-  watchRect(ctx, '#893958', 9, -20, 5, 8);
-  watchRect(ctx, '#ffe4ea', 9, -19, 4, 6);
-  watchRect(ctx, striking ? '#f8aa79' : '#7ecee5', 10, -19, 3, 6);
-  watchRect(ctx, '#2f2445', 12, -18, 2, 4);
-  watchRect(ctx, '#fffaf2', 11, -19, 1, 1);
-  ctx.restore();
-
-  const hand = striking ? 13 : 5 - sway;
-  watchRect(ctx, '#8d3c61', -4, -14, 5, 8);
-  watchRect(ctx, '#c8648b', -2, -12, 4, 6);
-  watchRect(ctx, '#df81a2', 0, -7, hand + 3, 3);
-  watchRect(ctx, '#f5a6bc', hand + 1, -6, 4, 3);
-  if (striking) {
-    sceneGlow(ctx, '#ffba9a77', 16, -6, 15);
-    watchRect(ctx, '#ffd994', 17, -7, 5, 2);
-    watchRect(ctx, '#ffe9b0', 21, -6, 2, 5);
-    watchRect(ctx, '#f0a083', 22, -2, 3, 2);
-  }
+  drawTriOpus(ctx, { stride: opus.stride, tick: watch.tick, groundOffset,
+    walking: Math.abs(opus.x - target) > WATCH_OPUS_REACH, striking: watch.tick - opus.struckAt < 9 });
   ctx.restore();
 }
 
@@ -3118,11 +3323,18 @@ function drawCreekWatch(ctx, watch) {
     ctx.restore();
   }
   for (const camp of WATCH_CAMPS) if (onScreen(camp.x, 50)) drawWatchCamp(ctx, camp, watch.tick);
+  if (watch.phase === 'day') {
+    for (const [bird, pigeon] of WATCH_PIGEONS.entries()) {
+      if (watch.huntedPigeons & (1 << bird)) continue;
+      const pose = watchPigeonPose(pigeon, watch.tick);
+      if (onScreen(pose.x, 11)) drawWatchPigeon(ctx, pose, watch.tick);
+    }
+  }
   for (const post of watch.posts) {
     drawWatchPost(ctx, post);
     for (let index = 0; index < post.guards.length; index++) {
-      const x = watch.guardX(post, index);
-      drawWatchGuard(ctx, x, watchGround(x), post.guards[index], watch.tick);
+      const x = watch.guardPosition(post, index);
+      if (onScreen(x, 12)) drawWatchGuard(ctx, x, watchGround(x), post.guards[index], watch.tick);
     }
   }
   for (const coin of watch.loot) {
@@ -3134,14 +3346,14 @@ function drawCreekWatch(ctx, watch) {
   }
   for (const raider of watch.raiders) {
     if (!onScreen(raider.x, 26)) continue;
-    drawWatchWisp(ctx, raider, watch);
+    drawWatchOpus(ctx, raider, watch);
   }
   ctx.strokeStyle = '#f7d99dba';
   ctx.lineWidth = 1.2;
   for (const shot of watch.shots) {
     ctx.beginPath();
     ctx.moveTo(shot.from, watchGround(shot.from) - 12);
-    ctx.lineTo(shot.to, watchGround(shot.to) - 16);
+    ctx.lineTo(shot.to, watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16));
     ctx.stroke();
   }
   const { x, direction, step } = watch.player;
@@ -3192,7 +3404,7 @@ const TRI_TOOLS = [
       : tool.entity ? `Click or tap to place a ${label}.` : `Drag to paint ${label.toLowerCase()}.`;
     return { ...tool, label, hint, converted: true };
   }),
-  ...['blob', 'ling', 'brain'].map((entity) => ({
+  ...['blob', 'ling', 'brain', 'opus'].map((entity) => ({
     entity, label: CREATURES[entity], hint: `Click or tap to place a ${CREATURES[entity]}.`
   }))
 ];
@@ -3248,18 +3460,23 @@ const watchArea = document.querySelector('#watch-area');
 const watchPosition = document.querySelector('#watch-position');
 const watchPortalState = document.querySelector('#watch-portal-state');
 const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
-for (const camp of WATCH_CAMPS) {
+for (const { name, side, locations } of WATCH_CAMP_GROUPS) {
   const marker = document.createElement('button');
-  const destination = `camp-${camp.x}`;
+  // Arrive within recruiting range with the whole group in view.
+  const x = locations[side === -1 ? 2 : 1] + side * 12;
+  const destination = `camp-${side}`;
   marker.type = 'button';
   marker.className = 'watch-camp-marker';
   marker.dataset.watchDestination = destination;
-  marker.style.left = `${camp.x / WATCH_BOUNDS.right * 100}%`;
-  marker.title = 'Walk to the recruiting camp beside the lake bridge';
+  marker.style.left = `${x / WATCH_BOUNDS.right * 100}%`;
+  marker.title = `Walk to the ${name.toLowerCase()} camps`;
   marker.setAttribute('aria-label', marker.title);
-  watchDestinations[destination] = camp.x;
+  watchDestinations[destination] = x;
   watchPosition.before(marker);
 }
+const watchRenderOptions = {
+  skipDecoration: ({ x, type }) => type === 'hut' || WATCH_CAMPS.some((camp) => Math.abs(camp.x - x) <= 44)
+};
 const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
 const watchMoveKeys = { a: -1, d: 1, arrowleft: -1, arrowright: 1 };
 const watchSavesDialog = document.querySelector('#watch-saves');
@@ -3489,7 +3706,7 @@ function drawWatchMode() {
   }
   watchQuarry.tick = watch.tick;
   watchQuarry.weather = watch.phase === 'night' ? 'storm' : 'rain';
-  watchRenderer.draw(watchQuarry, null, watch.camera, { hideHuts: true });
+  watchRenderer.draw(watchQuarry, null, watch.camera, watchRenderOptions);
   drawCreekWatch(watchRenderer.ctx, watch);
   const active = watch.status === 'running';
   const finished = watch.status === 'lost';
