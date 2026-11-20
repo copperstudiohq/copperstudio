@@ -32,11 +32,12 @@ test('Octo gives the current recruiting and veteran prices and bank limits', () 
   assert.match(reply, /archers shoot farther.*double damage/);
 });
 
-test('Creek Watch guidance covers the full map, tower and preparation time without promising persistent saves', () => {
+test('Creek Watch guidance covers endless nights, the map, preparation time and local save slots', () => {
   const reply = ask('How do I win Creek Watch?', 'sandbox-creek-watch');
-  assert.match(reply, /five nights.*middle of the lake bridge.*all five sandbox areas/);
+  assert.match(reply, /endless nights.*middle of the lake bridge.*all five sandbox areas/);
   assert.match(reply, /map buttons.*edge portal.*tower.*80 seconds/);
-  assert.match(reply, /Dawn pays a stipend and refills supply caches/);
+  assert.match(reply, /Dawn pays a stipend and refills supplies/);
   const saves = replyAsOcto(createOctoChat(), 'Does Mosswake Creek save my progress?');
-  assert.match(saves.reply, /only while this tab stays open.*no persistent saves or export backups/i);
+  assert.match(saves.reply, /Sandbox edits are tab-only.*Creek Watch has named local save slots/);
+  assert.match(saves.reply, /Creek Watch saves.*main menu.*Load.*same browser profile and game address/);
 });

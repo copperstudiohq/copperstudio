@@ -20,7 +20,7 @@ test('all five games have explicit links and useful overviews', () => {
     ['Tell me about Rain & Copper', 'island', /fish.*craft/],
     ['Tell me about The Card Game', 'cards', /three tokens/],
     ['Tell me about Tri Arena', 'arena', /Endless Waves.*Survival.*War Mode/],
-    ['Tell me about Mosswake Creek', 'sandbox', /falling-sand.*five-night/],
+    ['Tell me about Mosswake Creek', 'sandbox', /falling-sand.*endless/],
   ]) {
     const reply = answer(question);
     assert.equal(reply.command, null);

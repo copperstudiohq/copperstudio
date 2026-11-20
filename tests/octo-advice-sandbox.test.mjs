@@ -22,17 +22,18 @@ test('creative material experiments recommend Mosswake Creek rather than army ba
   assert.ok(!readInterests('i want a sandbox').likes.includes('armies'));
 });
 
-test('Creek Watch recommendations explain its separate five-night defense campaign', () => {
+test('Creek Watch recommendations explain its separate endless night-defense mode', () => {
   for (const question of [
     'i want creek watch',
     'i like copper guards and palisades',
-    'i want to defend a signal house for five nights',
+    'i want to defend a signal tower through endless nights',
   ]) {
     const reply = recommend(question);
     assert.deepEqual(reply.games, ['sandbox'], question);
-    assert.match(reply.reply, /separate Creek Watch.*five-night defense campaign/);
-    assert.match(reply.reply, /guards with copper.*palisades.*signal house/);
-    assert.doesNotMatch(reply.reply, /War Mode|army sandbox/);
+    assert.match(reply.reply, /separate Creek Watch.*endless night-defense game/);
+    assert.match(reply.reply, /guards with copper.*palisades.*signal tower/);
+    assert.match(reply.reply, /keep coming until the tower falls/);
+    assert.doesNotMatch(reply.reply, /War Mode|army sandbox|(?:five|5)[ -]night/i);
   }
 });
 
@@ -65,11 +66,11 @@ test('Mosswake comparisons distinguish painting, island gathering and arena armi
   assert.match(island, /Mosswake Creek.*2D falling-sand.*painting materials/);
   assert.match(island, /first-person island.*gathering.*crafting/);
   const arena = compareGames(['sandbox', 'arena']);
-  assert.match(arena, /Creek Watch.*five-night defense campaign.*Tri Arena.*War Mode army sandbox/);
+  assert.match(arena, /Creek Watch.*endless night-defense game.*Tri Arena.*War Mode army sandbox/);
   assert.doesNotMatch(island + arena, /undefined/);
 });
 
-test('creative play can avoid combat without losing the separate campaign distinction', () => {
+test('creative play can avoid combat without losing the separate mode distinction', () => {
   const reply = recommend('no fighting, i want to paint materials');
   assert.deepEqual(reply.games, ['sandbox']);
   assert.match(reply.reply, /separate Creek Watch mode/);

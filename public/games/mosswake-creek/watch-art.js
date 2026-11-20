@@ -1,5 +1,5 @@
 import { POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
-import { drawSceneSky, drawTriBlob, drawTriPortal, drawTriPortalAura, sceneGlow } from './art.js';
+import { drawSceneSky, drawTriBlobEye, drawTriPortal, drawTriPortalAura, sceneGlow } from './art.js';
 import { WATCH_BRIDGE, WATCH_CAMPS, WATCH_PORTALS, WATCH_SIGNAL, watchGround } from './watch.js';
 
 function watchRect(ctx, color, x, y, width, height) {
@@ -197,6 +197,59 @@ function drawWatchPlayer(ctx, x, y, direction, hemSway) {
   ctx.restore();
 }
 
+function drawWatchRaider(ctx, raider, tick) {
+  const stride = Math.floor(raider.stride / 7) % 4;
+  const swing = [0, 2, 0, -2][stride];
+  const strike = Math.max(0, 2 - (tick - raider.struckAt));
+  const bob = stride % 2;
+  ctx.save();
+  ctx.translate(Math.round(raider.x), watchGround(raider.x));
+  ctx.scale(-raider.side, 1);
+  watchRect(ctx, '#241e37', -13, -1, 27, 2);
+
+  // Alternate footfalls while keeping the shoulders low.
+  const farFoot = 4 + swing;
+  const farKnee = 1 + swing / 2;
+  watchRect(ctx, '#3a4788', -2, -10, 5, 6);
+  watchRect(ctx, '#435da5', Math.min(0, farKnee), -6, Math.abs(farKnee) + 4, 3);
+  watchRect(ctx, '#5489c9', farKnee, -5, farFoot - farKnee + 3, 2);
+  watchRect(ctx, '#6bb6ef', farFoot, -4 + bob, 3, 4 - bob);
+  const nearFoot = -9 - swing;
+  const nearKnee = -6 - swing / 2;
+  watchRect(ctx, '#4674bd', nearKnee, -10, -2 - nearKnee, 3);
+  watchRect(ctx, '#66b2f3', nearKnee, -8, 3, 4);
+  watchRect(ctx, '#509de7', nearFoot, -5 + bob, nearKnee - nearFoot + 3, 3);
+  watchRect(ctx, '#9ce4ff', nearFoot - 2, -2 + bob, 5, 2 - bob);
+
+  ctx.translate(strike, bob);
+  const farHand = -10 - swing;
+  watchRect(ctx, '#3b4d8b', -5, -13, 4, 7);
+  watchRect(ctx, '#4e77ba', farHand, -7, -2 - farHand, 2);
+  watchRect(ctx, '#6ab6e7', farHand - 2, -6, 4, 3);
+
+  // Raised shoulders taper into a low, forward-set head.
+  watchRect(ctx, '#5d3057', -9, -16, 18, 8);
+  watchRect(ctx, '#773558', -7, -19, 11, 10);
+  watchRect(ctx, '#a74b7d', -8, -17, 15, 8);
+  watchRect(ctx, '#dc70a6', -6, -19, 8, 7);
+  watchRect(ctx, '#f09dc7', -4, -20, 5, 3);
+  watchRect(ctx, '#c15a90', 2, -17, 7, 5);
+  watchRect(ctx, '#803c63', 5, -16, 10, 8);
+  watchRect(ctx, '#e37bad', 7, -17, 6, 7);
+  watchRect(ctx, '#f19abe', 11, -15, 5, 5);
+  drawTriBlobEye(ctx, 9, -16);
+
+  const nearHand = 7 + swing + strike;
+  const nearElbow = 3 + swing / 2;
+  watchRect(ctx, '#3e5298', -1, -13, 4, 6);
+  watchRect(ctx, '#5a92d7', 1, -10, nearElbow + 1, 3);
+  watchRect(ctx, '#71bffe', nearElbow, -8, 3, 5);
+  watchRect(ctx, '#76c8fa', nearElbow + 1, -5, nearHand - nearElbow + 2, 2);
+  watchRect(ctx, '#ace8ff', nearHand, -4, 4, 2);
+  watchRect(ctx, '#83c7fb', nearHand + 2, -2, 2, 1);
+  ctx.restore();
+}
+
 export function drawCreekWatch(ctx, watch) {
   drawWatchSky(ctx, watch);
   const left = watch.camera;
@@ -232,7 +285,8 @@ export function drawCreekWatch(ctx, watch) {
     watchRect(ctx, '#ffe4a8', coin.x, y - 1, 1, 2);
   }
   for (const raider of watch.raiders) {
-    if (onScreen(raider.x, 12)) drawTriBlob(ctx, raider.x, watchGround(raider.x), -raider.side, raider.stride >> 2);
+    if (!onScreen(raider.x, 28)) continue;
+    drawWatchRaider(ctx, raider, watch.tick);
   }
   ctx.strokeStyle = '#f7d99dba';
   ctx.lineWidth = 1.2;

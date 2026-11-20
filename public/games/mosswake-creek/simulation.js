@@ -261,8 +261,8 @@ export class Quarry {
         if (!Object.hasOwn(TRI_CREATURE_STRIDE, animal.type)) {
           return Math.hypot(animal.x - x, animal.y - y) > radius + 2;
         }
-        const height = animal.type === 'brain' ? 26 : animal.type === 'ling' ? 15 : 18;
-        const halfWidth = animal.type === 'blob' ? 11 : 6;
+        const height = animal.type === 'brain' ? 26 : animal.type === 'ling' ? 15 : 11;
+        const halfWidth = animal.type === 'blob' ? 8 : 6;
         return Math.abs(animal.x - x) > radius + halfWidth || y + radius < animal.y - height || y - radius > animal.y + 2;
       });
       this.scenery = this.scenery.filter((item) => {

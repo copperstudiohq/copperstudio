@@ -7,8 +7,239 @@
   <meta name="description" content="A Rain and Copper 2D sandbox. Dig for copper and build dams around Mosswake’s birch-lined pond.">
   <title>Rain and Copper | Mosswake Creek</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./style.css">
-  <script type="module" src="./app.js"></script>
+  <style>
+:root {
+  color-scheme: dark;
+  --background: #151211;
+  --panel: #1e1918;
+  --surface: #27201e;
+  --line: #3a2e29;
+  --line-strong: #49372f;
+  --text: #f1e5dc;
+  --muted: #b8a69c;
+  --copper: #eda77d;
+  --blue: #9bc6cf;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { min-width: 290px; margin: 0; background: radial-gradient(ellipse at 32% 0%, #231a17, var(--background) 56%); color: var(--text); }
+button, input { font: inherit; }
+button { color: inherit; }
+button:focus-visible, input:focus-visible, canvas:focus-visible { outline: 2px solid var(--copper); outline-offset: 3px; }
+button, input[type="range"] { cursor: pointer; }
+.shell { width: min(1392px, calc(100% - 104px)); margin-inline: auto; }
+
+.masthead { border-bottom: 1px solid #342925; background: #171312; }
+.masthead-inner { min-height: 70px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 6px; letter-spacing: .13em; font-weight: 750; font-size: 13px; white-space: nowrap; }
+.brand-icon { display: grid; place-items: center; width: 35px; height: 35px; margin-right: 7px; border: 1px solid #634338; border-radius: 7px; background: #30211c; }
+.brand-icon canvas { width: 25px; height: 25px; image-rendering: pixelated; }
+.wordmark-accent { color: var(--copper); }
+.game-modes { display: flex; gap: 4px; padding: 4px; border: 1px solid #3d312e; border-radius: 8px; background: #151416; }
+.game-modes button { padding: 0 12px; min-height: 30px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.game-modes button:hover { background: #382925; color: var(--text); }
+.game-modes button[aria-pressed="true"] { color: #fad2ac; background: #402e27; box-shadow: inset 0 0 0 1px #745143; }
+.game-modes [data-game-mode="watch"][aria-pressed="true"] { color: #c6e5d9; background: #283d39; box-shadow: inset 0 0 0 1px #577b70; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); padding: 0 13px; min-height: 40px; border-radius: 7px; font-weight: 650; font-size: 13px; white-space: nowrap; }
+.button:hover, .text-button:hover { background: #352823; color: #fff4eb; }
+.help-button { background: transparent; color: var(--muted); min-height: 36px; }
+.game-links { display: flex; align-items: center; gap: 6px; }
+.question { display: grid; width: 15px; height: 15px; place-items: center; border: 1px solid #9d8171; border-radius: 50%; font: 700 10px/1 var(--mono); color: var(--copper); }
+.start-menu { position: relative; isolation: isolate; display: grid; align-items: center; min-height: clamp(440px, 47vw, 600px); padding: clamp(24px, 5vw, 74px); margin: 28px 0 24px; overflow: hidden; border: 1px solid #5a473e; border-radius: 15px; background: #262b35; }
+.menu-scene { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% center; image-rendering: pixelated; }
+.start-menu::after { content: ""; position: absolute; z-index: 0; inset: 0; background: linear-gradient(90deg, #1a1620ee 0%, #191923be 34%, #151a2440 64%, #17192113 100%), linear-gradient(0deg, #21131969, transparent 55%); pointer-events: none; }
+.menu-content { position: relative; z-index: 1; width: min(100%, 390px); }
+.menu-content h1 { margin: 0 0 clamp(22px, 3.2vw, 38px); font-size: clamp(55px, 7.65vw, 110px); line-height: .84; letter-spacing: -.085em; font-weight: 820; color: #f8e9da; text-shadow: 0 3px 20px #140c17a3; }
+.menu-content h1 span { color: #efa67d; }
+.menu-options { display: grid; gap: 9px; }
+.menu-option { width: 100%; display: grid; grid-template-columns: 40px minmax(0, 1fr) 12px; align-items: center; gap: 10px; min-height: 66px; padding: 10px 14px 10px 11px; border: 1px solid #8b6254; border-radius: 8px; color: #ffe7d6; background: #302023e8; text-align: left; }
+.menu-option:hover { background: #4b2e2de9; border-color: #e5a578; }
+.menu-option .menu-mode-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 6px; background: #58382e; }
+.menu-option canvas { width: 28px; height: 28px; image-rendering: pixelated; }
+.menu-option strong, .menu-option small { display: block; }
+.menu-option strong { font-size: 14px; font-weight: 750; }
+.menu-option small { margin-top: 3px; font-size: 12px; line-height: 1.25; color: #cdb9af; }
+.menu-option .menu-arrow { font-size: 25px; line-height: 1; color: #efb395; justify-self: end; }
+.watch-option { border-color: #587a74; background: #243332eb; color: #e2f3e8; }
+.watch-option:hover { border-color: #9bcfb8; background: #324942ef; }
+.watch-option .menu-mode-icon { background: #33504a; }
+.watch-option small { color: #b6c8be; }
+.watch-option .menu-arrow { color: #a5d1bf; }
+.menu-saves { margin-top: 11px; min-height: 35px; background: #241e24e8; color: #e2d5ca; }
+.heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin: 31px 0 24px; }
+.heading h1 { font-size: clamp(38px, 4.35vw, 68px); letter-spacing: -.072em; font-weight: 780; line-height: 1; margin: 0 0 11px; }
+.heading h1 span { color: var(--copper); }
+.heading p { font-size: 15px; margin: 0; color: var(--muted); line-height: 1.48; }
+.world-actions { display: flex; gap: 8px; padding-bottom: 1px; }
+.pause-mark { width: 10px; height: 12px; border-inline: 3px solid var(--copper); }
+.pause-mark.play { height: 0; width: 0; border: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 9px solid var(--copper); }
+.reset-mark { color: var(--copper); font: 20px/.8 var(--mono); }
+
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 16px; }
+.world-panel, .toolbox, .watch-panel { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
+.viewport { position: relative; background: #242e3a; }
+#world { display: block; width: 100%; aspect-ratio: 384 / 198; height: auto; image-rendering: pixelated; touch-action: none; cursor: crosshair; outline-offset: -3px; }
+.watch-active #world { cursor: pointer; }
+.scene-top { position: absolute; inset: 13px 13px auto; display: flex; justify-content: space-between; pointer-events: none; }
+.status-pill { color: #d6e0e2; border: 1px solid #71808c66; background: #111820cb; display: inline-flex; align-items: center; gap: 7px; padding: 7px 8px; border-radius: 5px; line-height: 1; font: 650 10px/1 var(--mono); letter-spacing: .07em; }
+.status-pill i { width: 6px; height: 6px; background: #83c7a8; border-radius: 50%; box-shadow: 0 0 7px #83c7a87a; }
+.status-pill.paused i { background: var(--copper); box-shadow: none; }
+.weather-bar { min-height: 65px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 11px 16px; padding: 11px 15px; border-top: 1px solid #4a3731; }
+.rainfall, .readouts, .readouts span { display: flex; align-items: center; gap: 8px; }
+.sky-controls { display: flex; align-items: center; gap: 4px; }
+.sky-controls > span { font-size: 13px; font-weight: 650; }
+.sky-controls [data-sky-mode="night"][aria-pressed="true"] { color: #e3dcff; background: #403556; box-shadow: inset 0 0 0 1px #62547e; }
+.rainfall canvas { width: 25px; height: 25px; image-rendering: pixelated; }
+.rain-label { font-size: 13px; font-weight: 650; }
+.segments { display: flex; padding: 3px; gap: 2px; margin-left: 5px; border: 1px solid #3b332f; border-radius: 7px; background: #161719; }
+.segments button { border: 0; min-width: 49px; min-height: 28px; padding: 0 8px; border-radius: 4px; background: transparent; color: #bbbec2; font-size: 12px; font-weight: 650; }
+.segments button:hover { background: #242d32; }
+.segments button[aria-pressed="true"] { color: #c4e2e8; background: #263941; box-shadow: inset 0 0 0 1px #3b5963; }
+.readouts { gap: 16px; }
+.readouts span { color: var(--muted); font-size: 12px; }
+.readouts b { font: 600 11px/1 var(--mono); color: var(--text); }
+.map-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 7px 14px; min-height: 50px; padding: 7px 15px; border-top: 1px solid var(--line); }
+.location { display: flex; align-items: baseline; gap: 9px; font-size: 12px; }
+.location span { color: var(--muted); }
+.location strong { color: var(--copper); font-weight: 650; }
+.map-actions { display: flex; align-items: center; gap: 9px; }
+.pan-button { min-height: 30px; min-width: 34px; padding: 0; color: var(--copper); font: 22px/1 var(--mono); }
+.pan-button:disabled { opacity: .4; cursor: default; }
+#camera { width: clamp(90px, 15vw, 185px); margin: 0; accent-color: var(--copper); }
+.sample { display: inline-block; width: 7px; height: 7px; border-radius: 2px; }
+.sample-water { background: #73b5c4; }
+.sample-ichor { background: #dca18f; }
+.sample-copper { background: #d88860; }
+
+.watch-panel { padding: 16px; }
+.watch-panel h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
+.watch-panel p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.watch-copper, .watch-integrity, .watch-bank { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+.watch-copper { margin: 16px 0 12px; padding: 8px 10px; border: 1px solid #624734; border-radius: 7px; background: #34271e; }
+.watch-copper span { display: inline-flex; align-items: center; gap: 7px; }
+.watch-copper i { width: 8px; height: 8px; border: 1px solid #f4c588; border-radius: 2px; background: #d88e5d; }
+.watch-copper strong { color: #f5c184; font: 700 15px/1 var(--mono); }
+.watch-integrity strong { color: #a9d5bb; font: 600 12px/1 var(--mono); }
+#watch-health { width: 100%; height: 9px; margin: 8px 0 12px; accent-color: #85b99f; }
+.watch-bank { padding: 8px 0; border-top: 1px solid var(--line); }
+.watch-bank span { color: var(--muted); text-align: right; }
+.watch-action { width: 100%; margin-top: 11px; padding-inline: 9px; white-space: normal; border-color: #62917f; background: #2d4840; color: #d8eee4; }
+.watch-action:hover { background: #38584e; }
+.watch-action:disabled { opacity: .58; cursor: default; }
+.watch-panel .watch-message { min-height: 37px; margin-top: 11px; }
+.watch-map { display: grid; gap: 9px; padding: 10px 13px; border-top: 1px solid var(--line); }
+.watch-map-label { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 12px; }
+#watch-portal-state { color: var(--muted); font-size: 11px; }
+#watch-portal-state[data-open="true"] { color: #f4a5ca; }
+.watch-route { position: relative; height: 5px; margin: 3px 5px; border-radius: 3px; background: repeating-linear-gradient(to right, #705449 0 calc(20% - 2px), #242120 calc(20% - 2px) 20%); }
+#watch-position { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; border: 1px solid #e8f5d1; border-radius: 50%; background: #8ac3ab; transform: translate(-50%, -50%); }
+.watch-destinations { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.watch-destinations .button { min-height: 32px; padding: 4px; white-space: normal; font-size: 11px; }
+.watch-destinations button:disabled { opacity: .55; cursor: default; }
+.watch-movement { min-height: 55px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 7px; padding: 8px 13px; border-top: 1px solid var(--line); }
+.watch-movement div { display: flex; gap: 6px; }
+.watch-movement .button { min-height: 33px; }
+.watch-movement span { color: var(--muted); font-size: 11px; }
+
+.toolbox { padding: 16px; }
+.toolbox-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.toolbox h2 { font-size: 19px; font-weight: 730; line-height: 1; letter-spacing: -.025em; margin: 0; }
+.tool-palettes { display: flex; gap: 6px; margin-top: 12px; }
+.palette-button { flex: 1; min-height: 34px; padding: 0 8px; color: var(--muted); font-size: 12px; }
+.palette-button i { width: 8px; height: 8px; border-radius: 2px; background: #ce5e9e; box-shadow: 2px -2px #72bfff; }
+.palette-button[aria-pressed="true"] { color: #f7c8aa; background: #35251f; border-color: #b4775b; }
+.palette-button[data-tool-palette="tri"][aria-pressed="true"] { color: #f6b5da; background: #3e2537; border-color: #975277; }
+.tool-categories { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; }
+.tool-categories button { flex: 1; min-height: 30px; padding: 4px 5px; border: 1px solid var(--line); border-radius: 5px; background: #201919; color: var(--muted); font-size: 11px; font-weight: 650; }
+.tool-categories button[aria-pressed="true"] { color: #f7c8aa; border-color: #956247; background: #35251f; }
+.variant-mode .tool-categories button[aria-pressed="true"] { color: #f7c1de; border-color: #8c4a72; background: #3b2335; }
+.text-button { background: transparent; border: 0; border-radius: 4px; color: #c9ab9b; padding: 6px; margin: -6px -4px -6px 0; font-size: 12px; font-weight: 620; }
+.tool-group { margin-top: 16px; }
+.tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.tool { display: flex; align-items: center; gap: 4px; min-width: 0; min-height: 45px; background: #26201e; border: 1px solid #3d312c; border-radius: 6px; padding: 4px 5px 4px 2px; text-align: left; font-size: 12px; color: #dfcfc5; font-weight: 640; }
+.tool:hover { background: #342923; border-color: #785448; }
+.tool[aria-pressed="true"] { background: #35251f; border-color: #b4775b; color: #f7c8aa; box-shadow: inset 0 0 12px #bd6e3d14; }
+.tool canvas { width: 27px; height: 27px; flex: 0 0 auto; image-rendering: pixelated; }
+.tool kbd { margin-left: auto; color: #b59c90; border-color: #4b3a33; background: #211a18; padding: 1px 3px; min-width: 13px; font-size: 9px; flex: 0 0 auto; }
+.tool[aria-pressed="true"] kbd { color: #f2b28d; border-color: #71503e; }
+.brush-group { margin-top: 17px; padding-top: 14px; border-top: 1px solid var(--line); }
+.brush-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; font-weight: 660; }
+.brush-heading output { color: var(--copper); font: 650 11px/1 var(--mono); padding: 5px 6px; border: 1px solid #533b30; border-radius: 4px; background: #2b201c; }
+#brush { appearance: none; display: block; width: 100%; height: 22px; margin: 9px 0 0; background: none; }
+#brush::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, #b67555 var(--fill, 23%), #44342e var(--fill, 23%)); }
+#brush::-moz-range-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, #b67555 var(--fill, 23%), #44342e var(--fill, 23%)); }
+#brush::-webkit-slider-thumb { appearance: none; width: 13px; height: 13px; border-radius: 50%; border: 1px solid #f6bf9e; background: #d9916a; margin-top: -4.5px; }
+#brush::-moz-range-thumb { width: 11px; height: 11px; border-radius: 50%; border: 1px solid #f6bf9e; background: #d9916a; }
+#world-hint { color: #b9a396; background: #181513; border: 1px solid #352b27; border-radius: 6px; margin: 11px 0 0; padding: 8px 9px; font-size: 11px; line-height: 1.4; min-height: 32px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 19px; margin: 16px 0 25px; color: #ad998e; font-size: 11px; }
+.controls span { display: flex; align-items: center; gap: 5px; }
+kbd { display: inline-block; color: #d5bdb0; font: 600 10px/1.2 var(--mono); border: 1px solid #46352d; border-radius: 4px; padding: 3px 5px; background: #201917; text-align: center; }
+
+dialog { width: min(480px, calc(100% - 26px)); color: var(--text); background: #221a17; border: 1px solid #6b4a3d; border-radius: 12px; padding: 22px; }
+dialog::backdrop { background: #0f1014be; }
+.dialog-heading, .dialog-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dialog-heading h2 { margin: 0; font-size: 22px; }
+.dialog-actions { justify-content: end; margin-top: 24px; }
+.close-button { min-width: 34px; min-height: 34px; padding: 0; font-size: 20px; }
+.primary { background: #8a503a; border-color: #c2815e; }
+dialog p, dialog dd { color: var(--muted); font-size: 14px; line-height: 1.5; }
+dialog dl { display: grid; gap: 14px; margin-bottom: 0; }
+dialog dt { color: var(--copper); font-size: 14px; font-weight: 700; }
+dialog dd { margin: 2px 0 0; }
+.watch-saves { width: min(560px, calc(100% - 26px)); }
+.watch-save-form { margin-top: 17px; }
+.watch-save-form label { display: block; margin-bottom: 6px; color: var(--text); font-size: 13px; font-weight: 650; }
+.watch-save-form > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.watch-save-form input { flex: 1 1 140px; min-width: 0; padding: 8px 10px; border: 1px solid #694c42; border-radius: 6px; background: #191719; color: var(--text); font: inherit; }
+#watch-save-status { min-height: 21px; margin: 10px 0; }
+.watch-slot-list { display: grid; gap: 7px; max-height: min(340px, 45vh); margin: 0; padding: 0; overflow: auto; list-style: none; }
+.watch-slot-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: #29221f; }
+.watch-slot-details { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.watch-slot-details strong, .watch-slot-details small { display: block; }
+.watch-slot-details small { margin-top: 3px; color: var(--muted); }
+.watch-slot-list .button { min-height: 34px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+@media (max-width: 1080px) {
+  .shell { width: calc(100% - 58px); }
+  .workspace { grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; }
+  .toolbox { padding: 13px; }
+}
+
+@media (max-width: 820px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .tool-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 500px) {
+  .shell { width: calc(100% - 24px); }
+  .masthead-inner { min-height: 57px; }
+  .masthead-inner { flex-wrap: wrap; padding-block: 8px; }
+  .game-modes { order: 2; flex-basis: 100%; }
+  .game-modes button { flex: 1; }
+  .game-links .button { padding-inline: 9px; font-size: 12px; }
+  .start-menu { min-height: 475px; align-items: end; margin-top: 16px; padding: 23px 16px; }
+  .start-menu::after { background: linear-gradient(0deg, #201822ed 0%, #1a1822bd 58%, #15192238 100%); }
+  .menu-content h1 { font-size: clamp(51px, 14vw, 70px); }
+  .heading { margin: 21px 0 14px; align-items: start; flex-direction: column; gap: 12px; }
+  .heading h1 { margin-bottom: 6px; }
+  .heading p { font-size: 13px; }
+  .world-actions .button { min-height: 34px; }
+  .weather-bar { min-height: 54px; padding: 7px 8px; gap: 6px 10px; }
+  .rainfall, .readouts span { gap: 5px; }
+  .readouts { gap: 12px; }
+  .tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toolbox-head { padding-bottom: 10px; }
+  .tool-group { margin-top: 12px; }
+  .tool { min-height: 41px; }
+  .brush-group { margin-top: 12px; }
+  .controls { gap: 8px 12px; }
+}
+</style>
+
 </head>
 <body>
   <header class="masthead">
@@ -40,10 +271,11 @@
           <button class="menu-option watch-option" type="button" data-menu-play="watch"
               aria-labelledby="play-watch-title" aria-describedby="play-watch-detail">
             <span class="menu-mode-icon" aria-hidden="true"><canvas width="24" height="24" data-icon="signal"></canvas></span>
-            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Defend the lake tower from five nights of Tri raids.</small></span>
+            <span><strong id="play-watch-title">Play Creek Watch</strong><small id="play-watch-detail">Defend the lake tower through endless Tri raids.</small></span>
             <span class="menu-arrow" aria-hidden="true">›</span>
           </button>
         </div>
+        <button class="button menu-saves" type="button" data-open-watch-saves>Creek Watch saves</button>
       </div>
     </section>
 
@@ -54,6 +286,7 @@
         <p id="mode-description">Dig for copper and build dams around Mosswake’s pond.</p>
       </div>
       <div class="world-actions" role="group" aria-label="World controls">
+        <button class="button" type="button" data-open-watch-saves data-watch-view hidden>Save slots</button>
         <button class="button" type="button" id="pause" title="Pause or resume (Space)"><span class="pause-mark" aria-hidden="true"></span><span id="pause-label">Pause</span></button>
         <button class="button" type="button" id="reset" title="Restore the starting quarry"><span class="reset-mark" aria-hidden="true">↻</span> Reset</button>
       </div>
@@ -159,7 +392,7 @@
       </aside>
       <aside class="watch-panel" aria-labelledby="watch-label" data-watch-view hidden>
         <h2 id="watch-label">Signal tower</h2>
-        <p>Keep the light burning through five nights.</p>
+        <p>Keep the light burning as long as you can.</p>
         <div class="watch-copper">
           <span><i aria-hidden="true"></i>Copper</span><strong id="watch-coins">6</strong>
         </div>
@@ -206,8 +439,9 @@
     <dl data-watch-view hidden>
       <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
       <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Use blue-banner camps to hire guards for that bank. Once a bank has three guards, camps can train them into veterans. Press E or use the action button.</dd></div>
-      <div><dt>Keep the light burning</dt><dd>After 80 seconds of daylight, both edge portals open and release Tri Blobs. Guards fire on approaching Blobs. Dawn brings more copper and fresh supplies. Hold the tower through five nights.</dd></div>
+      <div><dt>Keep the light burning</dt><dd>At dusk, Tri Raiders walk out of both portals and attack your defenses. Each dawn starts a new day until the tower falls.</dd></div>
       <div><dt>Ring the dusk bell</dt><dd>Use the tower in the middle of the bridge to start a raid early. Repair it there during the day if it took damage.</dd></div>
+      <div><dt>Save the watch</dt><dd>Open Save slots to create a named save or update one. Load a slot to return to the day or raid you saved.</dd></div>
     </dl>
   </dialog>
   <dialog id="clear-dialog" aria-labelledby="clear-title">
@@ -218,5 +452,3392 @@
       <button class="button primary" value="clear">Clear world</button>
     </form>
   </dialog>
+  <dialog id="watch-saves" class="watch-saves" aria-labelledby="watch-saves-title">
+    <div class="dialog-heading">
+      <h2 id="watch-saves-title">Creek Watch saves</h2>
+      <form method="dialog"><button class="button close-button" type="submit" aria-label="Close save slots">×</button></form>
+    </div>
+    <p>Saves are stored in this browser.</p>
+    <form class="watch-save-form" id="watch-save-form">
+      <label for="watch-save-name">New slot name</label>
+      <div>
+        <input id="watch-save-name" name="slot-name" type="text" autocomplete="off" required>
+        <button class="button primary" type="submit">Create slot</button>
+      </div>
+    </form>
+    <p id="watch-save-status" role="status"></p>
+    <ul class="watch-slot-list" id="watch-slot-list" aria-label="Saved watches"></ul>
+  </dialog>
+  <script type="module">
+const VIEW_WIDTH = 384;
+const WORLD_AREAS = ['West Grove', 'Copper Rise', 'Mosswake Pond', 'Birch Flats', 'East Hollow'];
+const WIDTH = VIEW_WIDTH * WORLD_AREAS.length;
+const START_VIEW = VIEW_WIDTH * 2;
+const HEIGHT = 198;
+const POND_LEVEL = 132;
+const TICKS_PER_SECOND = 36;
+const DAY_TICKS = 80 * TICKS_PER_SECOND;
+const NIGHT_TICKS = 36 * TICKS_PER_SECOND;
+const TRI_PORTAL_OPEN_TICKS = 40;
+const CREEK_HUTS = [122, START_VIEW + 306, 3 * VIEW_WIDTH + 208];
+
+const EMPTY = 0;
+const COPPER = 1;
+const SAND = 2;
+const WATER = 3;
+const BASALT = 4;
+const EMBER = 5;
+const PATINA = 6;
+const ROCK = 7;
+const ERASE = 8;
+const ICHOR = 9;
+const GRASS = 10;
+
+const WEATHER = Object.freeze({ off: 0, rain: 270, storm: 470 });
+const CREATURES = { lizard: 'Copperback', duck: 'Duck', blob: 'Tri Blob', ling: 'Tri Ling', brain: 'Tri Brain' };
+const SCENERY = {
+  birch: { label: 'Birch', width: 28, height: 38 },
+  hut: { label: 'Hut', width: 30, height: 23 },
+  pump: { label: 'Pump', width: 24, height: 18 },
+  posts: { label: 'Fence', width: 12, height: 7 },
+  dock: { label: 'Dock', width: 42, height: 14 }
+};
+const TRI_PORTAL = { label: 'Tri Portal', halfWidth: 26, height: 44, limit: 8 };
+const BOSSES = {
+  'copper-giant': { label: 'Copper Giant', halfWidth: 30, above: 55, below: 0 },
+  'lake-terror': { label: 'Lake’s Corrupt Terror', halfWidth: 14, above: 11, below: 11 },
+  'sky-eye': { label: 'Eye of the Sky', halfWidth: 25, above: 23, below: 45 }
+};
+const TERROR_SEGMENTS = 24;
+const TRI_BOSS_AGE = 240 * TICKS_PER_SECOND;
+const TRI_BOSS_OFFSETS = [52, -52, 80, -80];
+const TRI_BLOB_LIMIT = 14;
+const TRI_BIRTHS = [
+  { type: 'blob', first: 13, repeat: 16, max: TRI_BLOB_LIMIT },
+  { type: 'ling', first: 75, repeat: 90, max: 3 },
+  { type: 'brain', first: 180, repeat: 210, max: 2 }
+];
+const TRI_SPAWN_OFFSETS = [18, -18, 25, -25, 34, -34, 43, -43, 54, -54];
+const TRI_EMERGENCE = Math.round(3.2 * TICKS_PER_SECOND);
+const TRI_CREATURE_STRIDE = { blob: 8, ling: 4, brain: 6 };
+const COPPER_MATERIALS = [COPPER, PATINA];
+const ANIMAL_LIMIT = 24;
+const SCENERY_LIMIT = 80;
+const DEBRIS_LIMIT = 3600;
+const TRI_LIMIT = 12;
+const TRI_START_RADIUS = 10;
+const TRI_GROWTH_TICKS = 6;
+const TRI_GROWTH_PIXELS = 1;
+
+function makeRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+function pixelNoise(x, y) {
+  let hash = Math.imul(x ^ 0x6c50, 0x45d9f3b) ^ Math.imul(y ^ 0x842d, 0x119de1f3);
+  hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296;
+}
+
+const profiles = [
+  [[0, 112], [78, 112], [91, 116], [220, 116], [237, 112], [383, 112]],
+  [[0, 112], [64, 112], [82, 103], [228, 103], [247, 112], [383, 112]],
+  [[0, 112], [111, 112], [116, 114], [122, 121], [132, 136], [145, 143],
+    [164, 151], [181, 155], [209, 155], [231, 152], [252, 145], [261, 140],
+    [268, 132], [274, 123], [280, 112], [383, 112]],
+  [[0, 112], [383, 112]],
+  [[0, 112], [99, 112], [133, 127], [229, 127], [260, 112], [383, 112]]
+];
+
+function profileHeight(x) {
+  const profile = profiles[Math.floor(x / VIEW_WIDTH)];
+  const localX = x % VIEW_WIDTH;
+  const index = profile.findIndex(([edge]) => edge >= localX);
+  if (index <= 0) return profile[0][1];
+  const [x0, y0] = profile[index - 1];
+  const [x1, y1] = profile[index];
+  if (y0 === y1) return y0;
+  const variation = Math.sin(localX * 0.53) * 1.1 + (pixelNoise(localX, 9) - 0.5) * 2.25;
+  return Math.round(y0 + (y1 - y0) * (localX - x0) / (x1 - x0) + variation);
+}
+
+const groundHeights = Uint8Array.from({ length: WIDTH }, (_, x) => profileHeight(x));
+
+function quarryHeight(x) {
+  return groundHeights[x];
+}
+
+function isLiquid(material) {
+  return material === WATER || material === ICHOR;
+}
+
+function isSolid(material) {
+  return material !== EMPTY && material !== EMBER && !isLiquid(material);
+}
+
+function triCoreScale(radius) {
+  return 1 + Math.min(0.85, (radius - TRI_START_RADIUS) / 140);
+}
+
+function bossPosition(boss, tick, segment = 0) {
+  const age = tick - boss.bornAt;
+  if (boss.type === 'lake-terror') {
+    const phase = (age - segment * 3.5) / 43;
+    return {
+      x: Math.round(boss.x + Math.sin(phase) * 57),
+      y: Math.round(boss.y - 8 - Math.sin(phase * 2) * 38 - (1 - Math.cos(phase)) * 11),
+      direction: Math.cos(phase) < 0 ? -1 : 1
+    };
+  }
+  if (boss.type === 'sky-eye') {
+    return { x: boss.x + Math.round(Math.sin(age / 42) * 13),
+      y: boss.y + Math.round(Math.sin(age / 23) * 4), direction: 1 };
+  }
+  return { x: boss.x, y: boss.y, direction: boss.direction };
+}
+
+function bedrockMaterial(x, y, depth) {
+  if (depth < 5) return ROCK;
+  const shelf = y + Math.sin(x * 0.026) * 10 + Math.sin(x * 0.103) * 2.7 + x * 0.07;
+  const seam = Math.abs((shelf + 28) % 29 - 14);
+  const pocket = pixelNoise(Math.floor(x / 15), Math.floor(shelf / 27));
+  return seam < 1.6 && pocket > 0.71 && pixelNoise(x, y) > 0.57 ? COPPER : ROCK;
+}
+
+class Quarry {
+  grid = new Uint8Array(WIDTH * HEIGHT);
+  heat = new Uint8Array(this.grid.length);
+  updated = new Uint32Array(this.grid.length);
+  placedTri = new Uint8Array(this.grid.length);
+  surface = new Int16Array(WIDTH);
+  triMap = new Uint8Array(this.grid.length);
+  ichorCells = new Uint8Array(this.grid.length);
+  liquidQueue = new Uint32Array(this.grid.length);
+  creatures = [];
+  bosses = [];
+  scenery = [];
+  portals = [];
+  triPatches = [];
+  debris = [];
+  tick = 0;
+  weather = 'rain';
+
+  constructor(seed = 20261118) {
+    this.seed = seed;
+    this.reset();
+  }
+
+  reset(blank = false) {
+    this.random = makeRandom(this.seed);
+    this.fragmentRandom = makeRandom(this.seed ^ 0x2851);
+    this.debris.length = 0;
+    this.nextFragment = 0;
+    this.grid.fill(EMPTY);
+    this.heat.fill(0);
+    this.updated.fill(0);
+    this.placedTri.fill(0);
+    this.surface.fill(HEIGHT);
+    this.triMap.fill(0);
+    this.creatures.length = 0;
+    this.bosses.length = 0;
+    this.scenery.length = 0;
+    this.portals.length = 0;
+    this.triPatches.length = 0;
+    this.tick = 0;
+    this.skyMode = 'day';
+    this.skyStartedAt = 0;
+    this.weather = blank ? 'off' : 'rain';
+    if (blank) return;
+
+    for (let x = 0; x < WIDTH; x++) {
+      const surface = quarryHeight(x);
+      const pool = x >= START_VIEW && x < START_VIEW + VIEW_WIDTH ? POND_LEVEL : HEIGHT;
+      const top = Math.min(surface, pool);
+      this.surface[x] = top;
+      for (let y = top; y < HEIGHT; y++) {
+        this.grid[y * WIDTH + x] = y >= surface ? bedrockMaterial(x, y, y - surface) : WATER;
+      }
+    }
+    this.placeCreature('lizard', START_VIEW + 179, 133);
+    this.placeCreature('duck', START_VIEW + 231, 132);
+    this.placeCreature('duck', START_VIEW + 98, quarryHeight(START_VIEW + 98) - 1);
+  }
+
+  setWeather(weather) {
+    if (!Object.hasOwn(WEATHER, weather)) throw new RangeError(`Unknown rainfall setting: ${weather}`);
+    this.weather = weather;
+  }
+
+  setSkyMode(mode) {
+    if (mode !== 'day' && mode !== 'auto' && mode !== 'night') throw new RangeError(`Unknown sky mode: ${mode}`);
+    if (this.skyMode === mode) return;
+    this.skyMode = mode;
+    this.skyStartedAt = this.tick;
+  }
+
+  get cycleTick() {
+    return (this.tick - this.skyStartedAt) % (DAY_TICKS + NIGHT_TICKS);
+  }
+
+  get night() {
+    return this.skyMode === 'night' || (this.skyMode === 'auto' && this.cycleTick >= DAY_TICKS);
+  }
+
+  get skyProgress() {
+    if (this.skyMode !== 'auto') return 0.5;
+    return this.night ? (this.cycleTick - DAY_TICKS) / NIGHT_TICKS : this.cycleTick / DAY_TICKS;
+  }
+
+  get portalOpening() {
+    if (!this.night) return 0;
+    return this.skyMode === 'night' ? 1 : Math.min(1, (this.cycleTick - DAY_TICKS) / TRI_PORTAL_OPEN_TICKS);
+  }
+
+  at(x, y) {
+    if (x < 0 || x >= WIDTH || y >= HEIGHT) return BASALT;
+    return y < 0 ? EMPTY : this.grid[y * WIDTH + x];
+  }
+
+  paint(material, x, y, radius, variant = false) {
+    const converted = variant || material === ICHOR;
+    for (let dy = -radius; dy <= radius; dy++) {
+      const row = y + dy;
+      if (row < 0 || row >= HEIGHT) continue;
+      for (let dx = -radius; dx <= radius; dx++) {
+        const column = x + dx;
+        if (column < 0 || column >= WIDTH || dx * dx + dy * dy > radius * radius) continue;
+        const index = row * WIDTH + column;
+        const current = this.grid[index];
+        if (material === ERASE) {
+          this.grid[index] = EMPTY;
+          this.heat[index] = 0;
+          this.placedTri[index] = 0;
+        } else if (converted && current === material) {
+          this.placedTri[index] = 1;
+        } else if (current === EMPTY || (isLiquid(current) && !isLiquid(material) && material !== EMBER)
+            || (material === ICHOR && current === WATER) || (current === EMBER && isLiquid(material))) {
+          this.grid[index] = material;
+          this.heat[index] = material === EMBER ? 40 + Math.floor(this.random() * 65) : 0;
+          this.placedTri[index] = Number(converted);
+        }
+      }
+    }
+    if (material === ERASE) {
+      this.debris = this.debris.filter((piece) => Math.hypot(Math.floor(piece.x) - x, Math.floor(piece.y) - y) > radius);
+      this.creatures = this.creatures.filter((animal) => {
+        if (!Object.hasOwn(TRI_CREATURE_STRIDE, animal.type)) {
+          return Math.hypot(animal.x - x, animal.y - y) > radius + 2;
+        }
+        const height = animal.type === 'brain' ? 26 : animal.type === 'ling' ? 15 : 11;
+        const halfWidth = animal.type === 'blob' ? 8 : 6;
+        return Math.abs(animal.x - x) > radius + halfWidth || y + radius < animal.y - height || y - radius > animal.y + 2;
+      });
+      this.scenery = this.scenery.filter((item) => {
+        const { width, height } = SCENERY[item.type];
+        return Math.abs(item.x - x) > radius + width / 2 || y + radius < item.y - height
+          || y - radius > item.y + (item.type === 'dock' ? 16 : 1);
+      });
+      this.portals = this.portals.filter((portal) => Math.abs(portal.x - x) > radius + TRI_PORTAL.halfWidth
+        || y + radius < portal.y - TRI_PORTAL.height || y - radius > portal.y + 1);
+      this.bosses = this.bosses.filter((boss) => !this.bossTouches(boss, x, y, radius));
+      if (this.triPatches.length > 0) {
+        this.triPatches = this.triPatches.filter((patch) => {
+          const scale = triCoreScale(patch.radius);
+          return Math.abs(patch.x - x) > radius + 10 * scale
+            || y + radius < patch.y - 18 * scale || y - radius > patch.y + 1;
+        });
+        this.updateTri();
+      }
+    }
+  }
+
+  clearPixel(x, y) {
+    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return false;
+    const index = y * WIDTH + x;
+    if (this.grid[index] === EMPTY) return false;
+    this.grid[index] = EMPTY;
+    this.heat[index] = 0;
+    this.placedTri[index] = 0;
+    return true;
+  }
+
+  shedPixel(x, y, color) {
+    const piece = { x: x + 0.5, y: y + 0.5, color };
+    this.kickFragment(piece);
+    if (this.debris.length < DEBRIS_LIMIT) this.debris.push(piece);
+    else {
+      this.debris[this.nextFragment] = piece;
+      this.nextFragment = (this.nextFragment + 1) % DEBRIS_LIMIT;
+    }
+  }
+
+  kickFragment(piece) {
+    piece.bornAt = this.tick;
+    piece.vx = (this.fragmentRandom() - 0.5) * 1.5;
+    piece.vy = -0.25 - this.fragmentRandom() * 0.9;
+  }
+
+  removeShattered(isShattered) {
+    this.creatures = this.creatures.filter((item) => !isShattered(item));
+    this.bosses = this.bosses.filter((item) => !isShattered(item));
+    this.scenery = this.scenery.filter((item) => !isShattered(item));
+    this.portals = this.portals.filter((item) => !isShattered(item));
+    const count = this.triPatches.length;
+    this.triPatches = this.triPatches.filter((item) => !isShattered(item));
+    if (this.triPatches.length !== count) this.updateTri();
+  }
+
+  stepDebris() {
+    for (const piece of this.debris) {
+      if (!piece.vx && !piece.vy && isSolid(this.at(Math.floor(piece.x), Math.floor(piece.y) + 1))) continue;
+      const nextX = piece.x + piece.vx;
+      if (isSolid(this.at(Math.floor(nextX), Math.floor(piece.y)))) piece.vx *= -0.42;
+      else piece.x = nextX;
+      piece.vy = Math.min(2.6, piece.vy + 0.14);
+      const column = Math.floor(piece.x);
+      const nextY = piece.y + piece.vy;
+      const direction = Math.sign(piece.vy);
+      const target = Math.floor(nextY);
+      let row = Math.floor(piece.y) + direction;
+      for (; direction && (target - row) * direction >= 0; row += direction) {
+        if (isSolid(this.at(column, row))) break;
+      }
+      if (direction && (target - row) * direction >= 0) {
+        piece.y = row - direction * 0.5;
+        piece.vy = 0;
+        piece.vx *= 0.48;
+        if (Math.abs(piece.vx) < 0.08) piece.vx = 0;
+      } else {
+        piece.y = Math.max(0, nextY);
+      }
+    }
+  }
+
+  placeCreature(type, x, y, { converted = false, emerging = false, facing } = {}) {
+    if (!Object.hasOwn(CREATURES, type) || this.creatures.length >= ANIMAL_LIMIT) return false;
+    x = Math.max(2, Math.min(WIDTH - 3, x));
+    y = Math.max(2, Math.min(HEIGHT - 2, y));
+    let lift = 0;
+    while (isSolid(this.at(x, y)) && y > 2 && lift++ < 12) y--;
+    if (isSolid(this.at(x, y))) return false;
+    const direction = facing ?? (this.random() < 0.5 ? -1 : 1);
+    const bornAt = this.tick;
+    const readyAt = bornAt + (emerging ? TRI_EMERGENCE : 0);
+    this.creatures.push({ type, x, y, converted, direction, phase: this.random() * 10, wait: 0, wet: false,
+      bornAt, readyAt });
+    return true;
+  }
+
+  findPlacementSurface(x, y, allowLiquid = false) {
+    if (x < 0 || x >= WIDTH) return null;
+    for (let ground = Math.max(1, y - 5); ground < HEIGHT; ground++) {
+      const material = this.at(x, ground);
+      if (material === EMPTY) continue;
+      return this.at(x, ground - 1) === EMPTY && (isSolid(material) || (allowLiquid && isLiquid(material))) ? ground : null;
+    }
+    return null;
+  }
+
+  placeScenery(type, x, y, { converted = false } = {}) {
+    if (!Object.hasOwn(SCENERY, type) || this.scenery.length >= SCENERY_LIMIT) return false;
+    const { width, height } = SCENERY[type];
+    const ground = this.findPlacementSurface(x, y, type === 'dock');
+    if (ground === null || ground < height || this.scenery.some((item) =>
+      Math.abs(item.x - x) < (width + SCENERY[item.type].width) / 2
+      && Math.abs(item.y - ground) < Math.max(height, SCENERY[item.type].height))) return false;
+    this.scenery.push({ type, x, y: ground, converted });
+    return true;
+  }
+
+  placePortal(x, y) {
+    const { halfWidth, height, limit } = TRI_PORTAL;
+    if (this.portals.length >= limit || x < halfWidth || x >= WIDTH - halfWidth) return false;
+    const ground = this.findPlacementSurface(x, y);
+    if (ground === null || ground < height || this.portals.some((portal) =>
+      Math.abs(portal.x - x) < halfWidth * 2 && Math.abs(portal.y - ground) < height)) return false;
+    const direction = x < WIDTH / 2 ? 1 : -1;
+    this.portals.push({ x, y: ground, direction, birthAt: this.tick });
+    return true;
+  }
+
+  placeBoss(type, x, y) {
+    if (!Object.hasOwn(BOSSES, type) || this.bosses.some((boss) => boss.type === type)) return false;
+    const margin = type === 'lake-terror' ? 72 : BOSSES[type].halfWidth + 13;
+    if (x < margin || x >= WIDTH - margin) return false;
+    if (type === 'sky-eye') {
+      const { above, below } = BOSSES[type];
+      y = Math.max(above + 4, Math.min(HEIGHT - below - 1, y));
+      if (this.at(x, y) !== EMPTY || this.at(x, y + 10) !== EMPTY) return false;
+    } else {
+      const ground = this.findPlacementSurface(x, y, type === 'lake-terror');
+      if (ground === null || ground <= BOSSES[type].above
+          || (type === 'lake-terror' && !isLiquid(this.at(x, ground)))) return false;
+      y = ground;
+    }
+    this.bosses.push({ type, x, y, homeX: x, direction: 1, bornAt: this.tick, stride: 0 });
+    return true;
+  }
+
+  bossTouches(boss, x, y, radius) {
+    if (boss.type === 'lake-terror') {
+      for (let index = 0; index < TERROR_SEGMENTS; index++) {
+        const part = bossPosition(boss, this.tick, index);
+        if (!isSolid(this.at(part.x, part.y)) && Math.hypot(part.x - x, part.y - y) <= radius + (index ? 7 : 13)) return true;
+      }
+      return false;
+    }
+    const center = bossPosition(boss, this.tick);
+    const { halfWidth, above, below } = BOSSES[boss.type];
+    return Math.abs(center.x - x) <= radius + halfWidth
+      && y + radius >= center.y - above && y - radius <= center.y + below;
+  }
+
+  isTriAt(x, y) {
+    return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT && this.triMap[y * WIDTH + x] !== 0;
+  }
+
+  placeTri(x, y) {
+    if (this.triPatches.length >= TRI_LIMIT) return false;
+    const ground = this.findPlacementSurface(x, y);
+    if (ground === null || this.triPatches.some((patch) =>
+      Math.abs(x - patch.x) <= 12 && Math.abs(ground - patch.y) <= 4)) return false;
+    const farX = Math.max(x, WIDTH - 1 - x);
+    const farY = Math.max(ground, HEIGHT - 1 - ground);
+    const limit = Math.ceil(Math.hypot(farX, farY));
+    const births = TRI_BIRTHS.map(({ first }) => this.tick + first * TICKS_PER_SECOND);
+    this.triPatches.push({ x, y: ground, radius: TRI_START_RADIUS, limit, births, bossAt: this.tick + TRI_BOSS_AGE });
+    this.updateTri();
+    return true;
+  }
+
+  spawnTriCreature(patch, type) {
+    const start = Math.floor(this.random() * TRI_SPAWN_OFFSETS.length);
+    for (let i = 0; i < TRI_SPAWN_OFFSETS.length; i++) {
+      const x = patch.x + TRI_SPAWN_OFFSETS[(start + i) % TRI_SPAWN_OFFSETS.length];
+      const y = this.findPlacementSurface(x, patch.y);
+      if (y === null || !this.isTriAt(x, y) || this.creatures.some((animal) =>
+        Math.abs(animal.x - x) < 9 && Math.abs(animal.y - y) < 8)) continue;
+      return this.placeCreature(type, x, y - 1, { converted: true, emerging: true });
+    }
+    return false;
+  }
+
+  updateTriBirths() {
+    for (const patch of this.triPatches) {
+      for (const [index, spawn] of TRI_BIRTHS.entries()) {
+        if (this.tick < patch.births[index]) continue;
+        const available = this.creatures.length < ANIMAL_LIMIT
+          && this.creatures.filter(({ type }) => type === spawn.type).length < spawn.max;
+        const placed = available && this.spawnTriCreature(patch, spawn.type);
+        patch.births[index] = this.tick + (placed ? spawn.repeat : 1) * TICKS_PER_SECOND;
+      }
+      if (this.tick >= patch.bossAt) {
+        const y = Math.max(32, patch.y - 55);
+        const awakened = TRI_BOSS_OFFSETS.some((offset) => {
+          const x = patch.x + offset;
+          return this.isTriAt(x, y) && this.placeBoss('sky-eye', x, y);
+        });
+        patch.bossAt = awakened ? Infinity : this.tick + TICKS_PER_SECOND;
+      }
+    }
+  }
+
+  updatePortalBirths() {
+    if (this.portalOpening < 1) return;
+    let population = this.creatures.filter(({ type }) => type === 'blob').length;
+    for (const portal of this.portals) {
+      if (population >= TRI_BLOB_LIMIT || this.creatures.length >= ANIMAL_LIMIT) break;
+      if (this.tick < portal.birthAt) continue;
+      const spawned = [10, 0].some((offset) => {
+        const x = portal.x + portal.direction * offset;
+        const y = this.findPlacementSurface(x, portal.y);
+        if (y === null || Math.abs(y - portal.y) > 5) return false;
+        if (this.creatures.some((creature) => Math.abs(creature.x - x) < 9 && Math.abs(creature.y - y) < 8)) return false;
+        return this.placeCreature('blob', x, y - 1, { converted: true, facing: portal.direction });
+      });
+      portal.birthAt = this.tick + (spawned ? 5 : 1) * TICKS_PER_SECOND;
+      if (spawned) population++;
+    }
+  }
+
+  updateTri(growth = 0) {
+    const active = this.triPatches.filter(({ x, y }) => isSolid(this.at(x, y)));
+    const changed = active.length !== this.triPatches.length;
+    this.triPatches = active;
+    if (!growth || changed || active.some((patch) => patch.radius < patch.limit)) {
+      this.triMap.fill(0);
+      for (const patch of active) {
+        patch.radius = Math.min(patch.limit, patch.radius + growth);
+        const { x, y, radius } = patch;
+        const bottom = Math.min(HEIGHT - 1, y + radius);
+        for (let row = Math.max(0, y - radius); row <= bottom; row++) {
+          // Fill just the horizontal span inside the growing circle.
+          const halfWidth = Math.floor(Math.sqrt(radius * radius - (row - y) ** 2));
+          const start = Math.max(0, x - halfWidth);
+          const end = Math.min(WIDTH, x + halfWidth + 1);
+          this.triMap.fill(1, row * WIDTH + start, row * WIDTH + end);
+        }
+      }
+    }
+    this.syncIchor();
+  }
+
+  syncIchor() {
+    const { grid, triMap, ichorCells, liquidQueue } = this;
+    if (this.triPatches.length === 0 && !grid.includes(ICHOR)) return;
+    ichorCells.fill(0);
+    let tail = 0;
+    const visit = (index) => {
+      if (!ichorCells[index] && isLiquid(grid[index])) {
+        ichorCells[index] = 1;
+        liquidQueue[tail++] = index;
+      }
+    };
+    // Flood-fill connected pools from every liquid cell touched by Tri.
+    for (let index = 0; index < grid.length; index++) {
+      if (triMap[index]) visit(index);
+    }
+    for (let head = 0; head < tail; head++) {
+      const index = liquidQueue[head];
+      const x = index % WIDTH;
+      if (x > 0) visit(index - 1);
+      if (x + 1 < WIDTH) visit(index + 1);
+      if (index >= WIDTH) visit(index - WIDTH);
+      if (index + WIDTH < grid.length) visit(index + WIDTH);
+    }
+    for (let index = 0; index < grid.length; index++) {
+      if (ichorCells[index]) grid[index] = ICHOR;
+      else if (grid[index] === ICHOR && !this.placedTri[index]) grid[index] = WATER;
+    }
+  }
+
+  move(index, target) {
+    const material = this.grid[index];
+    const heat = this.heat[index];
+    this.grid[index] = this.grid[target];
+    this.heat[index] = this.heat[target];
+    this.grid[target] = material;
+    this.heat[target] = heat;
+    const converted = this.placedTri[index];
+    this.placedTri[index] = this.placedTri[target];
+    this.placedTri[target] = converted;
+    this.updated[index] = this.tick;
+    this.updated[target] = this.tick;
+  }
+
+  step() {
+    this.tick++;
+    for (let y = HEIGHT - 1; y >= 0; y--) {
+      const row = y * WIDTH;
+      const direction = (y + this.tick) % 2 ? 1 : -1;
+      for (let x = direction === 1 ? 0 : WIDTH - 1; x >= 0 && x < WIDTH; x += direction) {
+        const index = row + x;
+        const material = this.grid[index];
+        if (material === EMPTY || material === BASALT || material === ROCK || material === GRASS) continue;
+        if (this.updated[index] === this.tick) continue;
+        if (isLiquid(material)) {
+          if (material === WATER || this.tick % 2 === 0) {
+            this.stepLiquid(index, x, y, direction, material === ICHOR ? 1 : 3);
+          }
+        } else if (material === EMBER) this.stepEmber(index, x, y, direction);
+        else this.stepGrain(index, x, y, material, direction);
+      }
+    }
+    for (const creature of this.creatures) {
+      if (this.tick >= creature.readyAt) this.stepCreature(creature);
+    }
+    for (const boss of this.bosses) {
+      if (boss.type === 'copper-giant' && this.tick % 8 === 0) this.stepGiant(boss);
+    }
+    this.stepDebris();
+    if (this.triPatches.length > 0 && this.tick % TRI_GROWTH_TICKS === 0) {
+      this.updateTri(TRI_GROWTH_PIXELS);
+      this.updateTriBirths();
+    }
+    if (this.portals.length > 0) this.updatePortalBirths();
+  }
+
+  stepGiant(boss) {
+    const next = boss.x + boss.direction;
+    if (Math.abs(next - boss.homeX) < 80) {
+      for (const offset of [0, -1, 1, -2, 2, -3, 3]) {
+        const y = boss.y + offset;
+        if (next < 30 || next >= WIDTH - 30 || !isSolid(this.at(next, y)) || this.at(next, y - 1) !== EMPTY) continue;
+        boss.x = next;
+        boss.y = y;
+        boss.stride++;
+        return;
+      }
+    }
+    boss.direction *= -1;
+  }
+
+  stepLiquid(index, x, y, direction, flowRange) {
+    if (y + 1 < HEIGHT) {
+      const below = index + WIDTH;
+      if (this.grid[below] === EMPTY) {
+        this.move(index, below);
+        return;
+      }
+      for (const dx of [direction, -direction]) {
+        if (this.at(x + dx, y + 1) === EMPTY && !isSolid(this.at(x + dx, y))) {
+          this.move(index, below + dx);
+          return;
+        }
+      }
+    }
+    for (const dx of [direction, -direction]) {
+      let distance = 0;
+      while (distance < flowRange && this.at(x + dx * (distance + 1), y) === EMPTY) {
+        distance++;
+        if (this.at(x + dx * distance, y + 1) === EMPTY) break;
+      }
+      if (distance > 0) {
+        this.move(index, index + distance * dx);
+        return;
+      }
+    }
+  }
+
+  stepGrain(index, x, y, material, direction) {
+    if (material === COPPER && this.tick % 12 === (x + y) % 12
+        && (isLiquid(this.at(x, y + 1)) || isLiquid(this.at(x, y - 1))
+          || isLiquid(this.at(x - 1, y)) || isLiquid(this.at(x + 1, y)))
+        && this.random() < 0.14) {
+      this.grid[index] = PATINA;
+    }
+    if (y + 1 === HEIGHT) return;
+    const below = index + WIDTH;
+    for (const dx of [0, direction, -direction]) {
+      const next = this.at(x + dx, y + 1);
+      if ((next === EMPTY || isLiquid(next)) && (!dx || !isSolid(this.at(x + dx, y)))) {
+        this.move(index, below + dx);
+        return;
+      }
+    }
+  }
+
+  stepEmber(index, x, y, direction) {
+    if (this.heat[index] <= 1 || isLiquid(this.at(x, y + 1)) || isLiquid(this.at(x, y - 1))
+        || isLiquid(this.at(x + 1, y)) || isLiquid(this.at(x - 1, y))) {
+      this.grid[index] = EMPTY;
+      this.heat[index] = 0;
+      this.placedTri[index] = 0;
+      return;
+    }
+    this.heat[index]--;
+    for (const dx of [0, direction, -direction]) {
+      if (this.at(x + dx, y + 1) === EMPTY && (!dx || !isSolid(this.at(x + dx, y)))) {
+        this.move(index, index + WIDTH + dx);
+        return;
+      }
+    }
+  }
+
+  stepCreature(animal) {
+    let { x, y, direction } = animal;
+    animal.wet = isLiquid(this.at(x, y)) || isLiquid(this.at(x, y + 1));
+    const swimming = animal.wet;
+    const stride = TRI_CREATURE_STRIDE[animal.type] ?? (animal.type === 'duck' ? 5 : swimming ? 3 : 8);
+    if (isSolid(this.at(x, y)) && !isSolid(this.at(x, y - 1))) {
+      y = Math.max(2, y - 1);
+    } else if (swimming && isLiquid(this.at(x, y - 1)) && this.tick % 3 === 0) {
+      y--;
+    } else if (!swimming && !isSolid(this.at(x, y + 1))) {
+      y++;
+    }
+
+    if (animal.wait > 0) animal.wait--;
+    else if (this.tick % stride === 0) {
+      const next = x + direction;
+      const terrain = this.at(next, y);
+      if (next < 2 || next >= WIDTH - 2 || (animal.type === 'lizard' && swimming && !isSolid(terrain)
+          && !isLiquid(this.at(next, y + 1)) && !isLiquid(terrain))) {
+        direction *= -1;
+        animal.wait = 12;
+      } else if (!isSolid(terrain)) {
+        x = next;
+      } else if (!isSolid(this.at(next, y - 1))) {
+        x = next;
+        y = Math.max(2, y - 1);
+      } else {
+        direction *= -1;
+      }
+      if (this.tick % (stride * 13) === 0 && this.random() < 0.07) direction *= -1;
+    }
+    Object.assign(animal, { x, y, direction });
+  }
+
+  getStats() {
+    let copper = 0;
+    let water = 0;
+    let ichor = 0;
+    for (const material of this.grid) {
+      if (material === WATER) water++;
+      if (material === ICHOR) ichor++;
+      if (COPPER_MATERIALS.includes(material)) copper++;
+    }
+    return { copper, water, ichor, creatures: this.creatures.length };
+  }
+}
+
+const CHIP_ORIGIN_X = 36;
+const CHIP_ORIGIN_Y = 62;
+const CHIP_WIDTH = 72;
+const CHIP_HEIGHT = 112;
+const CHIP_ALPHA = 128;
+
+function localPixel(part, x, y) {
+  const localX = Math.floor((x + 0.5 - part.x) / part.scaleX) + CHIP_ORIGIN_X;
+  const localY = Math.floor((y + 0.5 - part.y) / part.scaleY) + CHIP_ORIGIN_Y;
+  return localX >= 0 && localX < CHIP_WIDTH && localY >= 0 && localY < CHIP_HEIGHT
+    ? localY * CHIP_WIDTH + localX : -1;
+}
+
+class SpriteChipper {
+  parts = [];
+  damage = new WeakMap();
+
+  constructor(canvas = document.createElement('canvas')) {
+    this.canvas = canvas;
+    this.canvas.width = CHIP_WIDTH;
+    this.canvas.height = CHIP_HEIGHT;
+    this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+  }
+
+  reset() {
+    this.parts.length = 0;
+    this.damage = new WeakMap();
+  }
+
+  state(owner, id) {
+    return this.damage.get(owner)?.get(id);
+  }
+
+  rasterize(part, state) {
+    const ctx = this.ctx;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, CHIP_WIDTH, CHIP_HEIGHT);
+    ctx.save();
+    ctx.translate(CHIP_ORIGIN_X, CHIP_ORIGIN_Y);
+    part.paint(ctx);
+    ctx.restore();
+    if (state) {
+      for (const index of state.holes) ctx.clearRect(index % CHIP_WIDTH, Math.floor(index / CHIP_WIDTH), 1, 1);
+    }
+  }
+
+  draw(ctx, owner, id, x, y, scaleX, scaleY, paint) {
+    const state = this.state(owner, id);
+    if (state?.gone) return;
+    const part = { owner, id, x, y, scaleX, scaleY, paint };
+    this.parts.push(part);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scaleX, scaleY);
+    if (state) {
+      this.rasterize(part, state);
+      ctx.drawImage(this.canvas, -CHIP_ORIGIN_X, -CHIP_ORIGIN_Y);
+    } else {
+      paint(ctx);
+    }
+    ctx.restore();
+  }
+
+  chip(points, shed) {
+    const shattered = new Set();
+    // Check the frontmost sprite first and rasterize only the parts the brush overlaps.
+    for (let index = this.parts.length - 1; index >= 0; index--) {
+      const part = this.parts[index];
+      let state = this.state(part.owner, part.id);
+      if (state?.gone) continue;
+      const hits = [];
+      for (const point of points) {
+        if (point.chipped) continue;
+        const local = localPixel(part, point.x, point.y);
+        if (local >= 0) hits.push({ point, local });
+      }
+      if (hits.length === 0) continue;
+      this.rasterize(part, state);
+      const pixels = this.ctx.getImageData(0, 0, CHIP_WIDTH, CHIP_HEIGHT).data;
+      const detached = new Set();
+      for (const { point, local } of hits) {
+        if (detached.has(local)) {
+          point.chipped = true;
+          continue;
+        }
+        const pixel = local * 4;
+        if (pixels[pixel + 3] < CHIP_ALPHA) continue;
+        if (!state) {
+          state = { holes: new Set(), gone: false };
+          if (!this.damage.has(part.owner)) this.damage.set(part.owner, new Map());
+          this.damage.get(part.owner).set(part.id, state);
+        }
+        state.holes.add(local);
+        detached.add(local);
+        pixels[pixel + 3] = 0;
+        point.chipped = true;
+        shed(point.x, point.y, pixels[pixel], pixels[pixel + 1], pixels[pixel + 2]);
+      }
+      if (detached.size && !pixels.some((channel, offset) => offset % 4 === 3 && channel >= CHIP_ALPHA)) {
+        state.gone = true;
+        shattered.add(part.owner);
+      }
+    }
+    return shattered;
+  }
+
+  isGone(owner, parts = 1) {
+    for (let index = 0; index < parts; index++) {
+      if (!this.state(owner, index)?.gone) return false;
+    }
+    return true;
+  }
+}
+
+
+const SIZE = WIDTH * HEIGHT;
+const SKY = new Uint8ClampedArray(SIZE * 4);
+const TERRAIN = new Uint32Array(SIZE);
+const ATMOSPHERE = new Uint32Array(SIZE);
+const RIDGE_PIXELS = new Uint8Array(SIZE);
+const TRI_BIRCH_ROOT = new Int32Array(SIZE);
+const TRI_BIRCH_COLOR = new Uint32Array(SIZE);
+const BIRCH_PIXELS = new Uint8Array(SIZE);
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+const RIDGES = [
+  { points: [[0, 93], [32, 76], [52, 81], [78, 59], [99, 49], [113, 54], [139, 77], [161, 73], [190, 92], [212, 90], [239, 70], [260, 72], [285, 49], [298, 55], [327, 77], [357, 68], [384, 77]], color: [48, 59, 72] },
+  { points: [[0, 85], [27, 81], [51, 93], [77, 91], [96, 78], [116, 77], [135, 67], [154, 79], [171, 84], [195, 106], [223, 100], [238, 85], [255, 92], [288, 80], [313, 59], [340, 69], [366, 87], [384, 79]], color: [38, 47, 60] },
+  { points: [[0, 86], [43, 91], [59, 98], [87, 96], [109, 104], [144, 104], [167, 110], [188, 107], [219, 118], [241, 107], [265, 102], [282, 98], [313, 94], [343, 84], [384, 84]], color: [29, 40, 50] }
+];
+const CLOUDS = [
+  [28, 17, 79, 15], [116, 14, 104, 16], [215, 26, 65, 11],
+  [310, 15, 91, 17], [367, 27, 69, 14], [159, 44, 69, 9], [269, 42, 52, 8]
+];
+const PALETTES = {
+  [COPPER]: [[124, 64, 44], [175, 91, 57], [202, 116, 72], [230, 146, 93], [251, 174, 116]],
+  [SAND]: [[133, 92, 53], [175, 130, 75], [194, 148, 89], [219, 171, 106], [228, 186, 123]],
+  [BASALT]: [[42, 42, 53], [54, 54, 65], [60, 59, 70], [71, 70, 82], [90, 85, 94]],
+  [EMBER]: [[148, 55, 34], [201, 74, 43], [252, 126, 59], [255, 160, 66], [255, 211, 123]],
+  [PATINA]: [[42, 84, 74], [57, 120, 103], [75, 154, 127], [99, 177, 143], [131, 193, 155]],
+  [ROCK]: [[45, 30, 31], [58, 38, 36], [74, 48, 42], [94, 61, 49], [121, 79, 59]],
+  [GRASS]: [[41, 52, 34], [57, 73, 44], [73, 95, 54], [88, 111, 61], [113, 135, 75]],
+  [ICHOR]: [[155, 87, 80], [177, 107, 95], [206, 140, 124], [220, 161, 143], [255, 224, 198]]
+};
+const DECORATIONS = [
+  ...CREEK_HUTS.map((x) => ({ x, type: 'hut' })),
+  { x: 253, type: 'posts' },
+  { x: VIEW_WIDTH + 137, type: 'pump' }, { x: VIEW_WIDTH + 190, type: 'pump' },
+  { x: START_VIEW + 62, type: 'pump' },
+  { x: START_VIEW + 101, type: 'posts' }, { x: START_VIEW + 351, type: 'posts' },
+  { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'pump' }
+];
+const POND_DOCK = { x: START_VIEW + 258, y: 128 };
+const rainRandom = makeRandom(23691);
+const streaks = Array.from({ length: WEATHER.storm * WORLD_AREAS.length }, () => ({
+  x: rainRandom() * WIDTH, y: rainRandom() * HEIGHT, speed: 1.7 + rainRandom() * 3.8, length: 2 + rainRandom() * 7,
+  light: rainRandom()
+}));
+
+function rgb(r, g, b) {
+  return LITTLE_ENDIAN ? (255 << 24) | (b << 16) | (g << 8) | r : (r << 24) | (g << 16) | (b << 8) | 255;
+}
+
+function channels(color) {
+  return LITTLE_ENDIAN ? [color & 255, (color >>> 8) & 255, (color >>> 16) & 255]
+    : [(color >>> 24) & 255, (color >>> 16) & 255, (color >>> 8) & 255];
+}
+
+function triPigment(r, g, b) {
+  const light = (3 * r + 5 * g + 2 * b) / 10;
+  return [Math.min(255, 34 + 1.28 * light) | 0, (11 + 0.57 * light) | 0, (43 + 0.95 * light) | 0];
+}
+
+function ridgeAt(points, x, layer) {
+  const localX = x % VIEW_WIDTH;
+  const index = Math.max(1, points.findIndex(([edge]) => edge >= localX));
+  const [x0, y0] = points[index - 1];
+  const [x1, y1] = points[index];
+  const crags = (pixelNoise(Math.floor(x / 3), layer * 11 + 2) - 0.5) * 2.5;
+  const seam = (points.at(-1)[1] - points[0][1]) * localX / VIEW_WIDTH;
+  return y0 + (y1 - y0) * (localX - x0) / (x1 - x0) - seam + crags + Math.sin(x * 0.012 + layer) * 5;
+}
+
+function ink(x, y, color, root = 0, triColor = 0) {
+  if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+  const pixel = y * WIDTH + x;
+  const i = pixel * 4;
+  SKY[i] = color[0];
+  SKY[i + 1] = color[1];
+  SKY[i + 2] = color[2];
+  BIRCH_PIXELS[pixel] = 1;
+  TRI_BIRCH_ROOT[pixel] = root;
+  TRI_BIRCH_COLOR[pixel] = triColor;
+}
+
+function drawBirch(x, ground, height, seed, near, copper, plot = ink) {
+  const crown = ground - height;
+  const lean = seed % 2 ? 1 : -1;
+  const width = near ? 2 + Number(height > 38) : 1;
+  const trunk = near ? [149, 152, 137] : [86, 106, 108];
+  const shade = near ? [106, 112, 107] : [64, 84, 89];
+  const bark = near ? [55, 65, 62] : [48, 67, 73];
+  for (let y = crown; y <= ground; y++) {
+    const offset = Math.round((ground - y) * lean / 14);
+    const scar = pixelNoise(seed, y) > 0.72;
+    for (let dx = 0; dx < width; dx++) {
+      plot(x + dx + offset, y, scar && dx < width - Number(y % 3 === 1) ? bark : dx === 0 ? shade : trunk);
+    }
+  }
+  for (const side of [-1, 1]) {
+    const spread = 5 + (seed + side * 2) % 6;
+    const base = crown + Math.round(height * (side === 1 ? 0.53 : 0.42));
+    for (let step = 1; step <= spread; step++) {
+      plot(x + lean + side * step, base - Math.ceil(step * 0.86), step < 4 ? shade : bark);
+    }
+  }
+
+  const foliage = near && copper
+    ? [[44, 45, 39], [58, 53, 41], [75, 65, 45], [96, 77, 51], [113, 89, 53]]
+    : near
+    ? [[30, 48, 44], [37, 58, 48], [46, 69, 54], [60, 81, 60], [74, 94, 69]]
+    : [[30, 48, 49], [35, 54, 53], [41, 61, 58], [48, 68, 63], [55, 76, 68]];
+  const triFoliage = near
+    ? [rgb(73, 28, 65), rgb(102, 36, 85), rgb(135, 46, 105), rgb(161, 64, 127), rgb(184, 77, 143)]
+    : [rgb(63, 35, 61), rgb(75, 40, 72), rgb(91, 44, 84), rgb(111, 50, 95), rgb(123, 55, 105)];
+  const root = ground * WIDTH + x + 1;
+  const reach = Math.max(5, Math.round(height * 0.23));
+  const clumps = [
+    [x + lean * 3, crown + 2, reach - 1, 5],
+    [x - 5, crown + 7, reach, 6],
+    [x + 6, crown + 9, reach, 5],
+    [x, crown + 12, reach, 6]
+  ];
+  for (const [cx, cy, rx, ry] of clumps) {
+    for (let y = cy - ry; y <= cy + ry; y++) {
+      for (let px = cx - rx; px <= cx + rx; px++) {
+        const contour = ((px - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
+        const cluster = pixelNoise(Math.floor(px / 3) + seed, Math.floor(y / 2));
+        const detail = pixelNoise(px + seed, y);
+        if (contour + cluster * 0.53 > 1.12 || detail < 0.08) continue;
+        const light = Math.min(4, Math.floor(cluster * 3 + detail + Number(y < cy)));
+        plot(px, y, foliage[light], root, triFoliage[light]);
+      }
+    }
+  }
+}
+
+function drawGroves() {
+  const random = makeRandom(148971);
+  const distant = [7, 22, 36, 49, 64, 75, 90, 103, 122, 132, 150, 162, 177, 192, 207, 226, 242, 257, 274, 288, 298, 322, 337, 349, 363, 378];
+  const banks = [11, 24, 38, 54, 77, 91, 116, 265, 279, 293, 330, 344, 362, 377];
+  for (let area = 0; area < WORLD_AREAS.length; area++) {
+    const start = area * VIEW_WIDTH;
+    for (const localX of distant) {
+      const x = start + localX;
+      const ground = Math.round(84 + Math.sin(x * 0.016) * 24 + random() * 10);
+      drawBirch(x, ground, 16 + Math.floor(random() * 17), x, false, false);
+    }
+    const grove = start === START_VIEW ? banks : distant.filter((_, index) => (index + area) % (area === 0 ? 2 : 3) === 0);
+    for (const localX of grove) {
+      const x = start + localX;
+      const height = 27 + Math.floor(random() * (area === 0 ? 25 : 19));
+      drawBirch(x, quarryHeight(x) + 3, height, x, true, area === 1 || area === 4);
+    }
+  }
+}
+
+function makeBackdrop() {
+  for (let x = 0; x < WIDTH; x++) {
+    const ridges = RIDGES.map(({ points }, layer) => ridgeAt(points, x, layer));
+    const ground = quarryHeight(x);
+    for (let y = 0; y < HEIGHT; y++) {
+      const i = y * WIDTH + x;
+      const grain = pixelNoise(x, y);
+      const horizon = Math.max(0, 1 - Math.abs(y - 65) / 76);
+      const localX = x % VIEW_WIDTH;
+      const glow = horizon * (0.76 + Math.cos(x * 0.012) * 0.19);
+      let r = 20 + glow * 32 + grain * 2;
+      let g = 28 + glow * 35 + grain * 2;
+      let b = 39 + glow * 39 + grain * 2;
+      for (const [cx, cy, rx, ry] of CLOUDS) {
+        const dx = (localX - cx) / rx;
+        const edge = Math.sin(x * 0.132 + cx) * 0.22 + (pixelNoise((x / 5) | 0, cy) - 0.5) * 0.22;
+        const distance = dx * dx + Math.pow((y - cy) / (y > cy ? ry * 0.8 : ry), 2) + edge;
+        if (distance < 1) {
+          const shade = (1 - distance) * 5 + (y > cy ? 3 : 0);
+          r -= shade;
+          g -= shade + 2;
+          b -= shade + 3;
+        } else if (distance < 1.25 && y > cy) {
+          r += 3;
+          g += 3;
+          b += 4;
+        }
+      }
+      ATMOSPHERE[i] = rgb(r | 0, g | 0, b | 0);
+      for (let layer = 0; layer < ridges.length; layer++) {
+        const depth = y - ridges[layer];
+        if (depth < 0) continue;
+        RIDGE_PIXELS[i] = 1;
+        const color = RIDGES[layer].color;
+        const ridgeLight = Math.max(0, 6 - depth * 0.55);
+        const scarp = pixelNoise(Math.floor((x + y * (layer === 1 ? 0.8 : -0.6)) / 4), layer) * 6 + grain * 3;
+        r = color[0] + ridgeLight + scarp;
+        g = color[1] + ridgeLight + scarp;
+        b = color[2] + ridgeLight + scarp;
+      }
+      SKY.set([r, g, b, 255], i * 4);
+
+      const depth = y - ground;
+      const contour = y + Math.sin(x * 0.026) * 10 + Math.sin(x * 0.103) * 2.7;
+      const slab = pixelNoise(Math.floor((x + y * 0.65) / 8), Math.floor(contour / 4));
+      const fissure = pixelNoise(Math.floor((x + y * 0.50) / 15), Math.floor(contour / 7)) > 0.87;
+      const shade = Math.min(1, Math.max(0, depth / 70));
+      const cap = depth <= 1 ? 33 : depth <= 4 ? 13 : 0;
+      r = 55 - shade * 24 + slab * 24 + grain * 9 + cap;
+      g = 37 - shade * 11 + slab * 12 + grain * 7 + cap * 0.55;
+      b = 36 - shade * 4 + slab * 9 + grain * 6 + cap * 0.32;
+      if (fissure) { r -= 12; g -= 6; b -= 4; }
+
+      const band = Math.abs((contour + x * 0.07 + 28) % 29 - 14);
+      const pocket = pixelNoise(Math.floor(x / 14), Math.floor(contour / 27));
+      if (depth > 2 && ((band < 1.2 + pocket * 2.7 && pocket > 0.34 && grain > 0.26) ||
+          (depth < 9 && grain > 0.9))) {
+        r += 24 + grain * 47;
+        g += 9 + grain * 22;
+        b += 4 + grain * 9;
+      }
+      if (depth > 8 && band < 1.6 && pocket > 0.68 && grain > 0.84) {
+        r = 65 + grain * 15;
+        g = 92 + grain * 21;
+        b = 81 + grain * 23;
+      }
+      if (ground < POND_LEVEL - 1 && depth >= 0 && depth < 3 + Math.floor(slab * 3)) {
+        const light = depth === 0 ? 24 : depth === 1 ? 12 : 0;
+        r = 42 + slab * 19 + grain * 7 + light;
+        g = 63 + slab * 23 + grain * 11 + light;
+        b = 37 + slab * 9 + grain * 5 + light * 0.54;
+      }
+      TERRAIN[i] = rgb(r | 0, g | 0, b | 0);
+    }
+  }
+}
+
+makeBackdrop();
+const bareSky = new Uint32Array(SKY.buffer).slice();
+drawGroves();
+const packedSky = new Uint32Array(SKY.buffer);
+function tintSky(color) {
+  const [r, g, b] = channels(color);
+  return rgb(r + 13, (g * 0.84) | 0, b + 10);
+}
+const triSky = packedSky.map(tintSky);
+const triBareSky = bareSky.map(tintSky);
+const triAtmosphere = ATMOSPHERE.map(tintSky);
+
+function treePixel(index, triMap) {
+  const root = TRI_BIRCH_ROOT[index];
+  return root && triMap[root - 1] ? TRI_BIRCH_COLOR[index] : triMap[index] ? triSky[index] : packedSky[index];
+}
+
+const triTerrain = TERRAIN.map((color, index) => {
+  const x = index % WIDTH;
+  const y = Math.floor(index / WIDTH);
+  const grain = pixelNoise(x, y);
+  const strata = y + Math.sin(x * 0.075) * 5 + Math.sin(x * 0.21) * 2.3;
+  if (Math.abs(strata % 17 - 8) < 0.7 && grain > 0.22) {
+    return grain > 0.8 ? rgb(87, 163, 231) : rgb(58, 107, 174);
+  }
+  return rgb(...triPigment(...channels(color)));
+});
+const particleColors = Object.fromEntries(Object.entries(PALETTES).map(([material, colors]) =>
+  [material, colors.map(([r, g, b]) => rgb(r, g, b))]
+));
+const triParticleColors = Object.fromEntries(Object.entries(PALETTES).map(([material, colors]) =>
+  [material, colors.map(([r, g, b]) => rgb(...triPigment(r, g, b)))]
+));
+const grainMap = Uint8Array.from({ length: SIZE }, (_, i) => (pixelNoise(i % WIDTH, (i / WIDTH) | 0) * 5) | 0);
+
+function waterPixel(x, y, depth, tick, grain) {
+  if (depth < 0) return rgb(55 + grain * 4, 88 + grain * 4, 103 + grain * 4);
+  if (depth === 0) {
+    const ripple = ((x * 11 + (tick >> 1) * 5 + y * 7) % 81) < 9;
+    return ripple || (grain === 4 && x % 5 === 0) ? rgb(128, 178, 174) : rgb(72, 135, 143);
+  }
+  const shade = Math.min(depth, 29);
+  const caustic = Math.sin(x * 0.14 + y * 0.29 + tick * 0.022) > 0.83 ? 8 : 0;
+  return rgb((40 - shade / 2 + grain + caustic) | 0, 90 - shade + grain + caustic,
+    108 - shade + grain + caustic);
+}
+
+function ichorPixel(x, y, depth, tick, grain) {
+  if (depth < 0) return rgb(198 + grain * 5, 128 + grain * 5, 117 + grain * 5);
+  const ripple = Math.sin(x * 0.18 + y * 0.19 - tick * 0.012);
+  if (depth === 0) return ripple > 0.54 ? rgb(255, 224, 198) : rgb(233, 177, 158);
+  const shade = Math.min(depth, 27);
+  const gloss = depth < 5 && ripple > 0.67 ? 17 - depth * 2 : 0;
+  return rgb(220 - shade * 2 + gloss, 161 - shade * 2 + gloss, 143 - shade + gloss);
+}
+
+function paintTerrain(ctx, frame, quarry, left) {
+  const { grid, tick, surface, triMap, placedTri } = quarry;
+  const { pixels, liquidDepth } = frame;
+  surface.fill(HEIGHT, left, left + VIEW_WIDTH);
+  liquidDepth.fill(0);
+  for (let y = 0; y < HEIGHT; y++) {
+    const row = y * WIDTH;
+    const screenRow = y * VIEW_WIDTH;
+    for (let x = left; x < left + VIEW_WIDTH; x++) {
+      const i = row + x;
+      const j = screenRow + x - left;
+      const material = grid[i];
+      const grain = grainMap[i];
+      const converted = triMap[i] !== 0 || placedTri[i] !== 0;
+      const liquid = isLiquid(material);
+      if (!liquid) liquidDepth[x] = 0;
+      if (material !== EMPTY && material !== EMBER && !liquid && surface[x] === HEIGHT) surface[x] = y;
+      if (material === EMPTY) {
+        if (BIRCH_PIXELS[i] && !frame.birchCuts[i]) pixels[j] = treePixel(i, triMap);
+        else if (frame.ridgeCuts[i]) pixels[j] = converted ? triAtmosphere[i] : ATMOSPHERE[i];
+        else pixels[j] = converted ? triBareSky[i] : bareSky[i];
+      } else if (material === ROCK) {
+        pixels[j] = converted ? triTerrain[i] : TERRAIN[i];
+        if (!converted && y >= POND_LEVEL && grid[i + 1] === EMPTY && x < WIDTH - 1 && grain > 1) {
+          pixels[j] = rgb(87 + grain * 5, 51 + grain * 4, 45 + grain * 3);
+        }
+      } else if (liquid) {
+        const connected = isLiquid(grid[i + WIDTH]) || liquidDepth[x] > 0
+          || x > 0 && isLiquid(grid[i - 1]) || x < WIDTH - 1 && isLiquid(grid[i + 1]);
+        if (connected && surface[x] === HEIGHT) surface[x] = y;
+        const depth = connected ? liquidDepth[x]++ : -1;
+        const color = material === ICHOR ? ichorPixel : waterPixel;
+        pixels[j] = color(x, y, depth, tick, grain);
+      } else {
+        const shade = material === EMBER ? Math.min(4, (quarry.heat[i] >> 4) + grain % 2) : grain;
+        pixels[j] = (converted ? triParticleColors : particleColors)[material][shade];
+      }
+    }
+  }
+  frame.basePixels.set(pixels);
+  paintGroundDetails(frame, quarry, left);
+  frame.visibleDebris.clear();
+  for (const piece of quarry.debris) {
+    if (piece.bornAt === tick) continue;
+    const x = Math.floor(piece.x);
+    const y = Math.floor(piece.y);
+    if (x >= left && x < left + VIEW_WIDTH && y >= 0 && y < HEIGHT && !isSolid(quarry.at(x, y))) {
+      const index = y * VIEW_WIDTH + x - left;
+      pixels[index] = piece.color;
+      frame.visibleDebris.set(index, piece);
+    }
+  }
+  ctx.putImageData(frame.data, 0, 0);
+}
+
+const GROUND_COLORS = {
+  normal: [rgb(82, 105, 70), rgb(117, 134, 91), rgb(142, 155, 104)],
+  tri: [rgb(203, 82, 148), rgb(234, 128, 174), rgb(240, 149, 191)],
+  fringe: [rgb(158, 58, 119), rgb(234, 113, 171), rgb(204, 82, 149), rgb(244, 151, 193), rgb(99, 179, 255)]
+};
+
+function paintGroundDetails(frame, quarry, left) {
+  const { detailPixels, detailCuts, pixels } = frame;
+  const right = left + VIEW_WIDTH;
+  detailPixels.fill(0);
+  const paint = (color, x, y, width, height) => {
+    for (let row = Math.max(0, y); row < Math.min(HEIGHT, y + height); row++) {
+      for (let col = Math.max(left, x); col < Math.min(right, x + width); col++) {
+        if (detailCuts[row * WIDTH + col]) continue;
+        const index = row * VIEW_WIDTH + col - left;
+        pixels[index] = detailPixels[index] = color;
+      }
+    }
+  };
+  for (let x = Math.max(3, Math.floor(left / 3) * 3); x < Math.min(right, WIDTH - 3); x += 3) {
+    const top = quarry.surface[x];
+    const plantedGrass = quarry.at(x, top) === GRASS;
+    const y = plantedGrass ? top : quarryHeight(x);
+    const tuft = pixelNoise(x, 25);
+    if (tuft > 0.34 && (plantedGrass || (y < POND_LEVEL - 1 && quarry.at(x, y) === ROCK))
+        && quarry.at(x, y - 1) === EMPTY) {
+      const converted = quarry.isTriAt(x, y) || quarry.placedTri[y * WIDTH + x];
+      const colors = converted ? GROUND_COLORS.tri : GROUND_COLORS.normal;
+      paint(colors[0], x, y - 1, 2, 1);
+      if (tuft > 0.64) paint(colors[1], x + 1, y - 2, 1, 1);
+      if (tuft > 0.88) paint(colors[2], x, y - 3, 1, 2);
+    }
+  }
+  const colors = GROUND_COLORS.fringe;
+  for (let x = left; x < right; x++) {
+    const y = quarry.surface[x];
+    const material = quarry.at(x, y);
+    if ((material !== ROCK && material !== GRASS)
+        || (!quarry.isTriAt(x, y) && !quarry.placedTri[y * WIDTH + x])) continue;
+    const grain = pixelNoise(x, y);
+    const vein = (x + 12 + Math.floor(Math.sin(x * 0.37) * 4)) % 17;
+    paint(colors[0], x, y, 1, 2 + Number(grain > 0.55));
+    paint(colors[grain > 0.5 ? 1 : 2], x, y - 1, 1, 2);
+    if (grain > 0.66) paint(colors[3], x, y - 2, 1, 1);
+    if (vein < 2) paint(colors[4], x, y - 1, 1, 2);
+  }
+}
+
+function rect(ctx, color, x, y, w, h) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
+
+function sceneOval(ctx, color, x, y, rx, ry) {
+  for (let row = -ry; row <= ry; row++) {
+    const half = Math.round(rx * Math.sqrt(1 - (row / ry) ** 2));
+    rect(ctx, color, x - half, y + row, half * 2 + 1, 1);
+  }
+}
+
+function sceneGlow(ctx, color, x, y, radius) {
+  const glow = ctx.createRadialGradient(x, y, 1, x, y, radius);
+  glow.addColorStop(0, color);
+  glow.addColorStop(1, 'transparent');
+  rect(ctx, glow, x - radius, y - radius, radius * 2, radius * 2);
+}
+
+const SCENE_STARS = Array.from({ length: 38 }, (_, index) => ({
+  x: Math.floor(pixelNoise(index, 71) * VIEW_WIDTH),
+  y: 7 + Math.floor(pixelNoise(index, 85) * 41),
+  size: index % 7 === 0 ? 2 : 1
+}));
+
+function drawSceneSky(ctx, night, progress) {
+  const arc = Math.sin(progress * Math.PI);
+  const x = Math.round(20 + progress * (VIEW_WIDTH - 40));
+  const y = Math.round(42 - arc * 23);
+  const haze = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+  haze.addColorStop(0, night ? '#171639cf' : `rgba(90, 150, 163, ${0.24 + arc * 0.28})`);
+  haze.addColorStop(0.37, night ? '#30264b8c' : `rgba(240, 153, 104, ${0.48 - arc * 0.26})`);
+  haze.addColorStop(1, night ? '#1e143772' : '#643e3409');
+  rect(ctx, haze, 0, 0, VIEW_WIDTH, HEIGHT);
+  if (night) {
+    for (const star of SCENE_STARS) {
+      rect(ctx, star.size === 2 ? '#b7c6dfcb' : '#9caad580', star.x, star.y, star.size, 1);
+      if (star.size === 2) rect(ctx, '#a3a6d290', star.x, star.y - 1, 1, 3);
+    }
+    sceneGlow(ctx, '#a4b6fa80', x, y, 29);
+    sceneOval(ctx, '#a2acd0', x, y, 11, 11);
+    sceneOval(ctx, '#e0e5e9', x - 1, y - 1, 9, 9);
+    rect(ctx, '#b4bed4', x - 6, y - 4, 4, 3);
+    rect(ctx, '#bec6d8', x + 1, y + 2, 5, 3);
+    rect(ctx, '#a5b1d0', x + 4, y - 5, 2, 2);
+  } else {
+    sceneGlow(ctx, '#ffba7eae', x, y, 38);
+    sceneOval(ctx, '#f7ab71', x, y, 12, 12);
+    sceneOval(ctx, '#ffd78f', x, y - 1, 10, 10);
+    sceneOval(ctx, '#ffedba', x - 1, y - 2, 8, 8);
+  }
+
+  return x;
+}
+
+function drawTriPortal(ctx, opening) {
+  const rise = Math.round(10 * opening);
+  rect(ctx, '#281e32', -25, -3, 51, 4);
+  sceneOval(ctx, '#3c243c', -2, -13 - Math.round(rise / 2), 22, 13 + Math.floor(rise / 2));
+  sceneOval(ctx, '#6d3458', -4, -15 - rise, 18, 15);
+  sceneOval(ctx, '#8e4169', 7, -12, 16, 12);
+  sceneOval(ctx, '#b75280', -7, -16 - rise, 14, 12);
+  sceneOval(ctx, '#ce6894', 3, -22 - rise, 12, 7);
+  sceneOval(ctx, '#773152', 12, -7, 10, 7);
+  rect(ctx, '#df8ab1', -12, -27 - rise, 10, 2);
+  rect(ctx, '#dd87ab', -15, -25 - rise, 4, 2);
+  rect(ctx, '#9a4c79', -17, -17, 4, 8);
+  rect(ctx, '#514777', -23, -7, 4, 5);
+  rect(ctx, '#59669c', -19, -5, 6, 2);
+  rect(ctx, '#6b6b9a', 14, -5, 5, 2);
+  rect(ctx, '#8e80b2', 21, -3, 4, 2);
+
+  const top = -17 - Math.round(opening * 5);
+  const gape = 2 + Math.round(opening * 17);
+  sceneOval(ctx, '#e579a4', 2, top, 19, gape + 2);
+  sceneOval(ctx, '#8e325d', 2, top, 17, gape);
+  sceneOval(ctx, '#25162e', 2, top, 15, Math.max(1, gape - 2));
+  if (opening > 0.35) {
+    const bottom = top + gape;
+    sceneOval(ctx, '#55224e', 2, bottom - 6, 11, 4);
+    rect(ctx, '#aa447a', -5, bottom - 5, 14, 2);
+    for (const tooth of [-10, -4, 3, 10]) {
+      const lift = Math.floor(Math.abs(tooth - 2) * gape / 36);
+      const upper = top - gape + 2 + lift;
+      const lower = bottom - 4 - lift;
+      rect(ctx, '#f2b5bb', tooth, upper, 4, 3);
+      rect(ctx, '#ffe1d6', tooth + 1, upper + 3, 2, 2);
+      rect(ctx, '#dd929f', tooth + 1, lower, 3, 2);
+      rect(ctx, '#ffc6c2', tooth + 2, lower - 1, 1, 2);
+    }
+  }
+}
+
+function drawTriPortalAura(ctx, x, y, direction, opening, tick) {
+  if (opening <= 0) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(direction, 1);
+  sceneGlow(ctx, `rgba(216, 79, 148, ${opening * 0.55})`, 0, -22, 39);
+  if (opening > 0.35) {
+    const top = -17 - Math.round(opening * 5);
+    for (let i = 0; i < 6; i++) {
+      const age = (tick + i * 11) % 52;
+      const driftX = Math.round(age * 0.75) - 7;
+      const driftY = top + Math.round((pixelNoise(i, 87) - 0.5) * (9 + age * 0.4));
+      rect(ctx, i % 2 ? '#e881b0bb' : '#89a0debb', driftX, driftY, age < 20 ? 2 : 1, 1);
+    }
+  }
+  ctx.restore();
+}
+
+const triCssColors = new Map();
+
+function sceneBrush(ctx, converted) {
+  return (color, x, y, width, height) => {
+    if (converted) {
+      if (!triCssColors.has(color)) {
+        const hex = Number.parseInt(color.slice(1), 16);
+        const tint = triPigment(hex >>> 16, (hex >>> 8) & 255, hex & 255);
+        triCssColors.set(color, `rgb(${tint.join(',')})`);
+      }
+      color = triCssColors.get(color);
+    }
+    rect(ctx, color, x, y, width, height);
+  };
+}
+
+function drawLamp(ctx, x, y, converted) {
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, 13);
+  halo.addColorStop(0, converted ? '#76b7ff66' : 'rgba(255,166,90,.35)');
+  halo.addColorStop(1, 'transparent');
+  rect(ctx, halo, x - 13, y - 13, 26, 26);
+  rect(ctx, converted ? '#875889' : '#a55539', x - 2, y - 2, 5, 4);
+  rect(ctx, converted ? '#9ed1ff' : '#ffc888', x - 1, y - 1, 3, 2);
+}
+
+const birchSprites = new Map();
+
+function drawPlacedBirch(ctx, x, y, converted) {
+  if (!birchSprites.has(converted)) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 36;
+    canvas.height = 40;
+    const sprite = canvas.getContext('2d');
+    drawBirch(18, 39, 34, 71, true, false, (px, py, color, _, triColor) => {
+      const barkOrLeaf = converted && triColor ? channels(triColor) : color;
+      rect(sprite, `rgb(${barkOrLeaf.join(',')})`, px, py, 1, 1);
+    });
+    birchSprites.set(converted, canvas);
+  }
+  ctx.drawImage(birchSprites.get(converted), x - 18, y - 39);
+}
+
+function drawScenery(ctx, type, x, y, converted) {
+  const paint = sceneBrush(ctx, converted);
+  if (type === 'birch') {
+    drawPlacedBirch(ctx, x, y, converted);
+  } else if (type === 'dock') {
+    paint('#554138', x - 8, y + 1, 2, 16);
+    paint('#73513d', x + 5, y + 1, 2, 10);
+    paint('#6a4b3c', x - 12, y, 25, 3);
+    paint('#a07450', x - 12, y - 1, 25, 1);
+    for (let step = 0; step < 5; step++) {
+      paint('#906442', x + 11 + step * 2, y - 2 - step * 3, 4, 2);
+    }
+  } else if (type === 'pump') {
+    paint('#25242c', x - 11, y - 2, 23, 3);
+    paint('#25282f', x - 9, y - 13, 13, 11);
+    paint('#644239', x - 7, y - 12, 9, 3);
+    paint('#9a5d45', x - 9, y - 14, 13, 2);
+    paint('#171b25', x + 4, y - 18, 2, 17);
+    paint('#5e4a47', x + 4, y - 18, 7, 2);
+    drawLamp(ctx, x + 10, y - 14, converted);
+  } else if (type === 'hut') {
+    paint('#3b2e30', x - 11, y - 15, 23, 15);
+    for (let row = 0; row < 5; row++) {
+      paint(row % 2 ? '#65483b' : '#75503c', x - 10, y - 14 + row * 3, 21, 2);
+    }
+    paint('#a47452', x - 11, y - 14, 2, 14);
+    paint('#4b3935', x + 10, y - 14, 2, 14);
+    paint('#211e26', x - 6, y - 10, 5, 10);
+    paint('#4d403a', x + 4, y - 11, 5, 6);
+    for (let row = 0; row < 6; row++) {
+      const span = 4 + row * 2;
+      paint(row % 2 ? '#98583f' : '#be7953', x - span, y - 22 + row * 1.3 | 0, span * 2 + 1, 2);
+    }
+    paint('#664838', x - 14, y - 14, 29, 2);
+    paint('#b8885c', x - 13, y - 1, 27, 2);
+    drawLamp(ctx, x + 6, y - 8, converted);
+  } else if (type === 'posts') {
+    paint('#51413e', x - 3, y - 6, 2, 6);
+    paint('#51413e', x + 4, y - 7, 2, 7);
+    paint('#7c5444', x - 3, y - 5, 9, 1);
+  }
+}
+
+function drawStructures(ctx, quarry, left, chipper, hideHuts) {
+  const right = left + VIEW_WIDTH;
+  for (const decoration of DECORATIONS) {
+    const { x, type } = decoration;
+    if (x < left - 30 || x >= right + 30 || (hideHuts && type === 'hut')) continue;
+    const y = quarryHeight(x);
+    if (quarry.at(x, y) !== ROCK || (type !== 'posts' && quarry.at(x - 3, y + 3) !== ROCK)) continue;
+    const converted = quarry.isTriAt(x, y);
+    chipper.draw(ctx, decoration, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted));
+  }
+  const bank = POND_DOCK.x + 22;
+  if (bank >= left && bank - 34 < right && quarry.at(bank, quarryHeight(bank)) === ROCK) {
+    const { x, y } = POND_DOCK;
+    const converted = quarry.isTriAt(x + 1, y);
+    chipper.draw(ctx, POND_DOCK, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, 'dock', 0, 0, converted));
+  }
+  for (const item of quarry.scenery) {
+    const { type, x, y } = item;
+    if (x < left - 30 || x >= right + 30) continue;
+    const converted = item.converted || quarry.isTriAt(x, y);
+    chipper.draw(ctx, item, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted));
+  }
+}
+
+function drawRain(ctx, quarry, left) {
+  const { tick, surface } = quarry;
+  const total = WEATHER[quarry.weather] * WORLD_AREAS.length;
+  for (let i = 0; i < total; i++) {
+    const drop = streaks[i];
+    const rawY = (drop.y + tick * drop.speed) % (HEIGHT + 12);
+    const x = ((drop.x + rawY * 0.25) % WIDTH) | 0;
+    if (x < left || x >= left + VIEW_WIDTH) continue;
+    const y = rawY | 0;
+    const limit = surface[x];
+    if (y >= limit) {
+      if (y < limit + 4 && i % 3 === 0 && limit < HEIGHT) {
+        rect(ctx, '#8ca7b299', x - 1, limit - 1, 3, 1);
+        rect(ctx, '#69818eb0', x, limit - 2, 1, 1);
+      }
+      continue;
+    }
+    const length = Math.min(drop.length, limit - y);
+    ctx.strokeStyle = quarry.isTriAt(x, y) ? (drop.light > 0.76 ? '#eab1e2a0' : '#b588c950')
+      : drop.light > 0.76 ? '#a6bfce92' : drop.light > 0.38 ? '#8da9bb5c' : '#7d94ac3a';
+    ctx.lineWidth = 0.62;
+    ctx.beginPath();
+    ctx.moveTo(x - length * 0.27, y);
+    ctx.lineTo(x, y + length);
+    ctx.stroke();
+  }
+}
+
+function drawTriCore(ctx, x, y, tick = 0) {
+  rect(ctx, '#6d295e', x - 10, y - 4, 21, 4);
+  rect(ctx, '#ac397c', x - 9, y - 6, 18, 5);
+  rect(ctx, '#d65298', x - 7, y - 8, 14, 5);
+  rect(ctx, '#f480b5', x - 5, y - 9, 9, 2);
+  rect(ctx, '#dd65a3', x - 8, y - 13, 2, 7);
+  rect(ctx, '#ea6daa', x - 1, y - 16, 2, 9);
+  rect(ctx, '#c8478f', x + 6, y - 12, 2, 7);
+  rect(ctx, '#60afff', x - 8, y - 4, 5, 1);
+  rect(ctx, '#60afff', x - 4, y - 6, 2, 2);
+  rect(ctx, '#72c6ff', x + 1, y - 7, 1, 4);
+  rect(ctx, '#60afff', x + 2, y - 4, 6, 1);
+
+  for (const [dx, dy, size] of [[-7, -13, 5], [0, -16, 7], [7, -12, 5]]) {
+    const left = x + dx - (size >> 1);
+    const top = y + dy - 2;
+    if ((tick + Math.abs(dx) * 7) % 137 >= 131) {
+      rect(ctx, '#f687b9', left, top + 2, size, 1);
+      continue;
+    }
+    rect(ctx, '#8b316b', left - 1, top + 1, size + 2, 3);
+    rect(ctx, '#ffd4dc', left, top, size, 5);
+    rect(ctx, '#609cf7', x + dx - 1, top + 1, 3, 3);
+    rect(ctx, '#281c44', x + dx, top + 2, 1, 2);
+    rect(ctx, '#ffffff', x + dx - 1, top + 1, 1, 1);
+  }
+}
+
+function drawTri(ctx, quarry, left, chipper) {
+  for (const patch of quarry.triPatches) {
+    if (patch.x < left - 22 || patch.x >= left + VIEW_WIDTH + 22) continue;
+    const scale = triCoreScale(patch.radius);
+    const tick = quarry.tick;
+    chipper.draw(ctx, patch, 0, patch.x, patch.y, scale, scale, (sprite) => drawTriCore(sprite, 0, 0, tick));
+  }
+}
+
+function watcherEye(ctx, x, y, size) {
+  const half = size >> 1;
+  rect(ctx, '#78375f', x - half - 1, y - half, size + 2, size);
+  rect(ctx, '#ffd7cd', x - half, y - half, size, size);
+  rect(ctx, '#e89147', x - 1, y - half + 1, 3, size - 1);
+  rect(ctx, '#321a35', x, y, 1, Math.max(1, half));
+  rect(ctx, '#fff2d8', x - 1, y - 1, 1, 1);
+}
+
+function drawTriBlobEye(ctx, x, y) {
+  rect(ctx, '#733458', x, y, 7, 8);
+  rect(ctx, '#ffe3ec', x + 1, y + 1, 6, 6);
+  rect(ctx, '#ffe3ec', x + 2, y, 4, 8);
+  rect(ctx, '#60b4e6', x + 4, y + 2, 3, 5);
+  rect(ctx, '#291d3b', x + 5, y + 2, 2, 4);
+  rect(ctx, '#fff6f9', x + 4, y + 2, 1, 1);
+}
+
+function drawTriBlob(ctx, x, y, direction, stride) {
+  const top = -11 + stride % 2;
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(direction, 1);
+  rect(ctx, '#783359', -8, -3, 17, 3);
+  rect(ctx, '#b14983', -7, top + 4, 15, -top - 5);
+  rect(ctx, '#d86ca2', -6, top + 2, 13, -top - 4);
+  rect(ctx, '#f296bf', -4, top, 8, 3);
+  rect(ctx, '#ee8ebd', -6, top + 3, 4, 3);
+  rect(ctx, '#c76096', -6, -3, 11, 1);
+  drawTriBlobEye(ctx, 0, top + 1);
+  ctx.restore();
+}
+
+function drawTriAnimal(ctx, type, x, y, stride, emergence) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1, Math.max(0.08, emergence));
+  const bob = stride % 2;
+  if (type === 'blob') {
+    drawTriBlob(ctx, 0, 0, 1, stride);
+  } else if (type === 'brain') {
+    const hover = Math.round(1.2 * Math.sin(stride * 0.7));
+    ctx.translate(0, hover);
+    for (const offset of [-6, -2, 2, 6]) {
+      const sway = (offset > 0 ? 1 : -1) * bob;
+      rect(ctx, '#405fbc', offset, -12, 2, 5);
+      rect(ctx, '#62b5f6', offset + sway, -8, 2, 4 + bob);
+      if (Math.abs(offset) === 6) watcherEye(ctx, offset + sway, -4 + bob, 3);
+    }
+    rect(ctx, '#863461', -9, -20, 19, 8);
+    rect(ctx, '#cd5499', -9, -23, 18, 8);
+    rect(ctx, '#ee8bb6', -7, -25, 14, 4);
+    rect(ctx, '#a74584', -5, -23, 2, 6);
+    rect(ctx, '#a74584', 5, -23, 2, 6);
+    watcherEye(ctx, 0, -19, 7);
+  } else {
+    const rise = 7;
+    for (const leg of [-5, -2, 2, 5]) {
+      const step = leg % 2 === 0 ? bob : 1 - bob;
+      const bend = leg < 0 ? -step : step;
+      rect(ctx, '#4776cc', leg, -7, 2, 4);
+      rect(ctx, '#71c9ff', leg + bend, -4, 2, 4 - step);
+    }
+    rect(ctx, '#9e3e79', -6, -5 - rise, 13, 5);
+    rect(ctx, '#d75f9e', -5, -7 - rise, 11, 4);
+    rect(ctx, '#f394be', -3, -8 - rise, 7, 2);
+    rect(ctx, '#70bbff', -4, -3 - rise, 3, 1);
+    watcherEye(ctx, 1, -5 - rise, 5);
+  }
+  ctx.restore();
+}
+
+function drawAnimal(ctx, type, x, y, direction = 1, stride = 0, wet = false, converted = false, emergence = 1) {
+  if (type !== 'lizard' && type !== 'duck') {
+    drawTriAnimal(ctx, type, x, y, stride, emergence);
+    return;
+  }
+  const paint = sceneBrush(ctx, converted);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(direction, 1);
+  if (type === 'lizard') {
+    const tail = stride % 2;
+    paint('#254a3f', -8, -2 - tail, 5, 1);
+    paint('#467563', -5, -2, 11, 2);
+    paint('#689580', -4, -3, 6, 1);
+    paint('#b17455', -3, -4, 2, 1);
+    paint('#b17455', 0, -4, 2, 1);
+    paint('#73a68b', 2, -4, 4, 2);
+    paint('#b8b784', 5, -2, 3, 1);
+    paint('#efce79', 4, -4, 1, 1);
+    if (!wet) {
+      paint('#81a995', -2 + tail, 0, 2, 1);
+      paint('#81a995', 2 - tail, 0, 2, 1);
+    }
+  } else if (type === 'duck') {
+    const foot = stride % 2;
+    paint('#a38f70', -6, -4, 3, 2);
+    paint('#b7a98c', -4, -4, 9, 3);
+    paint('#e7d9b5', -4, -5, 8, 2);
+    paint('#f0e5c7', 1, -8, 5, 4);
+    paint('#ddd0b3', 2, -9, 3, 1);
+    paint('#393236', 4, -8, 1, 1);
+    paint('#df9651', 5, -6, 3, 1);
+    if (!wet) {
+      paint('#cc9457', -2 + foot, -1, 2, 1);
+      paint('#de9f56', 2 - foot, 0, 2, 1);
+    }
+  }
+  if (converted) {
+    const eye = type === 'duck' ? -9 : -6;
+    rect(ctx, '#ffd2ee', 2, eye, 5, 3);
+    rect(ctx, '#6cc6ff', 3, eye, 3, 3);
+    rect(ctx, '#382251', 4, eye + 1, 1, 2);
+    rect(ctx, '#73baff', -3, -4, 4, 1);
+  }
+  ctx.restore();
+}
+
+function drawCopperGiant(ctx, x, y, stride, direction, converted) {
+  const paint = sceneBrush(ctx, converted);
+  const swing = Math.round(Math.sin(stride * 0.76) * 3);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(direction, 1);
+  for (const side of [-1, 1]) {
+    const foot = side * swing;
+    paint('#75412f', side * 10 - 6, -18 + foot, 12, 16 - foot);
+    paint('#c48256', side * 10 - 6, -15 + foot, 10, 9);
+    paint('#59353a', side * 10 - 8, -5 + Math.min(0, foot), 17, 5 - Math.min(0, foot));
+    paint('#773e33', side * 24 - 6, -36 + foot, 12, 24);
+    paint('#ce855b', side * 24 - 6, -24 + foot, 12, 12);
+    paint('#9c553e', side * 24 - 7, -17 + foot, 14, 8);
+    paint('#713b32', side * 19 - 7, -50, 14, 15);
+    paint('#c87650', side * 19 - 6, -47, 11, 10);
+    rect(ctx, converted ? '#77a6fb' : '#9ccab4', side * 19 - 6, -52, 12, 5);
+  }
+  paint('#7d3f38', -19, -41, 39, 24);
+  paint('#ca7a51', -17, -38, 34, 15);
+  paint('#e29a62', -12, -37, 24, 4);
+  paint('#573940', -9, -32, 18, 9);
+  rect(ctx, converted ? '#a48cfa' : '#73d2c0', -6, -30, 12, 5);
+  paint('#9e523e', -8, -22, 16, 6);
+  paint('#6f3836', -8, -56, 17, 17);
+  paint('#d38a58', -8, -55, 17, 5);
+  paint('#ba6c4a', -6, -46, 13, 7);
+  rect(ctx, '#2b2634', -5, -50, 11, 5);
+  rect(ctx, converted ? '#ed9feb' : '#ffdc82', 0, -51, 3, 8);
+  ctx.restore();
+}
+
+function drawTerrorPart(ctx, x, y, index, direction) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(direction, 1);
+  if (index === 0) {
+    rect(ctx, '#793357', -12, -6, 25, 14);
+    rect(ctx, '#cc578d', -11, -8, 23, 11);
+    rect(ctx, '#eb8cb0', -8, -10, 17, 5);
+    rect(ctx, '#6fb8f2', -13, -6, 5, 10);
+    rect(ctx, '#542c49', 7, 1, 8, 5);
+    rect(ctx, '#fac1b2', 8, 1, 4, 2);
+    watcherEye(ctx, 4, -3, 9);
+  } else {
+    const size = index < 10 ? 7 : index < 19 ? 6 : 4;
+    rect(ctx, '#883254', -size, -size + 1, size * 2, size * 2 - 2);
+    rect(ctx, '#db699e', -size + 1, -size, size * 2 - 2, size + 2);
+    rect(ctx, '#569bdf', -size, -size + 1, Math.max(3, size - 1), 4);
+    rect(ctx, '#46366f', 0, -size - 2, 2, 3);
+  }
+  ctx.restore();
+}
+
+function drawSkyEye(ctx, x, y, age) {
+  ctx.save();
+  ctx.translate(x, y);
+  for (const offset of [-15, -9, -3, 3, 9, 15]) {
+    const length = 29 + Math.abs(offset);
+    for (let dy = 11; dy < length; dy++) {
+      const sway = Math.round(Math.sin(age * 0.034 + dy * 0.16 + offset * 0.31) * dy * 0.14);
+      const width = dy < 25 ? 4 : dy < 34 ? 3 : 2;
+      rect(ctx, '#3f58b6', offset + sway, dy, width, 1);
+      rect(ctx, '#71c9ff', offset + sway + 1, dy, 1, 1);
+    }
+    rect(ctx, '#b94687', offset - 1, 11, 6, 6);
+  }
+  rect(ctx, '#87335e', -22, -11, 45, 24);
+  rect(ctx, '#ca568b', -24, -7, 49, 16);
+  rect(ctx, '#e988b2', -19, -15, 39, 25);
+  rect(ctx, '#f3a6c3', -13, -19, 27, 8);
+  rect(ctx, '#993e73', -17, 8, 34, 7);
+  rect(ctx, '#63b8ff', -22, -6, 7, 2);
+  rect(ctx, '#63b8ff', 16, 4, 6, 2);
+  rect(ctx, '#ffe0cb', -17, -5, 34, 12);
+  rect(ctx, '#ffe0cb', -11, -10, 22, 20);
+  const glance = Math.round(Math.sin(age * 0.033) * 5);
+  rect(ctx, '#f5a450', glance - 6, -9, 12, 18);
+  rect(ctx, '#b8524a', glance - 3, -9, 6, 18);
+  rect(ctx, '#392349', glance - 1, -7, 3, 14);
+  rect(ctx, '#fff4db', glance - 4, -6, 3, 3);
+  ctx.restore();
+}
+
+function drawBosses(ctx, quarry, left, chipper) {
+  const right = left + VIEW_WIDTH;
+  for (const boss of quarry.bosses) {
+    if (boss.type === 'lake-terror') {
+      for (let index = TERROR_SEGMENTS - 1; index >= 0; index--) {
+        const { x, y, direction } = bossPosition(boss, quarry.tick, index);
+        if (x >= left - 15 && x < right + 15 && !isSolid(quarry.at(x, y))) {
+          chipper.draw(ctx, boss, index, x, y, direction, 1, (sprite) => drawTerrorPart(sprite, 0, 0, index, 1));
+        }
+      }
+      continue;
+    }
+    const { x, y, direction } = bossPosition(boss, quarry.tick);
+    if (x < left - 31 || x >= right + 31) continue;
+    if (boss.type === 'copper-giant') {
+      const stride = boss.stride;
+      const converted = quarry.isTriAt(x, y);
+      chipper.draw(ctx, boss, 0, x, y, direction, 1, (sprite) => drawCopperGiant(sprite, 0, 0, stride, 1, converted));
+    } else {
+      const age = quarry.tick - boss.bornAt;
+      chipper.draw(ctx, boss, 0, x, y, 1, 1, (sprite) => drawSkyEye(sprite, 0, 0, age));
+    }
+  }
+}
+
+class QuarryRenderer {
+  constructor(canvas) {
+    this.ctx = canvas.getContext('2d', { alpha: false });
+    if (!this.ctx) throw new Error('This browser could not initialize the quarry canvas.');
+    this.ctx.imageSmoothingEnabled = false;
+    this.data = this.ctx.createImageData(VIEW_WIDTH, HEIGHT);
+    this.pixels = new Uint32Array(this.data.data.buffer);
+    this.basePixels = new Uint32Array(this.pixels.length);
+    this.detailPixels = new Uint32Array(this.pixels.length);
+    this.detailCuts = new Uint8Array(SIZE);
+    this.birchCuts = new Uint8Array(SIZE);
+    this.ridgeCuts = new Uint8Array(SIZE);
+    this.visibleDebris = new Map();
+    this.liquidDepth = new Uint8Array(WIDTH);
+    this.chipper = new SpriteChipper();
+    this.frameTick = -1;
+  }
+
+  resetDamage() {
+    this.chipper.reset();
+    this.detailCuts.fill(0);
+    this.birchCuts.fill(0);
+    this.ridgeCuts.fill(0);
+    this.visibleDebris.clear();
+    this.frameTick = -1;
+  }
+
+  breakBrush(quarry, x, y, radius, left) {
+    if (this.frameTick !== quarry.tick || this.left !== left) this.draw(quarry, null, left);
+    const points = [];
+    for (let row = Math.max(0, y - radius); row <= Math.min(HEIGHT - 1, y + radius); row++) {
+      for (let col = Math.max(left, x - radius); col <= Math.min(left + VIEW_WIDTH - 1, x + radius); col++) {
+        if ((col - x) ** 2 + (row - y) ** 2 <= radius * radius) points.push({ x: col, y: row, chipped: false });
+      }
+    }
+    const broken = this.chipper.chip(points, (px, py, r, g, b) => quarry.shedPixel(px, py, rgb(r, g, b)));
+    for (const point of points) {
+      if (point.chipped) continue;
+      const index = point.y * WIDTH + point.x;
+      const screen = point.y * VIEW_WIDTH + point.x - left;
+      const fragment = this.visibleDebris.get(screen);
+      if (fragment) {
+        this.visibleDebris.delete(screen);
+        quarry.kickFragment(fragment);
+      } else if (this.detailPixels[screen] && !this.detailCuts[index]) {
+        this.detailCuts[index] = 1;
+        quarry.shedPixel(point.x, point.y, this.detailPixels[screen]);
+      } else if (quarry.clearPixel(point.x, point.y)) {
+        quarry.shedPixel(point.x, point.y, this.basePixels[screen]);
+      } else if (BIRCH_PIXELS[index] && !this.birchCuts[index]) {
+        this.birchCuts[index] = 1;
+        quarry.shedPixel(point.x, point.y, treePixel(index, quarry.triMap));
+      } else if (RIDGE_PIXELS[index] && !this.ridgeCuts[index]) {
+        this.ridgeCuts[index] = 1;
+        quarry.shedPixel(point.x, point.y, quarry.triMap[index] ? triBareSky[index] : bareSky[index]);
+      }
+    }
+    if (broken.size) {
+      quarry.removeShattered((owner) => broken.has(owner)
+        && this.chipper.isGone(owner, owner.type === 'lake-terror' ? TERROR_SEGMENTS : 1));
+    }
+  }
+
+  draw(quarry, cursor, left, { hideHuts = false } = {}) {
+    const ctx = this.ctx;
+    this.frameTick = quarry.tick;
+    this.left = left;
+    this.chipper.parts.length = 0;
+    paintTerrain(ctx, this, quarry, left);
+    if (quarry.skyMode !== 'day') drawSceneSky(ctx, quarry.night, quarry.skyProgress);
+    ctx.save();
+    ctx.translate(-left, 0);
+    drawStructures(ctx, quarry, left, this.chipper, hideHuts);
+    const opening = quarry.portalOpening;
+    for (const portal of quarry.portals) {
+      const { x, y, direction } = portal;
+      if (x < left - 40 || x >= left + VIEW_WIDTH + 40) continue;
+      drawTriPortalAura(ctx, x, y, direction, opening, quarry.tick);
+      this.chipper.draw(ctx, portal, 0, x, y, direction, 1, (sprite) => drawTriPortal(sprite, opening));
+    }
+    drawTri(ctx, quarry, left, this.chipper);
+    for (const creature of quarry.creatures) {
+      if (creature.x < left - 12 || creature.x >= left + VIEW_WIDTH + 12) continue;
+      const stride = Math.floor(quarry.tick / 5 + creature.phase);
+      const duration = creature.readyAt - creature.bornAt;
+      const emergence = duration ? Math.min(1, (quarry.tick - creature.bornAt) / duration) : 1;
+      const { type, x, y, wet } = creature;
+      const converted = creature.converted || quarry.isTriAt(x, y);
+      const direction = type === 'ling' || type === 'brain' ? 1 : creature.direction;
+      this.chipper.draw(ctx, creature, 0, x, y, direction, Math.max(0.08, emergence),
+        (sprite) => drawAnimal(sprite, type, 0, 0, 1, stride, wet, converted));
+    }
+    drawBosses(ctx, quarry, left, this.chipper);
+    drawRain(ctx, quarry, left);
+    if (cursor) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#1e1817';
+      ctx.lineWidth = 1.6;
+      if (cursor.radius === 0) ctx.rect(cursor.x - 0.5, cursor.y - 0.5, 2, 2);
+      else ctx.arc(cursor.x + 0.5, cursor.y + 0.5, cursor.radius + 1.2, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffe0c2';
+      ctx.lineWidth = 0.75;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function drawToolIcon(canvas, type, converted = false) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.scale(canvas.width / 24, canvas.height / 24);
+  if (type === 'brand') {
+    rect(ctx, '#efad81', 7, 4, 12, 2);
+    rect(ctx, '#e4956d', 4, 7, 13, 2);
+    rect(ctx, '#f0ad82', 2, 10, 13, 2);
+    rect(ctx, '#a65d46', 11, 14, 8, 2);
+    rect(ctx, '#c77a59', 8, 17, 8, 2);
+  } else if (type === 'lizard' || type === 'duck') {
+    drawAnimal(ctx, type, 12, type === 'duck' ? 16 : 14, 1, 0, false, converted);
+  } else if (type === 'blob' || type === 'ling' || type === 'brain') {
+    ctx.translate(12, type === 'brain' ? 22 : 19);
+    if (type === 'brain') ctx.scale(0.78, 0.78);
+    drawTriAnimal(ctx, type, 0, 0, 0, 1);
+  } else if (type === 'portal') {
+    ctx.translate(12, 22);
+    ctx.scale(0.42, 0.42);
+    drawTriPortal(ctx, 1);
+  } else if (Object.hasOwn(BOSSES, type)) {
+    if (type === 'copper-giant') {
+      ctx.translate(12, 22);
+      ctx.scale(0.34, 0.34);
+      drawCopperGiant(ctx, 0, 0, 0, 1, false);
+    } else if (type === 'lake-terror') {
+      ctx.translate(11, 12);
+      ctx.scale(0.66, 0.66);
+      drawTerrorPart(ctx, 0, 0, 0, 1);
+    } else {
+      ctx.translate(12, 8);
+      ctx.scale(0.34, 0.34);
+      drawSkyEye(ctx, 0, 0, 0);
+    }
+  } else if (Object.hasOwn(SCENERY, type)) {
+    ctx.translate(type === 'dock' ? 10 : 12, type === 'dock' ? 12 : 21);
+    const scale = type === 'birch' ? 0.52 : type === 'dock' ? 0.56 : 0.69;
+    ctx.scale(scale, scale);
+    ctx.imageSmoothingEnabled = false;
+    drawScenery(ctx, type, 0, 0, converted);
+  } else if (type === 'tri') {
+    ctx.translate(12, 20);
+    ctx.scale(0.78, 0.78);
+    drawTriCore(ctx, 0, 0);
+  } else if (type === 'erase') {
+    ctx.translate(12, 12);
+    ctx.rotate(-Math.PI / 4);
+    rect(ctx, '#d8c0bd', -6, -4, 12, 8);
+    rect(ctx, '#946d73', -6, -4, 5, 8);
+  } else if (type === 'break') {
+    rect(ctx, '#ae734e', 6, 15, 3, 4);
+    rect(ctx, '#ae734e', 8, 12, 3, 5);
+    rect(ctx, '#c3a19a', 8, 9, 9, 3);
+    rect(ctx, '#eed2b7', 10, 7, 6, 2);
+    rect(ctx, '#eeaf80', 17, 8, 1, 2);
+    rect(ctx, '#eeaf80', 19, 6, 1, 1);
+  } else if (type === 'signal') {
+    rect(ctx, '#69544a', 6, 18, 12, 2);
+    rect(ctx, '#a47e60', 9, 11, 6, 8);
+    rect(ctx, '#d1a77a', 7, 10, 10, 2);
+    rect(ctx, '#4f897e', 8, 6, 8, 4);
+    rect(ctx, '#8de2c3', 10, 4, 5, 6);
+    rect(ctx, '#d9f1d3', 11, 3, 2, 6);
+  } else if (type === 'rain') {
+    for (const [x, y] of [[6, 9], [13, 5], [18, 12]]) {
+      rect(ctx, '#86b9c7', x, y, 2, 5);
+      rect(ctx, '#5687a0', x - 1, y + 4, 2, 3);
+    }
+  } else {
+    const base = PALETTES[type] ?? [[35, 79, 97], [52, 113, 130], [72, 149, 163], [103, 181, 190], [143, 205, 208]];
+    const colors = converted && type !== ICHOR ? base.map(([r, g, b]) => triPigment(r, g, b)) : base;
+    const shape = isLiquid(type)
+      ? ['.....2.....', '....232....', '...23332...', '..2343322..', '.234333322.', '.233333322.', '..2333322..', '...2222....']
+      : type === GRASS ? ['..4....3...', '3.4.4.331.4', '33434343443', '22222222222', '.111111111.']
+      : ['....443....', '..334432...', '.33432322..', '3432332211.', '33224222110', '22122211110', '.211111110.', '...10000...'];
+    for (let y = 0; y < shape.length; y++) {
+      for (let x = 0; x < shape[y].length; x++) {
+        const value = shape[y][x];
+        if (value !== '.') rect(ctx, `rgb(${colors[Number(value)].join(',')})`, x + 7, y + 8, 1, 1);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+
+const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
+const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
+const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
+const WATCH_PORTALS = [
+  { side: -1, x: WATCH_BOUNDS.left + 26 },
+  { side: 1, x: WATCH_BOUNDS.right - 26 }
+];
+const WATCH_HEALTH = 10;
+const WATCH_DAY = DAY_TICKS;
+const WATCH_NIGHT = NIGHT_TICKS;
+const WATCH_GUARD_LIMIT = 3;
+const WATCH_RAIDER_LIMIT = 12;
+const WATCH_NO_ACTION = -TICKS_PER_SECOND;
+const WATCH_GUARD_STATS = [
+  { range: 88, damage: 1, cooldown: 22 },
+  { range: 112, damage: 2, cooldown: 19 }
+];
+const WATCH_USE_RANGE = 19;
+const WATCH_SPEED = 2.05;
+const WATCH_POSTS = [
+  { side: -1, name: 'West', wallX: WATCH_BRIDGE.left - 44, campX: WATCH_BRIDGE.left - 95 },
+  { side: 1, name: 'East', wallX: WATCH_BRIDGE.right + 44, campX: WATCH_BRIDGE.right + 95 }
+];
+const WATCH_CAMPS = [...WATCH_POSTS.map(({ campX }) => campX), ...CREEK_HUTS]
+  .map((x) => ({ x, side: Math.sign(x - WATCH_SIGNAL) }));
+const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
+  .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
+
+function watchGround(x) {
+  if (x >= WATCH_BRIDGE.left && x <= WATCH_BRIDGE.right) return WATCH_BRIDGE.y;
+  return quarryHeight(Math.round(x));
+}
+
+class CreekWatch {
+  constructor() {
+    this.reset();
+  }
+
+  reset() {
+    this.status = 'ready';
+    this.phase = 'day';
+    this.day = 1;
+    this.tick = 0;
+    this.phaseTick = 0;
+    this.coins = 6;
+    this.signal = WATCH_HEALTH;
+    this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
+    this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
+    this.raiders = [];
+    this.shots = [];
+    this.loot = [];
+    this.stockCaches();
+    this.queue = [];
+    this.message = 'Build palisades and hire guards before the first raid.';
+  }
+
+  stockCaches() {
+    for (const x of WATCH_CACHES) {
+      if (!this.loot.some((piece) => piece.x === x)) this.loot.push({ x, amount: 1 });
+    }
+  }
+
+  get duration() {
+    return this.phase === 'day' ? WATCH_DAY : WATCH_NIGHT;
+  }
+
+  get secondsLeft() {
+    return Math.max(0, Math.ceil((this.duration - this.phaseTick) / TICKS_PER_SECOND));
+  }
+
+  get phaseProgress() {
+    return Math.min(1, this.phaseTick / this.duration);
+  }
+
+  get portalOpening() {
+    return this.phase === 'night' ? Math.min(1, this.phaseTick / TRI_PORTAL_OPEN_TICKS) : 0;
+  }
+
+  get camera() {
+    return Math.round(Math.max(WATCH_BOUNDS.left,
+      Math.min(WIDTH - VIEW_WIDTH, this.player.x - VIEW_WIDTH / 2)));
+  }
+
+  start() {
+    if (this.status !== 'ready') return false;
+    this.status = 'running';
+    this.message = 'Collect copper and visit a blue-banner camp to recruit guards.';
+    return true;
+  }
+
+  getAction() {
+    if (this.status !== 'running') return null;
+    const player = this.player.x;
+    const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
+    if (atSignal && this.phase === 'day') {
+      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower', cost: 3 };
+      return { kind: 'bell', label: 'Ring the dusk bell', cost: 0 };
+    }
+    const camp = WATCH_CAMPS.find(({ x }) => Math.abs(player - x) <= WATCH_USE_RANGE);
+    const wall = this.posts.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE);
+    if (wall && (!camp || Math.abs(player - wall.wallX) <= Math.abs(player - camp.x))) {
+      if (!wall.health) return { kind: 'build', post: wall, label: `Build ${wall.name.toLowerCase()} palisade`, cost: 4 };
+      if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: 2 };
+      if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
+    }
+    if (camp) return this.getCampAction(camp);
+    return null;
+  }
+
+  getCampAction(camp) {
+    const post = this.posts[camp.side === -1 ? 0 : 1];
+    if (post.guards.length < WATCH_GUARD_LIMIT) {
+      return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
+    }
+    const guard = post.guards.find((unit) => unit.rank === 0);
+    return guard ? { kind: 'train', post, guard, label: `Train ${post.name.toLowerCase()} veteran`, cost: 4 } : null;
+  }
+
+  maxWall(post) {
+    return post.tier === 2 ? 11 : 6;
+  }
+
+  use() {
+    if (this.status === 'ready') return this.start();
+    const action = this.getAction();
+    if (!action) {
+      if (this.status === 'running') this.message = 'Walk up to a camp, palisade, or the signal tower. Each bank can hold three veterans.';
+      return false;
+    }
+    if (this.coins < action.cost) {
+      this.message = `You need ${action.cost} copper for that.`;
+      return false;
+    }
+    const { post } = action;
+    this.coins -= action.cost;
+    switch (action.kind) {
+      case 'bell':
+        this.startNight();
+        return true;
+      case 'signal':
+        this.signal = WATCH_HEALTH;
+        this.message = 'Signal tower repaired. Ring the bell when you’re ready.';
+        break;
+      case 'hire':
+        post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: WATCH_NO_ACTION });
+        this.message = `Guard hired and sent to the ${post.name.toLowerCase()} bank.`;
+        break;
+      case 'train':
+        action.guard.rank = 1;
+        this.message = `${post.name} veteran trained. Veterans shoot farther and deal double damage.`;
+        break;
+      case 'repair':
+        post.health = this.maxWall(post);
+        this.message = `${post.name} palisade repaired.`;
+        break;
+      case 'reinforce':
+        post.tier = 2;
+        post.health = this.maxWall(post);
+        this.message = `${post.name} palisade reinforced.`;
+        break;
+      case 'build':
+        post.tier = 1;
+        post.health = this.maxWall(post);
+        this.message = `${post.name} palisade built.`;
+        break;
+    }
+    return true;
+  }
+
+  startNight() {
+    this.phase = 'night';
+    this.phaseTick = 0;
+    this.queue = [];
+    const raidersPerPortal = Math.min(WATCH_RAIDER_LIMIT, this.day + 1);
+    for (const { side } of WATCH_PORTALS) {
+      const first = TRI_PORTAL_OPEN_TICKS + 4 + (side === 1 ? 22 : 0);
+      for (let index = 0; index < raidersPerPortal; index++) {
+        this.queue.push({ side, due: first + index * 46 });
+      }
+    }
+    this.queue.sort((a, b) => a.due - b.due);
+    this.message = `Night ${this.day}. Tri Raiders are coming through both portals.`;
+  }
+
+  finishNight() {
+    this.raiders.length = 0;
+    this.queue.length = 0;
+    this.phase = 'day';
+    this.phaseTick = 0;
+    this.day++;
+    this.coins += 3;
+    this.stockCaches();
+    this.message = `Dawn of day ${this.day}. You earned 3 copper. Repair and prepare for the next raid.`;
+  }
+
+  step(direction = 0) {
+    if (this.status !== 'running') return;
+    this.tick++;
+    this.phaseTick++;
+    if (direction) {
+      this.player.x = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, this.player.x + direction * WATCH_SPEED));
+      this.player.direction = direction;
+      this.player.step++;
+    }
+    this.loot = this.loot.filter((piece) => {
+      if (Math.abs(piece.x - this.player.x) > 6) return true;
+      this.coins += piece.amount;
+      return false;
+    });
+    this.shots = this.shots.filter(({ end }) => end > this.tick);
+    if (this.phase === 'day') {
+      if (this.phaseTick >= WATCH_DAY) this.startNight();
+      else if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
+        this.message = 'Dusk in 10 seconds. The edge portals are about to open.';
+      }
+      return;
+    }
+    while (this.queue[0]?.due <= this.phaseTick) {
+      const { side } = this.queue.shift();
+      const portal = WATCH_PORTALS[side === -1 ? 0 : 1];
+      const hp = this.day < 3 ? 2 : Math.min(5, 3 + Math.floor((this.day - 3) / 4));
+      this.raiders.push({ side, x: portal.x, stride: 0, hp, attackAt: 0, struckAt: WATCH_NO_ACTION });
+    }
+    for (const raider of this.raiders) this.moveRaider(raider);
+    if (this.signal <= 0) {
+      this.status = 'lost';
+      this.message = 'The raiders extinguished the signal. Start a new watch to try again.';
+      return;
+    }
+    this.fireGuards();
+    this.raiders = this.raiders.filter((raider) => {
+      if (raider.hp > 0) return true;
+      if (this.loot.length < 60) this.loot.push({ x: raider.x, amount: 1 });
+      return false;
+    });
+    if (this.phaseTick >= WATCH_NIGHT || (this.phaseTick > TICKS_PER_SECOND * 6
+        && this.queue.length === 0 && this.raiders.length === 0)) this.finishNight();
+  }
+
+  moveRaider(raider) {
+    const post = this.posts[raider.side === -1 ? 0 : 1];
+    const outsideWall = (raider.x - post.wallX) * raider.side >= 0;
+    const blocked = outsideWall && post.health > 0;
+    const target = blocked ? post.wallX : WATCH_SIGNAL;
+    const distance = Math.abs(raider.x - target);
+    if (distance > 5) {
+      const speed = distance > 115 ? 1.72 : 0.96;
+      raider.x += Math.sign(target - raider.x) * Math.min(distance - 5, speed);
+      raider.stride++;
+    } else if (this.tick >= raider.attackAt) {
+      raider.struckAt = this.tick;
+      raider.attackAt = this.tick + (blocked ? 38 : 31);
+      if (blocked) {
+        post.health--;
+        if (post.health === 0) this.message = `${post.name} palisade fell. Raiders are heading for the signal.`;
+      } else {
+        this.signal = Math.max(0, this.signal - 1);
+      }
+    }
+  }
+
+  guardX(post, index) {
+    return post.wallX - post.side * (17 + index * 8);
+  }
+
+  fireGuards() {
+    for (const post of this.posts) {
+      post.guards.forEach((guard, index) => {
+        if (guard.fireAt > this.tick) return;
+        const from = this.guardX(post, index);
+        const { range, damage, cooldown } = WATCH_GUARD_STATS[guard.rank];
+        let target;
+        let closest = Infinity;
+        for (const raider of this.raiders) {
+          if (raider.hp <= 0 || raider.side !== post.side || Math.abs(raider.x - from) > range) continue;
+          const distance = Math.abs(raider.x - WATCH_SIGNAL);
+          if (distance >= closest) continue;
+          target = raider;
+          closest = distance;
+        }
+        if (!target) return;
+        target.hp -= damage;
+        guard.direction = Math.sign(target.x - from) || guard.direction;
+        guard.shotAt = this.tick;
+        guard.fireAt = this.tick + cooldown;
+        this.shots.push({ from, to: target.x, end: this.tick + 9 });
+      });
+    }
+  }
+}
+
+
+const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
+const WATCH_SAVE_VERSION = 1;
+const WATCH_SAVE_NAME_LIMIT = 40;
+
+function readWatchRecord(storage, id) {
+  const text = storage.getItem(WATCH_SAVE_PREFIX + id);
+  if (text === null) throw new Error('This save slot is no longer available.');
+  let record;
+  try {
+    record = JSON.parse(text);
+  } catch {
+    throw new Error('This save slot contains damaged game data.');
+  }
+  if (record?.version !== WATCH_SAVE_VERSION) throw new Error('This save uses an unsupported format.');
+  if (!validWatchSaveName(record.name) || !validWatchCount(record.savedAt) || !validWatchState(record.state)) {
+    throw new Error('This save slot contains damaged game data.');
+  }
+  return record;
+}
+
+function validWatchSaveName(name) {
+  return typeof name === 'string' && name.trim().length > 0 && name.length <= WATCH_SAVE_NAME_LIMIT;
+}
+
+const validWatchCount = (value) => Number.isSafeInteger(value) && value >= 0;
+const validWatchStamp = (value) => Number.isSafeInteger(value) && value >= -TICKS_PER_SECOND;
+const validWatchSide = (value) => value === -1 || value === 1;
+const validWatchX = (value) => Number.isFinite(value) && value >= WATCH_BOUNDS.left && value <= WATCH_BOUNDS.right;
+const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.length <= limit
+  && items.every((item) => item && isValid(item));
+
+function validWatchState(state) {
+  if (!state) return false;
+  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, shots, loot, queue, message } = state;
+  if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
+      || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
+      || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
+      || !validWatchCount(coins) || !validWatchCount(signal) || signal > WATCH_HEALTH
+      || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500) return false;
+
+  return player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
+    && validWatchList(posts, 2, ({ tier, health, guards }) =>
+      [0, 1, 2].includes(tier) && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0)
+      && validWatchList(guards, 3, ({ rank, direction, fireAt, shotAt }) =>
+        [0, 1].includes(rank) && validWatchSide(direction) && validWatchCount(fireAt) && validWatchStamp(shotAt)))
+    && posts.length === 2
+    && validWatchList(raiders, 64, ({ side, x, stride, hp, attackAt, struckAt }) =>
+      validWatchSide(side) && validWatchX(x) && validWatchCount(stride)
+      && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt))
+    && validWatchList(shots, 64, ({ from, to, end }) => validWatchX(from) && validWatchX(to) && validWatchCount(end))
+    && validWatchList(loot, 128, ({ x, amount }) => validWatchX(x) && validWatchCount(amount) && amount > 0)
+    && validWatchList(queue, 64, ({ side, due }) => validWatchSide(side) && validWatchCount(due) && due <= WATCH_NIGHT)
+    && queue.every(({ due }, index) => index === 0 || queue[index - 1].due <= due);
+}
+
+function captureWatchState(watch) {
+  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, shots, loot, queue, message } = watch;
+  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, queue, message,
+    posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
+}
+
+function listWatchSlots(storage) {
+  const slots = [];
+  let unreadable = 0;
+  for (let index = 0; index < storage.length; index++) {
+    const key = storage.key(index);
+    if (!key?.startsWith(WATCH_SAVE_PREFIX)) continue;
+    const id = key.slice(WATCH_SAVE_PREFIX.length);
+    try {
+      const { name, savedAt, state } = readWatchRecord(storage, id);
+      const { day, phase, coins, status } = state;
+      slots.push({ id, name, savedAt, day, phase, coins, status });
+    } catch {
+      unreadable++;
+    }
+  }
+  return { slots: slots.sort((a, b) => b.savedAt - a.savedAt), unreadable };
+}
+
+function saveWatchSlot(storage, watch, name, id) {
+  const title = name.trim();
+  if (!validWatchSaveName(title)) throw new Error(`Enter a slot name up to ${WATCH_SAVE_NAME_LIMIT} characters.`);
+  const state = captureWatchState(watch);
+  if (!validWatchState(state)) throw new Error('The current watch cannot be saved.');
+  if (id && storage.getItem(WATCH_SAVE_PREFIX + id) === null) throw new Error('This save slot is no longer available.');
+  const savedId = id ?? crypto.randomUUID();
+  storage.setItem(WATCH_SAVE_PREFIX + savedId, JSON.stringify({ version: WATCH_SAVE_VERSION, name: title, savedAt: Date.now(), state }));
+  return savedId;
+}
+
+function loadWatchSlot(storage, id) {
+  const { state } = readWatchRecord(storage, id);
+  const watch = new CreekWatch();
+  const { posts, ...progress } = captureWatchState(state);
+  const restoredPosts = watch.posts.map((post, index) => ({ ...post, ...posts[index] }));
+  return Object.assign(watch, progress, { posts: restoredPosts });
+}
+
+
+function watchRect(ctx, color, x, y, width, height) {
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.round(x), Math.round(y), width, height);
+}
+
+function drawWatchSky(ctx, watch) {
+  const night = watch.phase === 'night';
+  const x = drawSceneSky(ctx, night, watch.phaseProgress);
+  const worldX = watch.camera + x;
+  const reflectionX = Math.max(WATCH_BRIDGE.left + 39, Math.min(WATCH_BRIDGE.right - 29, worldX));
+  for (let row = 0; row < 12; row++) {
+    const waveY = POND_LEVEL + row;
+    const shimmer = Math.sin(row * 2.2 + watch.tick / 18);
+    const width = 6 + row + Math.round((shimmer + 1) * 3);
+    const tint = night ? '176,191,247' : '255,197,126';
+    const start = Math.round(reflectionX + shimmer * 4 - width / 2);
+    if (row % 3 !== 1 && quarryHeight(start) > waveY && quarryHeight(start + width) > waveY) {
+      watchRect(ctx, `rgba(${tint}, ${0.34 - row * 0.02})`, start - watch.camera, waveY, width, 1);
+    }
+  }
+}
+
+function drawWatchBridge(ctx) {
+  const { left, right, y } = WATCH_BRIDGE;
+  for (let x = left + 11; x < right - 3; x += 21) {
+    const depth = quarryHeight(x) - y;
+    watchRect(ctx, '#282834', x, y + 3, 4, depth);
+    watchRect(ctx, '#776051', x, y + 3, 1, Math.min(20, depth));
+    watchRect(ctx, '#605657', x - 4, y + 6, 12, 2);
+    for (let brace = 0; brace < Math.min(8, depth - 6); brace++) {
+      watchRect(ctx, '#67483f', x - 6 + brace, y + 5 + brace, 2, 1);
+      watchRect(ctx, '#4e3f42', x + 8 - brace, y + 5 + brace, 2, 1);
+    }
+    watchRect(ctx, '#83a7a05e', x - 2, POND_LEVEL, 9, depth > POND_LEVEL - y ? 1 : 0);
+  }
+  watchRect(ctx, '#3d3338', left, y + 5, right - left + 1, 2);
+  watchRect(ctx, '#805542', left, y, right - left + 1, 5);
+  watchRect(ctx, '#c28d63', left, y, right - left + 1, 1);
+  for (let x = left + 5; x < right; x += 8) {
+    watchRect(ctx, '#4c3939', x, y + 2, 1, 3);
+    watchRect(ctx, '#a36a4e', x + 1, y + 2, 4, 1);
+  }
+}
+
+function drawWatchSignal(ctx, watch) {
+  const x = WATCH_SIGNAL;
+  const y = WATCH_BRIDGE.y;
+  for (const offset of [-13, 9]) {
+    const pier = x + offset;
+    watchRect(ctx, '#343343', pier, y + 2, 6, quarryHeight(pier) - y - 2);
+    watchRect(ctx, '#71645d', pier, y + 2, 2, POND_LEVEL - y - 2);
+  }
+  watchRect(ctx, '#332d35', x - 17, y - 4, 35, 5);
+  watchRect(ctx, '#3b343c', x - 13, y - 43, 27, 41);
+  watchRect(ctx, '#78665e', x - 12, y - 42, 19, 39);
+  watchRect(ctx, '#514b50', x + 7, y - 42, 5, 39);
+  for (let row = 0; row < 8; row++) {
+    const top = y - 41 + row * 5;
+    watchRect(ctx, '#55494a', x - 12, top + 4, 24, 1);
+    watchRect(ctx, '#98816b', x - 11 + (row % 2) * 4, top, 9, 1);
+    watchRect(ctx, '#55494a', x - 3 + (row % 2) * 4, top, 1, 4);
+  }
+  watchRect(ctx, '#a28270', x - 7, y - 19, 14, 17);
+  watchRect(ctx, '#24232e', x - 5, y - 16, 10, 16);
+  watchRect(ctx, '#24232e', x - 3, y - 18, 6, 4);
+  watchRect(ctx, '#574143', x - 4, y - 13, 2, 12);
+  watchRect(ctx, '#c48b66', x - 13, y - 24, 26, 2);
+  watchRect(ctx, '#432f37', x - 18, y - 44, 37, 4);
+  watchRect(ctx, '#a86750', x - 17, y - 45, 35, 2);
+  watchRect(ctx, '#283441', x - 11, y - 56, 22, 13);
+  watchRect(ctx, '#425c60', x - 9, y - 56, 18, 11);
+  watchRect(ctx, '#922f44', x - 16, y - 57, 32, 3);
+  for (let tier = 0; tier < 5; tier++) {
+    watchRect(ctx, tier % 2 ? '#d6966d' : '#b87455', x - 14 + tier * 2, y - 59 - tier * 2, 29 - tier * 4, 2);
+  }
+  watchRect(ctx, '#e8aa78', x - 1, y - 72, 2, 5);
+  if (watch.signal > 0) {
+    const flame = ((watch.tick >> 3) % 2);
+    sceneGlow(ctx, '#8aecc3ad', x, y - 50, 13 + watch.signal * 1.25);
+    watchRect(ctx, '#408a81', x - 7, y - 55, 14, 10);
+    watchRect(ctx, '#90e6c2', x - 4, y - 51 - flame, 8, 6 + flame);
+    watchRect(ctx, '#f2f8c8', x - 2, y - 51, 4, 5);
+    watchRect(ctx, '#e1a972', x - 10, y - 55, 2, 10);
+    watchRect(ctx, '#ad785c', x + 8, y - 55, 2, 10);
+    for (let row = 0; row < 5; row++) {
+      watchRect(ctx, '#8febbe55', x - 6 + Math.round(Math.sin(watch.tick / 18 + row) * 4),
+        POND_LEVEL + row * 3, 13 - row, 1);
+    }
+  }
+}
+
+function drawWatchPost(ctx, post) {
+  const x = post.wallX;
+  const y = watchGround(x);
+  if (!post.health) {
+    watchRect(ctx, '#825b48', x - 4, y - 6, 2, 6);
+    watchRect(ctx, '#825b48', x + 3, y - 7, 2, 7);
+    watchRect(ctx, '#c0926a', x - 5, y - 6, 11, 2);
+  } else {
+    const height = post.tier === 2 ? 24 : 18;
+    for (let i = -2; i <= 2; i++) {
+      const top = y - height + Math.abs(i);
+      watchRect(ctx, '#5e4141', x + i * 3 - 2, top + 1, 4, y - top);
+      watchRect(ctx, '#b27a58', x + i * 3 - 1, top, 2, y - top);
+    }
+    watchRect(ctx, post.tier === 2 ? '#afd5ca' : '#754945', x - 9, y - 8, 19, 2);
+    const strength = post.health / (post.tier === 2 ? 11 : 6);
+    watchRect(ctx, '#221e2b', x - 9, y - height - 4, 18, 2);
+    watchRect(ctx, '#86bfa6', x - 9, y - height - 4, Math.ceil(18 * strength), 2);
+  }
+}
+
+function drawWatchCamp(ctx, camp, tick) {
+  const { x, side } = camp;
+  const y = watchGround(x);
+  watchRect(ctx, '#352c35', x - 17, y - 3, 34, 3);
+  watchRect(ctx, '#493c45', x - 12, y - 16, 25, 15);
+  watchRect(ctx, '#756254', x - 11, y - 15, 10, 13);
+  watchRect(ctx, '#2c394d', x + 1, y - 16, 11, 14);
+  watchRect(ctx, '#a68265', x - 9, y - 12, 5, 7);
+  watchRect(ctx, '#f1b279', x - 8, y - 11, 3, 5);
+  for (let layer = 0; layer < 5; layer++) {
+    watchRect(ctx, layer % 2 ? '#576b86' : '#465770',
+      x - 16 + layer * 3, y - 17 - layer * 2, 32 - layer * 6, 2);
+  }
+  watchRect(ctx, '#91acbc', x - 5, y - 26, 10, 1);
+  watchRect(ctx, '#b08b68', x + 15 * side, y - 32, 2, 32);
+  watchRect(ctx, '#467496', x + 15 * side - 6, y - 31, 14, 8);
+  watchRect(ctx, '#74bad8', x + 15 * side - 4, y - 30, 10, 2);
+  watchRect(ctx, '#d7e9d1', x + 15 * side, y - 28, 3, 3);
+  const fire = x - 21 * side;
+  sceneGlow(ctx, '#f6a76188', fire, y - 4, 9 + ((tick >> 3) % 2));
+  watchRect(ctx, '#55474a', fire - 4, y - 2, 8, 2);
+  watchRect(ctx, '#cb704e', fire - 3, y - 5, 6, 3);
+  watchRect(ctx, '#ffcd84', fire - 1, y - 6 - ((tick >> 3) % 2), 2, 4);
+}
+
+function drawWatchGuard(ctx, x, y, guard, tick) {
+  const veteran = guard.rank === 1;
+  const shooting = tick - guard.shotAt < 8;
+  ctx.save();
+  ctx.translate(Math.round(x), y);
+  ctx.scale(guard.direction, 1);
+  watchRect(ctx, '#252433', -6, -1, 13, 2);
+  watchRect(ctx, '#354358', -4, -6, 4, 6);
+  watchRect(ctx, '#68868c', 2, -6, 3, 6);
+  watchRect(ctx, '#354258', -5, -16, 11, 11);
+  watchRect(ctx, '#6489a5', -4, -15, 8, 7);
+  watchRect(ctx, veteran ? '#edc28d' : '#ac7d5b', -4, -8, 9, 2);
+  watchRect(ctx, '#cda98e', -2, -21, 7, 5);
+  watchRect(ctx, '#372e3d', 2, -20, 4, 2);
+  watchRect(ctx, '#584447', -5, -23, 11, 3);
+  watchRect(ctx, veteran ? '#eebc81' : '#bd845f', -4, -24, 8, 3);
+  watchRect(ctx, veteran ? '#a8d8d4' : '#82adc1', -5, -17, 4, 4);
+  if (veteran) watchRect(ctx, '#edbf82', -4, -26, 3, 2);
+  const bow = shooting ? 9 : 7;
+  watchRect(ctx, '#c98859', bow, -17, 1, 12);
+  watchRect(ctx, '#e3b283', bow - 2, -18, 2, 2);
+  watchRect(ctx, '#e3b283', bow - 2, -6, 2, 2);
+  watchRect(ctx, '#b6c9c7', bow - 2, -16, 1, 10);
+  watchRect(ctx, '#b6cad4', 2, -13, bow - 2, 2);
+  ctx.restore();
+}
+
+function drawWatchPlayer(ctx, x, y, direction, hemSway) {
+  ctx.save();
+  ctx.translate(Math.round(x), y);
+  ctx.scale(direction, 1);
+  watchRect(ctx, '#231e29', -8, -1, 16, 2);
+
+  const edge = '#372634';
+  watchRect(ctx, edge, -5, -15, 11, 14);
+  watchRect(ctx, edge, -6, -10, 13, 9);
+  watchRect(ctx, edge, -8 - hemSway, -4, 15 + hemSway, 4);
+  watchRect(ctx, '#753e3c', -5, -13, 10, 12);
+  watchRect(ctx, '#915040', -3, -15, 8, 13);
+  watchRect(ctx, '#753e3c', -7 - hemSway, -3, 13 + hemSway, 2);
+  watchRect(ctx, '#b66d4d', -1, -14, 5, 8);
+  watchRect(ctx, '#b66d4d', 0, -6, 5, 4);
+  watchRect(ctx, '#9e5946', -4, -7, 1, 5);
+  watchRect(ctx, '#4e3037', -2, -10, 1, 8);
+  watchRect(ctx, '#d08a61', 4, -13, 1, 5);
+
+  watchRect(ctx, edge, -2, -25, 6, 2);
+  watchRect(ctx, edge, -5, -23, 11, 9);
+  watchRect(ctx, edge, 5, -21, 2, 5);
+  watchRect(ctx, '#a66047', -4, -22, 9, 7);
+  watchRect(ctx, '#ca825b', -2, -24, 5, 2);
+  watchRect(ctx, '#d89265', 2, -22, 3, 1);
+  watchRect(ctx, '#d89265', 5, -21, 1, 5);
+  watchRect(ctx, '#231c29', 1, -21, 4, 5);
+  watchRect(ctx, '#231c29', 2, -16, 3, 1);
+  ctx.restore();
+}
+
+function drawWatchRaider(ctx, raider, tick) {
+  const stride = Math.floor(raider.stride / 7) % 4;
+  const swing = [0, 2, 0, -2][stride];
+  const strike = Math.max(0, 2 - (tick - raider.struckAt));
+  const bob = stride % 2;
+  ctx.save();
+  ctx.translate(Math.round(raider.x), watchGround(raider.x));
+  ctx.scale(-raider.side, 1);
+  watchRect(ctx, '#241e37', -13, -1, 27, 2);
+
+  // Alternate footfalls while keeping the shoulders low.
+  const farFoot = 4 + swing;
+  const farKnee = 1 + swing / 2;
+  watchRect(ctx, '#3a4788', -2, -10, 5, 6);
+  watchRect(ctx, '#435da5', Math.min(0, farKnee), -6, Math.abs(farKnee) + 4, 3);
+  watchRect(ctx, '#5489c9', farKnee, -5, farFoot - farKnee + 3, 2);
+  watchRect(ctx, '#6bb6ef', farFoot, -4 + bob, 3, 4 - bob);
+  const nearFoot = -9 - swing;
+  const nearKnee = -6 - swing / 2;
+  watchRect(ctx, '#4674bd', nearKnee, -10, -2 - nearKnee, 3);
+  watchRect(ctx, '#66b2f3', nearKnee, -8, 3, 4);
+  watchRect(ctx, '#509de7', nearFoot, -5 + bob, nearKnee - nearFoot + 3, 3);
+  watchRect(ctx, '#9ce4ff', nearFoot - 2, -2 + bob, 5, 2 - bob);
+
+  ctx.translate(strike, bob);
+  const farHand = -10 - swing;
+  watchRect(ctx, '#3b4d8b', -5, -13, 4, 7);
+  watchRect(ctx, '#4e77ba', farHand, -7, -2 - farHand, 2);
+  watchRect(ctx, '#6ab6e7', farHand - 2, -6, 4, 3);
+
+  // Raised shoulders taper into a low, forward-set head.
+  watchRect(ctx, '#5d3057', -9, -16, 18, 8);
+  watchRect(ctx, '#773558', -7, -19, 11, 10);
+  watchRect(ctx, '#a74b7d', -8, -17, 15, 8);
+  watchRect(ctx, '#dc70a6', -6, -19, 8, 7);
+  watchRect(ctx, '#f09dc7', -4, -20, 5, 3);
+  watchRect(ctx, '#c15a90', 2, -17, 7, 5);
+  watchRect(ctx, '#803c63', 5, -16, 10, 8);
+  watchRect(ctx, '#e37bad', 7, -17, 6, 7);
+  watchRect(ctx, '#f19abe', 11, -15, 5, 5);
+  drawTriBlobEye(ctx, 9, -16);
+
+  const nearHand = 7 + swing + strike;
+  const nearElbow = 3 + swing / 2;
+  watchRect(ctx, '#3e5298', -1, -13, 4, 6);
+  watchRect(ctx, '#5a92d7', 1, -10, nearElbow + 1, 3);
+  watchRect(ctx, '#71bffe', nearElbow, -8, 3, 5);
+  watchRect(ctx, '#76c8fa', nearElbow + 1, -5, nearHand - nearElbow + 2, 2);
+  watchRect(ctx, '#ace8ff', nearHand, -4, 4, 2);
+  watchRect(ctx, '#83c7fb', nearHand + 2, -2, 2, 1);
+  ctx.restore();
+}
+
+function drawCreekWatch(ctx, watch) {
+  drawWatchSky(ctx, watch);
+  const left = watch.camera;
+  const onScreen = (x, margin) => x >= left - margin && x < left + VIEW_WIDTH + margin;
+  ctx.save();
+  ctx.translate(-left, 0);
+  if (onScreen(WATCH_SIGNAL, 86)) drawWatchBridge(ctx);
+  if (onScreen(WATCH_SIGNAL, 36)) drawWatchSignal(ctx, watch);
+  for (const portal of WATCH_PORTALS) {
+    if (!onScreen(portal.x, 46)) continue;
+    const { x, side } = portal;
+    const y = watchGround(x);
+    drawTriPortalAura(ctx, x, y, -side, watch.portalOpening, watch.tick);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(-side, 1);
+    drawTriPortal(ctx, watch.portalOpening);
+    ctx.restore();
+  }
+  for (const camp of WATCH_CAMPS) if (onScreen(camp.x, 32)) drawWatchCamp(ctx, camp, watch.tick);
+  for (const post of watch.posts) {
+    drawWatchPost(ctx, post);
+    for (let index = 0; index < post.guards.length; index++) {
+      const x = watch.guardX(post, index);
+      drawWatchGuard(ctx, x, watchGround(x), post.guards[index], watch.tick);
+    }
+  }
+  for (const coin of watch.loot) {
+    if (!onScreen(coin.x, 3)) continue;
+    const y = watchGround(coin.x) - 4 - (watch.tick >> 4) % 2;
+    watchRect(ctx, '#9d573e', coin.x - 2, y - 2, 5, 5);
+    watchRect(ctx, '#f1b36a', coin.x - 1, y - 2, 3, 4);
+    watchRect(ctx, '#ffe4a8', coin.x, y - 1, 1, 2);
+  }
+  for (const raider of watch.raiders) {
+    if (!onScreen(raider.x, 28)) continue;
+    drawWatchRaider(ctx, raider, watch.tick);
+  }
+  ctx.strokeStyle = '#f7d99dba';
+  ctx.lineWidth = 1.2;
+  for (const shot of watch.shots) {
+    ctx.beginPath();
+    ctx.moveTo(shot.from, watchGround(shot.from) - 12);
+    ctx.lineTo(shot.to, watchGround(shot.to) - 6);
+    ctx.stroke();
+  }
+  const { x, direction, step } = watch.player;
+  drawWatchPlayer(ctx, x, watchGround(x), direction, (step >> 2) % 2);
+  ctx.restore();
+}
+
+
+function sceneryHint(entity, label) {
+  const surface = entity === 'dock' ? 'water or land' : 'dry ground';
+  return `Click or tap above ${surface} to place a ${label}.`;
+}
+
+const BOSS_HINTS = {
+  'copper-giant': 'Click above dry ground to awaken the Copper Giant.',
+  'lake-terror': 'Click above water or ichor to summon the Lake’s Corrupt Terror.',
+  'sky-eye': 'Click an open patch of sky to summon the Eye of the Sky.'
+};
+
+const TOOLS = [
+  { key: '1', material: COPPER, label: 'Copper', hint: 'Drag to pour copper ore.' },
+  { key: '2', material: SAND, label: 'Sand', hint: 'Drag to pour falling sand.' },
+  { key: '3', material: WATER, label: 'Water', hint: 'Drag to pour water into the quarry.' },
+  { key: '4', material: BASALT, label: 'Basalt', hint: 'Drag to build walls and dams.' },
+  { key: '5', material: EMBER, label: 'Embers', hint: 'Drag to scatter hot embers.' },
+  { key: '6', material: ERASE, label: 'Eraser', hint: 'Drag to erase materials, creatures, bosses, and placed scenery.' },
+  { key: 'b', breaker: true, label: 'Break', hint: 'Chip off falling fragments. Set the brush to 1 px for a single pixel.' },
+  { key: '7', entity: 'lizard', label: CREATURES.lizard, hint: 'Click or tap to place a swimming copperback.' },
+  { key: '8', entity: 'duck', label: CREATURES.duck, hint: 'Click or tap to place a duck on land or water.' },
+  { key: '9', entity: 'tri', label: 'Tri', hint: 'Plant on dry ground. Tri slowly spreads across the map.' },
+  { material: PATINA, label: 'Patina', hint: 'Drag to pour weathered copper.' },
+  { material: ROCK, label: 'Rock', hint: 'Drag to paint solid rock.' },
+  { material: GRASS, label: 'Grass', hint: 'Drag to paint grassy ground.' },
+  ...Object.entries(SCENERY).map(([entity, { label }]) => ({
+    entity, scenery: true, label, hint: sceneryHint(entity, label)
+  })),
+  { entity: 'portal', scenery: true, label: TRI_PORTAL.label, hint: 'Place on dry ground. Tri Portals open and release Blobs at night.' },
+  ...Object.entries(BOSSES).map(([entity, { label }]) => ({ entity, boss: true, label, hint: BOSS_HINTS[entity] }))
+];
+const TRI_TOOLS = [
+  ...TOOLS.map((tool) => {
+    if (tool.material === ERASE || tool.breaker || tool.entity === 'tri' || tool.entity === 'portal' || tool.boss) return tool;
+    if (tool.material === WATER) {
+      return { ...tool, material: ICHOR, label: 'Ichor', hint: 'Drag to pour glossy, slow-flowing ichor.' };
+    }
+    const label = `Tri ${tool.label}`;
+    const hint = tool.scenery ? sceneryHint(tool.entity, label)
+      : tool.entity ? `Click or tap to place a ${label}.` : `Drag to paint ${label.toLowerCase()}.`;
+    return { ...tool, label, hint, converted: true };
+  }),
+  ...['blob', 'ling', 'brain'].map((entity) => ({
+    entity, label: CREATURES[entity], hint: `Click or tap to place a ${CREATURES[entity]}.`
+  }))
+];
+const FPS = TICKS_PER_SECOND;
+const INTERVAL = 1000 / FPS;
+const world = document.querySelector('#world');
+const brush = document.querySelector('#brush');
+const brushSize = document.querySelector('#brush-size');
+const hint = document.querySelector('#world-hint');
+const eventStatus = document.querySelector('#world-event');
+const pauseButton = document.querySelector('#pause');
+const resetButton = document.querySelector('#reset');
+const pauseMark = pauseButton.querySelector('.pause-mark');
+const pauseLabel = document.querySelector('#pause-label');
+const live = document.querySelector('#live');
+const liveLabel = document.querySelector('#live-label');
+const timer = document.querySelector('#timer');
+const clearDialog = document.querySelector('#clear-dialog');
+const guide = document.querySelector('#guide');
+const waterCount = document.querySelector('#water-count');
+const ichorCount = document.querySelector('#ichor-count');
+const copperCount = document.querySelector('#copper-count');
+const cameraSlider = document.querySelector('#camera');
+const panWest = document.querySelector('#pan-west');
+const panEast = document.querySelector('#pan-east');
+const areaName = document.querySelector('#area-name');
+const paletteButtons = Array.from(document.querySelectorAll('[data-tool-palette]'));
+const toolbox = document.querySelector('.toolbox');
+const categoryButtons = Array.from(document.querySelectorAll('[data-tool-category]'));
+const toolGroups = new Map(['materials', 'life', 'scenery', 'bosses'].map((group) => [group, {
+  section: document.querySelector(`#${group}-section`), list: document.querySelector(`#${group}`)
+}]));
+const weatherButtons = Array.from(document.querySelectorAll('[data-weather]'));
+const skyButtons = document.querySelectorAll('[data-sky-mode]');
+const skyPhase = document.querySelector('#sandbox-sky-phase');
+const modeButtons = Array.from(document.querySelectorAll('[data-game-mode]'));
+const menu = document.querySelector('#start-menu');
+const menuCanvas = document.querySelector('#menu-scene');
+const menuButtons = Array.from(document.querySelectorAll('[data-menu-play]'));
+const gameSurfaces = document.querySelectorAll('[data-in-game]');
+const reducedMenuMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const sandboxView = document.querySelectorAll('[data-sandbox-view]');
+const watchView = document.querySelectorAll('[data-watch-view]');
+const headingTitle = document.querySelector('#title');
+const modeDescription = document.querySelector('#mode-description');
+const watchAction = document.querySelector('#watch-use');
+const watchMessage = document.querySelector('#watch-message');
+const watchCoins = document.querySelector('#watch-coins');
+const watchHealth = document.querySelector('#watch-health');
+const watchHealthLabel = document.querySelector('#watch-health-label');
+const watchBankLabels = [document.querySelector('#watch-west'), document.querySelector('#watch-east')];
+const watchArea = document.querySelector('#watch-area');
+const watchPosition = document.querySelector('#watch-position');
+const watchPortalState = document.querySelector('#watch-portal-state');
+const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
+const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
+const watchMoveKeys = { a: -1, d: 1, arrowleft: -1, arrowright: 1 };
+const watchSavesDialog = document.querySelector('#watch-saves');
+const watchSaveForm = document.querySelector('#watch-save-form');
+const watchSaveName = document.querySelector('#watch-save-name');
+const watchSaveStatus = document.querySelector('#watch-save-status');
+const watchSlotList = document.querySelector('#watch-slot-list');
+const quarry = new Quarry();
+const renderer = new QuarryRenderer(world);
+let watch = new CreekWatch();
+const formatter = new Intl.NumberFormat();
+
+let paused = false;
+let selected = TOOLS[0];
+let cursor = null;
+let stroke = null;
+let keyboardAim = false;
+let dirty = true;
+let lastFrame = 0;
+let lag = 0;
+let lastReadoutTick = -1;
+let camera = START_VIEW;
+let cameraTarget = START_VIEW;
+let variantMode = false;
+let gameMode = 'sandbox';
+let watchQuarry;
+let watchRenderer;
+let menuQuarry;
+let menuRenderer;
+let menuVisualTick = -1;
+let walkTarget = null;
+const pausedByMode = { sandbox: false, watch: false };
+const walkKeys = new Set();
+
+const toolButtons = new Map();
+
+function toolGroup(tool) {
+  return tool.boss ? 'bosses' : tool.scenery ? 'scenery' : tool.entity ? 'life' : 'materials';
+}
+
+function selectTool(tool) {
+  selected = tool;
+  stroke = null;
+  for (const [option, button] of toolButtons) button.setAttribute('aria-pressed', String(option === tool));
+  const category = toolGroup(tool);
+  for (const [group, { section }] of toolGroups) {
+    section.hidden = category !== group;
+  }
+  for (const button of categoryButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.toolCategory === category));
+  }
+  hint.textContent = tool.hint;
+  dirty = true;
+}
+
+function renderTools() {
+  const tools = variantMode ? TRI_TOOLS : TOOLS;
+  toolButtons.clear();
+  for (const { list } of toolGroups.values()) list.replaceChildren();
+  for (const tool of tools) {
+    const button = document.createElement('button');
+    const icon = document.createElement('canvas');
+    const label = document.createElement('span');
+    button.type = 'button';
+    button.className = 'tool';
+    const shortcutKey = tool.key?.toUpperCase();
+    button.title = shortcutKey ? `${tool.label} (${shortcutKey})` : tool.label;
+    icon.width = icon.height = 24;
+    icon.setAttribute('aria-hidden', 'true');
+    label.textContent = tool.label;
+    button.append(icon, label);
+    if (shortcutKey) {
+      const shortcut = document.createElement('kbd');
+      button.setAttribute('aria-keyshortcuts', tool.material === ERASE ? '6 E' : shortcutKey);
+      shortcut.textContent = shortcutKey;
+      shortcut.setAttribute('aria-hidden', 'true');
+      button.append(shortcut);
+    }
+    toolGroups.get(toolGroup(tool)).list.append(button);
+    const iconType = tool.breaker ? 'break' : tool.material === ERASE ? 'erase' : tool.entity ?? tool.material;
+    drawToolIcon(icon, iconType, tool.converted);
+    button.addEventListener('click', () => selectTool(tool));
+    toolButtons.set(tool, button);
+  }
+  const counterpart = tools.find((tool) => {
+    if (selected.key) return tool.key === selected.key;
+    if (selected.entity) return tool.entity === selected.entity;
+    return tool.material === selected.material;
+  });
+  selectTool(counterpart ?? tools.find((tool) => toolGroup(tool) === toolGroup(selected)));
+}
+for (const icon of document.querySelectorAll('canvas[data-icon]')) drawToolIcon(icon, icon.dataset.icon);
+renderTools();
+for (const button of paletteButtons) {
+  button.addEventListener('click', () => {
+    const showTri = button.dataset.toolPalette === 'tri';
+    if (showTri === variantMode) return;
+    variantMode = showTri;
+    toolbox.classList.toggle('variant-mode', variantMode);
+    for (const option of paletteButtons) option.setAttribute('aria-pressed', String(option === button));
+    renderTools();
+  });
+}
+for (const button of categoryButtons) {
+  button.addEventListener('click', () => {
+    const category = button.dataset.toolCategory;
+    const tools = variantMode ? TRI_TOOLS : TOOLS;
+    if (toolGroup(selected) !== category) selectTool(tools.find((tool) => toolGroup(tool) === category));
+  });
+}
+
+function updateBrush() {
+  brushSize.value = `${brush.value} px`;
+  const fraction = (brush.valueAsNumber - Number(brush.min)) / (Number(brush.max) - Number(brush.min));
+  brush.style.setProperty('--fill', `${fraction * 100}%`);
+  dirty = true;
+}
+
+function syncWeather() {
+  for (const button of weatherButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.weather === quarry.weather));
+  }
+}
+
+function syncSkyMode() {
+  for (const button of skyButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.skyMode === quarry.skyMode));
+  }
+}
+
+function updateReadouts() {
+  const stats = quarry.getStats();
+  waterCount.textContent = formatter.format(stats.water);
+  ichorCount.textContent = formatter.format(stats.ichor);
+  copperCount.textContent = formatter.format(stats.copper);
+  const seconds = Math.floor(quarry.tick / FPS);
+  const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const phase = quarry.night ? 'Night' : 'Day';
+  const prefix = quarry.skyMode === 'day' ? '' : `${phase.toUpperCase()} · `;
+  timer.textContent = `${prefix}${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+  timer.dateTime = `PT${seconds}S`;
+  if (skyPhase.textContent !== phase) skyPhase.textContent = phase;
+  lastReadoutTick = quarry.tick;
+}
+
+function setPaused(value) {
+  paused = value;
+  pausedByMode[gameMode] = value;
+  pauseLabel.textContent = paused ? 'Resume' : 'Pause';
+  liveLabel.textContent = paused ? 'PAUSED' : 'LIVE';
+  live.classList.toggle('paused', paused);
+  pauseMark.classList.toggle('play', paused);
+  lag = 0;
+  dirty = true;
+}
+
+function resetWorld(blank) {
+  quarry.reset(blank);
+  renderer.resetDamage();
+  if (!blank) setCamera(START_VIEW, true);
+  syncWeather();
+  syncSkyMode();
+  setPaused(false);
+  updateReadouts();
+  cursor = null;
+  stroke = null;
+  dirty = true;
+  eventStatus.textContent = blank ? 'World cleared.' : 'Starting quarry restored.';
+}
+
+function switchMode(mode) {
+  if (mode === gameMode) return;
+  gameMode = mode;
+  const monitoring = mode === 'watch';
+  for (const button of modeButtons) button.setAttribute('aria-pressed', String(button.dataset.gameMode === mode));
+  for (const element of sandboxView) element.hidden = monitoring;
+  for (const element of watchView) element.hidden = !monitoring;
+  document.body.classList.toggle('watch-active', monitoring);
+  headingTitle.firstChild.nodeValue = monitoring ? 'Creek Watch' : 'Mosswake Creek';
+  modeDescription.textContent = monitoring ? 'Gather copper by day. Defend the lake tower by night.'
+    : 'Dig for copper and build dams around Mosswake’s pond.';
+  resetButton.title = monitoring ? 'Start a new Creek Watch run' : 'Restore the starting quarry';
+  world.setAttribute('aria-label', monitoring ? 'Creek Watch playfield' : 'Editable quarry');
+  world.setAttribute('aria-describedby', monitoring ? 'watch-controls' : 'world-hint');
+  cursor = null;
+  stroke = null;
+  walkKeys.clear();
+  walkTarget = null;
+  setPaused(pausedByMode[mode]);
+  if (!monitoring) updateReadouts();
+}
+
+function setMenuVisibility(open) {
+  menu.hidden = !open;
+  for (const element of gameSurfaces) element.hidden = open;
+  cursor = null;
+  stroke = null;
+  walkKeys.clear();
+  walkTarget = null;
+  lag = 0;
+  dirty = true;
+  window.scrollTo(0, 0);
+}
+
+function drawMainMenu(timestamp) {
+  const tick = reducedMenuMotion.matches ? 0 : Math.floor(timestamp / 46);
+  if (menuVisualTick === tick) return;
+  if (!menuRenderer) {
+    menuQuarry = new Quarry();
+    menuRenderer = new QuarryRenderer(menuCanvas);
+  }
+  menuVisualTick = tick;
+  menuQuarry.tick = tick;
+  menuRenderer.draw(menuQuarry, null, START_VIEW);
+}
+
+function setWatchText(element, value) {
+  const text = String(value);
+  if (element.textContent !== text) element.textContent = text;
+}
+
+function drawWatchMode() {
+  if (!watchRenderer) {
+    watchQuarry = new Quarry();
+    watchQuarry.creatures.length = 0;
+    watchRenderer = new QuarryRenderer(world);
+  }
+  watchQuarry.tick = watch.tick;
+  watchQuarry.weather = watch.phase === 'night' ? 'storm' : 'rain';
+  watchRenderer.draw(watchQuarry, null, watch.camera, { hideHuts: true });
+  drawCreekWatch(watchRenderer.ctx, watch);
+  const active = watch.status === 'running';
+  const finished = watch.status === 'lost';
+  setWatchText(liveLabel, finished ? 'LOST' : paused ? 'PAUSED' : active ? 'LIVE' : 'READY');
+  setWatchText(timer, `${watch.phase === 'day' ? 'DAY' : 'NIGHT'} ${watch.day} · ${watch.secondsLeft}s`);
+  timer.dateTime = `PT${watch.secondsLeft}S`;
+  setWatchText(watchArea, WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
+  const position = `${(watch.player.x / WATCH_BOUNDS.right * 100).toFixed(2)}%`;
+  if (watchPosition.style.left !== position) watchPosition.style.left = position;
+  const night = watch.phase === 'night';
+  const portalStatus = night ? (watch.portalOpening < 1 ? 'Portals opening' : 'Portals open') : 'Portals dormant';
+  if (watchPortalState.dataset.open !== String(night)) watchPortalState.dataset.open = String(night);
+  setWatchText(watchPortalState, portalStatus);
+  setWatchText(watchCoins, watch.coins);
+  watchHealth.value = watch.signal;
+  setWatchText(watchHealthLabel, `${watch.signal}/${WATCH_HEALTH}`);
+  watch.posts.forEach((post, index) => {
+    const wall = post.health ? `Wall ${post.health}/${watch.maxWall(post)}` : 'No wall';
+    const guards = `${post.guards.length} ${post.guards.length === 1 ? 'guard' : 'guards'}`;
+    const veterans = post.guards.filter(({ rank }) => rank === 1).length;
+    setWatchText(watchBankLabels[index], `${wall} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}`);
+  });
+  const action = watch.getAction();
+  const cost = action?.cost ? ` · ${action.cost} copper` : '';
+  const label = watch.status === 'ready' ? 'Begin watch' : finished ? 'New watch'
+    : action ? action.label + cost : 'No station nearby';
+  setWatchText(watchAction, label);
+  watchAction.disabled = active && (paused || !action);
+  for (const button of watchMoveButtons) button.disabled = finished || (paused && active);
+  setWatchText(watchMessage, watch.message);
+}
+
+function useWatchStation() {
+  if (watch.status === 'lost') {
+    watch.reset();
+    walkKeys.clear();
+    walkTarget = null;
+  }
+  if (watch.status === 'ready') setPaused(false);
+  if (!paused) watch.use();
+  dirty = true;
+}
+
+function walkWatchTo(target) {
+  if (watch.status === 'ready') {
+    watch.start();
+    setPaused(false);
+  }
+  if (paused || watch.status !== 'running') return;
+  walkTarget = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, target));
+  dirty = true;
+}
+
+function watchMotion() {
+  const left = walkKeys.has('a') || walkKeys.has('arrowleft');
+  const right = walkKeys.has('d') || walkKeys.has('arrowright');
+  if (left || right) return Number(right) - Number(left);
+  if (walkTarget === null) return 0;
+  const distance = walkTarget - watch.player.x;
+  if (Math.abs(distance) <= 2) {
+    walkTarget = null;
+    return 0;
+  }
+  return Math.sign(distance);
+}
+
+function playMode(mode) {
+  setMenuVisibility(false);
+  switchMode(mode);
+  if (mode === 'watch' && watch.start()) setPaused(false);
+  world.focus({ preventScroll: true });
+}
+
+function reportWatchSaveError(error) {
+  console.warn('Creek Watch save operation failed', error);
+  watchSaveStatus.textContent = error.name === 'QuotaExceededError' ? 'This browser has no room for another save.'
+    : error.name === 'SecurityError' ? 'This browser blocked local saves for this file.'
+      : error.message || 'The save operation failed.';
+}
+
+function watchSlotButton(label, name, onClick) {
+  const button = document.createElement('button');
+  button.className = 'button';
+  button.type = 'button';
+  button.textContent = label;
+  button.setAttribute('aria-label', `${label} ${name}`);
+  button.addEventListener('click', () => {
+    try {
+      onClick();
+    } catch (error) {
+      reportWatchSaveError(error);
+    }
+  });
+  return button;
+}
+
+function renderWatchSlots(message = '') {
+  const { slots, unreadable } = listWatchSlots(window.localStorage);
+  watchSlotList.replaceChildren();
+  for (const slot of slots) {
+    const row = document.createElement('li');
+    const details = document.createElement('div');
+    const title = document.createElement('strong');
+    const summary = document.createElement('small');
+    details.className = 'watch-slot-details';
+    title.textContent = slot.name;
+    const phase = slot.phase === 'day' ? 'Day' : 'Night';
+    summary.textContent = `${phase} ${slot.day} · ${slot.coins} copper${slot.status === 'lost' ? ' · Tower fell' : ''}`;
+    details.append(title, summary);
+    row.append(details, watchSlotButton('Load', slot.name, () => {
+      if (watch.status === 'running' && watch.tick > 0 && !window.confirm(`Load “${slot.name}” over the current run?`)) return;
+      watch = loadWatchSlot(window.localStorage, slot.id);
+      watchSavesDialog.close();
+      playMode('watch');
+      setPaused(false);
+    }), watchSlotButton('Update', slot.name, () => {
+      if (!window.confirm(`Replace “${slot.name}” with the current run?`)) return;
+      saveWatchSlot(window.localStorage, watch, slot.name, slot.id);
+      renderWatchSlots(`Updated “${slot.name}”.`);
+    }));
+    watchSlotList.append(row);
+  }
+  watchSaveStatus.textContent = message || (unreadable ? 'Some save slots could not be read.' : slots.length ? '' : 'No saves yet.');
+}
+
+watchSaveName.maxLength = WATCH_SAVE_NAME_LIMIT;
+watchSaveForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  try {
+    const name = watchSaveName.value.trim();
+    saveWatchSlot(window.localStorage, watch, name);
+    watchSaveForm.reset();
+    renderWatchSlots(`Saved “${name}”.`);
+  } catch (error) {
+    reportWatchSaveError(error);
+  }
+});
+for (const button of document.querySelectorAll('[data-open-watch-saves]')) {
+  button.addEventListener('click', () => {
+    walkKeys.clear();
+    walkTarget = null;
+    watchSavesDialog.showModal();
+    try {
+      renderWatchSlots();
+    } catch (error) {
+      watchSlotList.replaceChildren();
+      reportWatchSaveError(error);
+    }
+  });
+}
+
+for (const button of modeButtons) button.addEventListener('click', () => switchMode(button.dataset.gameMode));
+for (const button of menuButtons) button.addEventListener('click', () => playMode(button.dataset.menuPlay));
+document.querySelector('#menu-return').addEventListener('click', () => {
+  setMenuVisibility(true);
+  menuButtons.find((button) => button.dataset.menuPlay === gameMode).focus({ preventScroll: true });
+});
+watchAction.addEventListener('click', useWatchStation);
+for (const button of watchMoveButtons) {
+  button.addEventListener('click', () => {
+    const target = watchDestinations[button.dataset.watchDestination]
+      ?? (walkTarget ?? watch.player.x) + Number(button.dataset.watchMove) * 47;
+    walkWatchTo(target);
+  });
+}
+
+brush.addEventListener('input', updateBrush);
+updateBrush();
+syncWeather();
+syncSkyMode();
+updateReadouts();
+for (const button of weatherButtons) {
+  button.addEventListener('click', () => {
+    quarry.setWeather(button.dataset.weather);
+    syncWeather();
+    dirty = true;
+  });
+}
+for (const button of skyButtons) {
+  button.addEventListener('click', () => {
+    quarry.setSkyMode(button.dataset.skyMode);
+    syncSkyMode();
+    updateReadouts();
+    dirty = true;
+  });
+}
+cameraSlider.max = WIDTH - VIEW_WIDTH;
+setCamera(START_VIEW, true);
+cameraSlider.addEventListener('input', () => setCamera(cameraSlider.valueAsNumber, true));
+panWest.addEventListener('click', () => setCamera(cameraTarget - VIEW_WIDTH));
+panEast.addEventListener('click', () => setCamera(cameraTarget + VIEW_WIDTH));
+pauseButton.addEventListener('click', () => setPaused(!paused));
+resetButton.addEventListener('click', () => {
+  if (gameMode === 'sandbox') resetWorld(false);
+  else {
+    watch.reset();
+    walkKeys.clear();
+    walkTarget = null;
+    setPaused(false);
+  }
+});
+document.querySelector('#help').addEventListener('click', () => guide.showModal());
+document.querySelector('#clear').addEventListener('click', () => {
+  clearDialog.returnValue = 'cancel';
+  clearDialog.showModal();
+});
+clearDialog.addEventListener('close', () => {
+  if (clearDialog.returnValue === 'clear') resetWorld(true);
+});
+
+function clamp(value, max) {
+  return Math.max(0, Math.min(max - 1, value));
+}
+
+function setCamera(value, immediate = false) {
+  cameraTarget = clamp(value, WIDTH - VIEW_WIDTH + 1);
+  if (immediate) camera = cameraTarget;
+  const middle = cameraTarget + VIEW_WIDTH / 2;
+  const area = WORLD_AREAS[Math.floor(middle / VIEW_WIDTH)];
+  cameraSlider.value = cameraTarget;
+  cameraSlider.setAttribute('aria-valuetext', area);
+  if (areaName.textContent !== area) areaName.textContent = area;
+  panWest.disabled = cameraTarget === 0;
+  panEast.disabled = cameraTarget === WIDTH - VIEW_WIDTH;
+  cursor = null;
+  stroke = null;
+  dirty = true;
+}
+
+function pointerPosition(event) {
+  const bounds = world.getBoundingClientRect();
+  return {
+    x: Math.round(camera) + clamp(Math.floor((event.clientX - bounds.left) * VIEW_WIDTH / bounds.width), VIEW_WIDTH),
+    y: clamp(Math.floor((event.clientY - bounds.top) * HEIGHT / bounds.height), HEIGHT)
+  };
+}
+
+function brushRadius() {
+  const size = brush.valueAsNumber;
+  return selected.breaker && size === 1 ? 0 : size;
+}
+
+function applyAt(point) {
+  if (selected.breaker) {
+    renderer.breakBrush(quarry, point.x, point.y, brushRadius(), Math.round(camera));
+  } else if (selected.entity) {
+    let placed;
+    let failure = `No room to place ${selected.label} here.`;
+    if (selected.boss) {
+      if (quarry.bosses.some((boss) => boss.type === selected.entity)) {
+        failure = `${selected.label} is already active.`;
+      } else {
+        placed = quarry.placeBoss(selected.entity, point.x, point.y);
+        failure = selected.hint;
+      }
+    } else if (selected.entity === 'tri') placed = quarry.placeTri(point.x, point.y);
+    else if (selected.entity === 'portal') placed = quarry.placePortal(point.x, point.y);
+    else if (selected.scenery) placed = quarry.placeScenery(selected.entity, point.x, point.y, { converted: selected.converted });
+    else placed = quarry.placeCreature(selected.entity, point.x, point.y, { converted: selected.converted });
+    hint.textContent = placed ? selected.hint : failure;
+    eventStatus.textContent = placed ? `${selected.label} placed.` : failure;
+  } else {
+    quarry.paint(selected.material, point.x, point.y, brushRadius(), selected.converted);
+  }
+  dirty = true;
+}
+
+function applySegment(from, to) {
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  if (!distance && selected.breaker) return;
+  const steps = Math.max(1, Math.ceil(distance / Math.max(1, brush.valueAsNumber / 2)));
+  for (let step = 1; step <= steps; step++) {
+    const progress = step / steps;
+    applyAt({ x: Math.round(from.x + (to.x - from.x) * progress), y: Math.round(from.y + (to.y - from.y) * progress) });
+  }
+}
+
+world.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0 || !event.isPrimary) return;
+  if (gameMode === 'watch') {
+    const bounds = world.getBoundingClientRect();
+    world.focus({ preventScroll: true });
+    walkWatchTo(watch.camera + (event.clientX - bounds.left) * VIEW_WIDTH / bounds.width);
+    return;
+  }
+  keyboardAim = false;
+  world.focus({ preventScroll: true });
+  cursor = pointerPosition(event);
+  applyAt(cursor);
+  if (selected.entity) return;
+  world.setPointerCapture(event.pointerId);
+  stroke = { id: event.pointerId, point: cursor };
+});
+world.addEventListener('pointermove', (event) => {
+  if (!event.isPrimary || gameMode === 'watch') return;
+  keyboardAim = false;
+  cursor = pointerPosition(event);
+  if (stroke?.id === event.pointerId) {
+    applySegment(stroke.point, cursor);
+    stroke.point = cursor;
+  }
+  dirty = true;
+});
+for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  world.addEventListener(name, (event) => {
+    if (stroke?.id === event.pointerId) stroke = null;
+    if (event.pointerType !== 'mouse') cursor = null;
+    dirty = true;
+  });
+}
+world.addEventListener('pointerleave', () => {
+  if (!stroke && !keyboardAim) cursor = null;
+  dirty = true;
+});
+world.addEventListener('blur', () => {
+  if (keyboardAim) cursor = null;
+  keyboardAim = false;
+  dirty = true;
+});
+world.addEventListener('wheel', (event) => {
+  if (gameMode === 'watch') return;
+  const delta = event.shiftKey ? event.deltaY || event.deltaX : event.deltaX;
+  if (!delta) return;
+  event.preventDefault();
+  const scale = event.deltaMode === 0 ? 1 : 20;
+  setCamera(cameraTarget + Math.round(delta * scale));
+}, { passive: false });
+
+const directions = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+
+document.addEventListener('keydown', (event) => {
+  if (!menu.hidden || event.altKey || event.ctrlKey || event.metaKey || guide.open || clearDialog.open || watchSavesDialog.open) return;
+  if (event.target instanceof HTMLInputElement) return;
+  const key = event.key.toLowerCase();
+  if (key === ' ' && !(event.target instanceof HTMLButtonElement)) {
+    event.preventDefault();
+    if (!event.repeat) setPaused(!paused);
+    return;
+  }
+  if (gameMode === 'watch') {
+    if (Object.hasOwn(watchMoveKeys, key)) {
+      event.preventDefault();
+      if (watch.status === 'ready') {
+        watch.start();
+        setPaused(false);
+      }
+      walkTarget = null;
+      walkKeys.add(key);
+    } else if (key === 'e' && !event.repeat) {
+      event.preventDefault();
+      useWatchStation();
+    }
+    return;
+  }
+  const tools = variantMode ? TRI_TOOLS : TOOLS;
+  const tool = tools.find((option) => option.key === key || (key === 'e' && option.material === ERASE));
+  if (tool) {
+    selectTool(tool);
+    return;
+  }
+  if (key === 'a' || key === 'd') {
+    event.preventDefault();
+    setCamera(cameraTarget + (key === 'a' ? -1 : 1) * Math.round(VIEW_WIDTH / 8));
+    return;
+  }
+  if (event.target !== world) return;
+  const direction = directions[event.key];
+  if (!direction && key !== 'enter') return;
+  event.preventDefault();
+  keyboardAim = true;
+  const left = Math.round(camera);
+  cursor ??= { x: left + Math.floor(VIEW_WIDTH / 2), y: Math.floor(HEIGHT / 2) };
+  if (direction) {
+    const step = event.shiftKey ? 1 : 4;
+    cursor = { x: left + clamp(cursor.x - left + direction[0] * step, VIEW_WIDTH),
+      y: clamp(cursor.y + direction[1] * step, HEIGHT) };
+    dirty = true;
+  } else if (!event.repeat || !selected.entity) {
+    applyAt(cursor);
+  }
+});
+document.addEventListener('keyup', (event) => walkKeys.delete(event.key.toLowerCase()));
+window.addEventListener('blur', () => walkKeys.clear());
+
+function loop(timestamp) {
+  const elapsed = Math.min(timestamp - (lastFrame || timestamp), 120);
+  lastFrame = timestamp;
+  if (!menu.hidden) {
+    drawMainMenu(timestamp);
+    requestAnimationFrame(loop);
+    return;
+  }
+  if (gameMode === 'sandbox' && camera !== cameraTarget) {
+    const difference = cameraTarget - camera;
+    camera = Math.abs(difference) < 0.55 ? cameraTarget : camera + difference * (1 - Math.exp(-elapsed / 60));
+    dirty = true;
+  }
+  if (!paused && !guide.open && !clearDialog.open && !watchSavesDialog.open && (gameMode === 'sandbox' || watch.status === 'running')) {
+    lag += elapsed;
+    while (lag >= INTERVAL) {
+      if (gameMode === 'watch') watch.step(watchMotion());
+      else {
+        if (stroke && !selected.entity && !selected.breaker) applyAt(stroke.point);
+        quarry.step();
+      }
+      lag -= INTERVAL;
+      dirty = true;
+    }
+  }
+  if (dirty) {
+    if (gameMode === 'watch') drawWatchMode();
+    else {
+      const radius = selected.entity ? 3 : brushRadius();
+      renderer.draw(quarry, cursor && { ...cursor, radius }, Math.round(camera));
+      if ((paused && !stroke) || quarry.tick - lastReadoutTick >= 10) updateReadouts();
+    }
+    dirty = false;
+  }
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+
+  </script>
 </body>
 </html>

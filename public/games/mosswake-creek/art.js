@@ -682,31 +682,27 @@ function watcherEye(ctx, x, y, size) {
   rect(ctx, '#fff2d8', x - 1, y - 1, 1, 1);
 }
 
+export function drawTriBlobEye(ctx, x, y) {
+  rect(ctx, '#733458', x, y, 7, 8);
+  rect(ctx, '#ffe3ec', x + 1, y + 1, 6, 6);
+  rect(ctx, '#ffe3ec', x + 2, y, 4, 8);
+  rect(ctx, '#60b4e6', x + 4, y + 2, 3, 5);
+  rect(ctx, '#291d3b', x + 5, y + 2, 2, 4);
+  rect(ctx, '#fff6f9', x + 4, y + 2, 1, 1);
+}
+
 export function drawTriBlob(ctx, x, y, direction, stride) {
-  const reach = stride % 2;
+  const top = -11 + stride % 2;
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y));
   ctx.scale(direction, 1);
-  rect(ctx, '#303d72', -7, -7, 4, 7 - reach);
-  rect(ctx, '#4a78c3', -8 + reach, -3, 5, 3 - reach);
-  rect(ctx, '#3c5291', 3, -7, 4, 6 + reach);
-  rect(ctx, '#70cbf1', 4 + reach * 2, -3 - (1 - reach), 4, 3);
-  rect(ctx, '#60304e', -7, -15 + reach, 15, 10);
-  rect(ctx, '#923e6b', -8, -13 + reach, 17, 7);
-  rect(ctx, '#d65f9c', -6, -16 + reach, 13, 9);
-  rect(ctx, '#f68dbe', -4, -18 + reach, 9, 4);
-  rect(ctx, '#fcb0d0', -5, -15 + reach, 3, 3);
-  rect(ctx, '#ac4078', -5, -8, 10, 3);
-  rect(ctx, '#4d79c8', -8, -11 + reach, 3, 5);
-  rect(ctx, '#80caf8', -9, -7 + reach, 3, 3);
-  rect(ctx, '#405399', 6, -9, 3 + reach, 4);
-  rect(ctx, '#71d0ff', 8 + reach, -7 - reach, 3, 3);
-  rect(ctx, '#733458', 0, -15 + reach, 7, 8);
-  rect(ctx, '#ffe3ec', 1, -14 + reach, 6, 6);
-  rect(ctx, '#ffe3ec', 2, -15 + reach, 4, 8);
-  rect(ctx, '#60b4e6', 4, -13 + reach, 3, 5);
-  rect(ctx, '#291d3b', 5, -13 + reach, 2, 4);
-  rect(ctx, '#fff6f9', 4, -13 + reach, 1, 1);
+  rect(ctx, '#783359', -8, -3, 17, 3);
+  rect(ctx, '#b14983', -7, top + 4, 15, -top - 5);
+  rect(ctx, '#d86ca2', -6, top + 2, 13, -top - 4);
+  rect(ctx, '#f296bf', -4, top, 8, 3);
+  rect(ctx, '#ee8ebd', -6, top + 3, 4, 3);
+  rect(ctx, '#c76096', -6, -3, 11, 1);
+  drawTriBlobEye(ctx, 0, top + 1);
   ctx.restore();
 }
 

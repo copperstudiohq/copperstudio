@@ -1,6 +1,5 @@
 import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS, TRI_PORTAL_OPEN_TICKS, CREEK_HUTS, quarryHeight } from './simulation.js';
 
-export const WATCH_NIGHTS = 5;
 export const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
 export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
 export const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
@@ -12,6 +11,8 @@ export const WATCH_HEALTH = 10;
 export const WATCH_DAY = DAY_TICKS;
 export const WATCH_NIGHT = NIGHT_TICKS;
 const WATCH_GUARD_LIMIT = 3;
+const WATCH_RAIDER_LIMIT = 12;
+const WATCH_NO_ACTION = -TICKS_PER_SECOND;
 const WATCH_GUARD_STATS = [
   { range: 88, damage: 1, cooldown: 22 },
   { range: 112, damage: 2, cooldown: 19 }
@@ -143,7 +144,7 @@ export class CreekWatch {
         this.message = 'Signal tower repaired. Ring the bell when you’re ready.';
         break;
       case 'hire':
-        post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: -Infinity });
+        post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: WATCH_NO_ACTION });
         this.message = `Guard hired and sent to the ${post.name.toLowerCase()} bank.`;
         break;
       case 'train':
@@ -172,12 +173,15 @@ export class CreekWatch {
     this.phase = 'night';
     this.phaseTick = 0;
     this.queue = [];
-    for (let index = 0; index < this.day + 1; index++) {
-      for (const portal of WATCH_PORTALS) {
-        this.queue.push({ portal, due: TRI_PORTAL_OPEN_TICKS + 4 + index * 46 + (portal.side === 1 ? 22 : 0) });
+    const raidersPerPortal = Math.min(WATCH_RAIDER_LIMIT, this.day + 1);
+    for (const { side } of WATCH_PORTALS) {
+      const first = TRI_PORTAL_OPEN_TICKS + 4 + (side === 1 ? 22 : 0);
+      for (let index = 0; index < raidersPerPortal; index++) {
+        this.queue.push({ side, due: first + index * 46 });
       }
     }
-    this.message = `Night ${this.day}. Both portals are opening. Tri Blobs are heading for the tower.`;
+    this.queue.sort((a, b) => a.due - b.due);
+    this.message = `Night ${this.day}. Tri Raiders are coming through both portals.`;
   }
 
   finishNight() {
@@ -185,11 +189,6 @@ export class CreekWatch {
     this.queue.length = 0;
     this.phase = 'day';
     this.phaseTick = 0;
-    if (this.day === WATCH_NIGHTS) {
-      this.status = 'won';
-      this.message = 'The signal stayed lit through all five nights.';
-      return;
-    }
     this.day++;
     this.coins += 3;
     this.stockCaches();
@@ -219,8 +218,10 @@ export class CreekWatch {
       return;
     }
     while (this.queue[0]?.due <= this.phaseTick) {
-      const { portal } = this.queue.shift();
-      this.raiders.push({ side: portal.side, x: portal.x, stride: 0, hp: this.day < 3 ? 2 : 3, attackAt: 0 });
+      const { side } = this.queue.shift();
+      const portal = WATCH_PORTALS[side === -1 ? 0 : 1];
+      const hp = this.day < 3 ? 2 : Math.min(5, 3 + Math.floor((this.day - 3) / 4));
+      this.raiders.push({ side, x: portal.x, stride: 0, hp, attackAt: 0, struckAt: WATCH_NO_ACTION });
     }
     for (const raider of this.raiders) this.moveRaider(raider);
     if (this.signal <= 0) {
@@ -245,10 +246,11 @@ export class CreekWatch {
     const target = blocked ? post.wallX : WATCH_SIGNAL;
     const distance = Math.abs(raider.x - target);
     if (distance > 5) {
-      const speed = distance > 115 ? 2.45 + this.day * 0.12 : 1.12 + this.day * 0.13;
+      const speed = distance > 115 ? 1.72 : 0.96;
       raider.x += Math.sign(target - raider.x) * Math.min(distance - 5, speed);
       raider.stride++;
     } else if (this.tick >= raider.attackAt) {
+      raider.struckAt = this.tick;
       raider.attackAt = this.tick + (blocked ? 38 : 31);
       if (blocked) {
         post.health--;

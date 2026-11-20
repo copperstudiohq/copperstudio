@@ -1,6 +1,7 @@
 import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_SECOND, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, ERASE, CREATURES, SCENERY, BOSSES, TRI_PORTAL } from './simulation.js';
 import { QuarryRenderer, drawToolIcon } from './art.js';
 import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_PORTALS, WATCH_SIGNAL } from './watch.js';
+import { listWatchSlots, loadWatchSlot, saveWatchSlot, WATCH_SAVE_NAME_LIMIT } from './watch-saves.js';
 import { drawCreekWatch } from './watch-art.js';
 
 function sceneryHint(entity, label) {
@@ -103,9 +104,14 @@ const watchPortalState = document.querySelector('#watch-portal-state');
 const watchMoveButtons = document.querySelectorAll('[data-watch-move], [data-watch-destination]');
 const watchDestinations = { west: WATCH_PORTALS[0].x + 31, tower: WATCH_SIGNAL, east: WATCH_PORTALS[1].x - 31 };
 const watchMoveKeys = { a: -1, d: 1, arrowleft: -1, arrowright: 1 };
+const watchSavesDialog = document.querySelector('#watch-saves');
+const watchSaveForm = document.querySelector('#watch-save-form');
+const watchSaveName = document.querySelector('#watch-save-name');
+const watchSaveStatus = document.querySelector('#watch-save-status');
+const watchSlotList = document.querySelector('#watch-slot-list');
 const quarry = new Quarry();
 const renderer = new QuarryRenderer(world);
-const watch = new CreekWatch();
+let watch = new CreekWatch();
 const formatter = new Intl.NumberFormat();
 
 let paused = false;
@@ -277,7 +283,7 @@ function switchMode(mode) {
   headingTitle.firstChild.nodeValue = monitoring ? 'Creek Watch' : 'Mosswake Creek';
   modeDescription.textContent = monitoring ? 'Gather copper by day. Defend the lake tower by night.'
     : 'Dig for copper and build dams around Mosswake’s pond.';
-  resetButton.title = monitoring ? 'Start a new Creek Watch campaign' : 'Restore the starting quarry';
+  resetButton.title = monitoring ? 'Start a new Creek Watch run' : 'Restore the starting quarry';
   world.setAttribute('aria-label', monitoring ? 'Creek Watch playfield' : 'Editable quarry');
   world.setAttribute('aria-describedby', monitoring ? 'watch-controls' : 'world-hint');
   cursor = null;
@@ -328,8 +334,8 @@ function drawWatchMode() {
   watchRenderer.draw(watchQuarry, null, watch.camera, { hideHuts: true });
   drawCreekWatch(watchRenderer.ctx, watch);
   const active = watch.status === 'running';
-  const finished = watch.status === 'won' || watch.status === 'lost';
-  setWatchText(liveLabel, paused ? 'PAUSED' : active ? 'LIVE' : finished ? (watch.status === 'won' ? 'HELD' : 'LOST') : 'READY');
+  const finished = watch.status === 'lost';
+  setWatchText(liveLabel, finished ? 'LOST' : paused ? 'PAUSED' : active ? 'LIVE' : 'READY');
   setWatchText(timer, `${watch.phase === 'day' ? 'DAY' : 'NIGHT'} ${watch.day} · ${watch.secondsLeft}s`);
   timer.dateTime = `PT${watch.secondsLeft}S`;
   setWatchText(watchArea, WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
@@ -359,7 +365,7 @@ function drawWatchMode() {
 }
 
 function useWatchStation() {
-  if (watch.status === 'lost' || watch.status === 'won') {
+  if (watch.status === 'lost') {
     watch.reset();
     walkKeys.clear();
     walkTarget = null;
@@ -392,18 +398,93 @@ function watchMotion() {
   return Math.sign(distance);
 }
 
-for (const button of modeButtons) button.addEventListener('click', () => switchMode(button.dataset.gameMode));
-for (const button of menuButtons) {
+function playMode(mode) {
+  setMenuVisibility(false);
+  switchMode(mode);
+  if (mode === 'watch' && watch.start()) setPaused(false);
+  world.focus({ preventScroll: true });
+}
+
+function reportWatchSaveError(error) {
+  console.warn('Creek Watch save operation failed', error);
+  watchSaveStatus.textContent = error.name === 'QuotaExceededError' ? 'This browser has no room for another save.'
+    : error.name === 'SecurityError' ? 'This browser blocked local saves for this file.'
+      : error.message || 'The save operation failed.';
+}
+
+function watchSlotButton(label, name, onClick) {
+  const button = document.createElement('button');
+  button.className = 'button';
+  button.type = 'button';
+  button.textContent = label;
+  button.setAttribute('aria-label', `${label} ${name}`);
   button.addEventListener('click', () => {
-    setMenuVisibility(false);
-    switchMode(button.dataset.menuPlay);
-    if (gameMode === 'watch' && watch.status === 'ready') {
-      watch.start();
-      setPaused(false);
+    try {
+      onClick();
+    } catch (error) {
+      reportWatchSaveError(error);
     }
-    world.focus({ preventScroll: true });
+  });
+  return button;
+}
+
+function renderWatchSlots(message = '') {
+  const { slots, unreadable } = listWatchSlots(window.localStorage);
+  watchSlotList.replaceChildren();
+  for (const slot of slots) {
+    const row = document.createElement('li');
+    const details = document.createElement('div');
+    const title = document.createElement('strong');
+    const summary = document.createElement('small');
+    details.className = 'watch-slot-details';
+    title.textContent = slot.name;
+    const phase = slot.phase === 'day' ? 'Day' : 'Night';
+    summary.textContent = `${phase} ${slot.day} · ${slot.coins} copper${slot.status === 'lost' ? ' · Tower fell' : ''}`;
+    details.append(title, summary);
+    row.append(details, watchSlotButton('Load', slot.name, () => {
+      if (watch.status === 'running' && watch.tick > 0 && !window.confirm(`Load “${slot.name}” over the current run?`)) return;
+      watch = loadWatchSlot(window.localStorage, slot.id);
+      watchSavesDialog.close();
+      playMode('watch');
+      setPaused(false);
+    }), watchSlotButton('Update', slot.name, () => {
+      if (!window.confirm(`Replace “${slot.name}” with the current run?`)) return;
+      saveWatchSlot(window.localStorage, watch, slot.name, slot.id);
+      renderWatchSlots(`Updated “${slot.name}”.`);
+    }));
+    watchSlotList.append(row);
+  }
+  watchSaveStatus.textContent = message || (unreadable ? 'Some save slots could not be read.' : slots.length ? '' : 'No saves yet.');
+}
+
+watchSaveName.maxLength = WATCH_SAVE_NAME_LIMIT;
+watchSaveForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  try {
+    const name = watchSaveName.value.trim();
+    saveWatchSlot(window.localStorage, watch, name);
+    watchSaveForm.reset();
+    renderWatchSlots(`Saved “${name}”.`);
+  } catch (error) {
+    reportWatchSaveError(error);
+  }
+});
+for (const button of document.querySelectorAll('[data-open-watch-saves]')) {
+  button.addEventListener('click', () => {
+    walkKeys.clear();
+    walkTarget = null;
+    watchSavesDialog.showModal();
+    try {
+      renderWatchSlots();
+    } catch (error) {
+      watchSlotList.replaceChildren();
+      reportWatchSaveError(error);
+    }
   });
 }
+
+for (const button of modeButtons) button.addEventListener('click', () => switchMode(button.dataset.gameMode));
+for (const button of menuButtons) button.addEventListener('click', () => playMode(button.dataset.menuPlay));
 document.querySelector('#menu-return').addEventListener('click', () => {
   setMenuVisibility(true);
   menuButtons.find((button) => button.dataset.menuPlay === gameMode).focus({ preventScroll: true });
@@ -582,7 +663,7 @@ world.addEventListener('wheel', (event) => {
 const directions = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
 document.addEventListener('keydown', (event) => {
-  if (!menu.hidden || event.altKey || event.ctrlKey || event.metaKey || guide.open || clearDialog.open) return;
+  if (!menu.hidden || event.altKey || event.ctrlKey || event.metaKey || guide.open || clearDialog.open || watchSavesDialog.open) return;
   if (event.target instanceof HTMLInputElement) return;
   const key = event.key.toLowerCase();
   if (key === ' ' && !(event.target instanceof HTMLButtonElement)) {
@@ -648,7 +729,7 @@ function loop(timestamp) {
     camera = Math.abs(difference) < 0.55 ? cameraTarget : camera + difference * (1 - Math.exp(-elapsed / 60));
     dirty = true;
   }
-  if (!paused && !guide.open && !clearDialog.open && (gameMode === 'sandbox' || watch.status === 'running')) {
+  if (!paused && !guide.open && !clearDialog.open && !watchSavesDialog.open && (gameMode === 'sandbox' || watch.status === 'running')) {
     lag += elapsed;
     while (lag >= INTERVAL) {
       if (gameMode === 'watch') watch.step(watchMotion());
