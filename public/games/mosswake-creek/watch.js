@@ -23,6 +23,9 @@ export const WATCH_HEALTH = 10;
 export const WATCH_DAY = DAY_TICKS;
 export const WATCH_NIGHT = NIGHT_TICKS;
 export const WATCH_AIM_SEED = 0x43524545;
+export const WATCH_ARROW_GRAVITY = 0.22;
+export const WATCH_ARROW_LIFETIME = 180;
+export const WATCH_ARROW_STICK_TICKS = 18;
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -136,6 +139,21 @@ function walkWatchGuard(guard, from, target, speed) {
   guard.direction = Math.sign(distance);
   guard.x = Math.abs(distance) <= speed ? target : from + guard.direction * speed;
   guard.stride = (guard.stride ?? 0) + 1;
+}
+
+function arrowBoxEntry(x, y, nextX, nextY, left, top, right, bottom) {
+  let enter = 0, leave = 1;
+  for (const [start, change, min, max] of [[x, nextX - x, left, right], [y, nextY - y, top, bottom]]) {
+    if (Math.abs(change) < 1e-9) {
+      if (start < min || start > max) return null;
+      continue;
+    }
+    const first = (min - start) / change, last = (max - start) / change;
+    enter = Math.max(enter, Math.min(first, last));
+    leave = Math.min(leave, Math.max(first, last));
+    if (enter > leave) return null;
+  }
+  return enter;
 }
 
 export class CreekWatch {
@@ -521,6 +539,8 @@ export class CreekWatch {
     });
     this.shots = this.shots.filter(({ end }) => end > this.tick);
     if (this.phase === 'day') {
+      this.stepArrows();
+      this.removeDefeatedOpus();
       if (this.phaseTick >= WATCH_DAY) this.recallingGuards = true;
       if (this.phaseTick === WATCH_DAY - 10 * TICKS_PER_SECOND) {
         this.message = 'Dusk in 10 seconds. The guards are securing their posts.';
@@ -549,6 +569,7 @@ export class CreekWatch {
       this.message = 'The raid extinguished the signal. Start a new watch to try again.';
       return;
     }
+    this.stepArrows();
     this.fireGuards();
     this.removeDefeatedOpus();
     if (this.phaseTick >= WATCH_NIGHT || (this.phaseTick > TICKS_PER_SECOND * 6
@@ -773,11 +794,7 @@ export class CreekWatch {
           if (pigeon.side !== post.side || (this.huntedPigeons & (1 << bird))) continue;
           const { x: to } = watchPigeonPose(pigeon, this.tick);
           if (Math.abs(to - from) > 42) continue;
-          if (this.shootWatchArrow(guard, from, to, 44, 'pigeon')) {
-            this.huntedPigeons |= 1 << bird;
-            if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
-            this.message = 'A guard hunted a pigeon. Guards will bring its copper to you.';
-          }
+          this.shootWatchArrow(guard, from, to, 44, 'pigeon', 0, pigeon);
           break;
         }
       });
@@ -813,7 +830,31 @@ export class CreekWatch {
     this.message = `A guard dropped ${amount} copper at your feet.`;
   }
 
-  shootWatchArrow(guard, from, to, cooldown, kind, altitude = 0) {
+  arrowTargetPose(target, to, altitude, flightTicks, kind) {
+    if (kind === 'pigeon') {
+      const x = target ? watchPigeonPose(target, this.tick + flightTicks).x : to;
+      return { x, altitude: 0, height: 5 };
+    }
+    if (!target) return { x: to, altitude, height: 12 };
+    const wall = watchRaidWall(target, this.posts, this.forwardWalls);
+    const destination = wall?.wallX ?? watchTowerTarget(this, target.side);
+    const sprayer = this.sprayers.includes(target);
+    if (this.flyers.includes(target) && target.mode !== 'crawl') {
+      const goal = this.nearestFlyerGuard(target.x)?.x ?? destination;
+      const x = target.x + Math.sign(goal - target.x) * Math.min(Math.abs(goal - target.x), 2.4 * flightTicks);
+      const predictedAltitude = target.mode === 'dive'
+        ? Math.max(0, altitude - 2 * flightTicks) : Math.min(WATCH_FLYER_ALTITUDE, altitude + 1.4 * flightTicks);
+      return { x, altitude: predictedAltitude, height: 10 };
+    }
+    const speed = sprayer ? 1.14 + 0.47 * Math.sin(this.tick / 8)
+      : 1.58 + 0.18 * Math.sin(this.tick / 16 + target.x / 36);
+    const reach = sprayer ? WATCH_SPRAYER_REACH : WATCH_OPUS_REACH;
+    const waiting = sprayer && target.spray ? Math.max(0, WATCH_SPRAY_FLIGHT - (this.tick - target.spray.at)) : 0;
+    const travel = Math.min(Math.max(0, Math.abs(destination - target.x) - reach), speed * Math.max(0, flightTicks - waiting));
+    return { x: target.x + Math.sign(destination - target.x) * travel, altitude, height: sprayer ? 32 : 12 };
+  }
+
+  shootWatchArrow(guard, from, to, cooldown, kind, altitude = 0, target = null) {
     guard.direction = Math.sign(to - from) || guard.direction;
     guard.shotAt = this.tick;
     guard.fireAt = this.tick + cooldown;
@@ -829,17 +870,88 @@ export class CreekWatch {
     const accuracy = (veteran ? 0.98 : 0.9) - distance * (veteran ? 0.1 : 0.2)
       - Math.min(1, altitude / WATCH_FLYER_ALTITUDE) * 0.04;
     const hit = roll < accuracy;
-    let endpoint = to;
+    const flightTicks = Math.max(22, Math.min(40, Math.ceil(Math.hypot(to - from, altitude) / 3) + 8));
+    const aim = this.arrowTargetPose(target, to, altitude, flightTicks, kind);
+    let endpoint = aim.x;
     if (!hit) {
       const offset = 12 + Math.floor((roll - accuracy) / (1 - accuracy) * 14);
       const sign = this.aimSeed & 1 ? 1 : -1;
-      const candidates = [to + sign * offset, to - sign * offset]
+      const candidates = [aim.x + sign * offset, aim.x - sign * offset]
         .filter((x) => x >= WATCH_BOUNDS.left && x <= WATCH_BOUNDS.right);
       endpoint = candidates.find((x) => (x - from) * guard.direction >= 0) ?? candidates[0];
     }
-    this.shots.push({ from, to: endpoint, end: this.tick + 9, kind,
+    endpoint = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, endpoint));
+    const x = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, from + guard.direction * 4));
+    const y = watchGround(from) - 16;
+    const targetY = watchGround(endpoint) - aim.altitude - aim.height;
+    this.shots.push({ from, to: endpoint, end: this.tick + WATCH_ARROW_LIFETIME, kind,
+      ballistic: true, x, y, vx: (endpoint - x) / flightTicks,
+      vy: (targetY - y) / flightTicks - WATCH_ARROW_GRAVITY * flightTicks / 2,
+      damage: WATCH_GUARD_STATS[guard.rank].damage, stuck: false,
       ...(altitude > 0 ? { altitude } : {}), ...(!hit ? { missed: true } : {}) });
     return hit;
+  }
+
+  stepArrows() {
+    for (const shot of this.shots) {
+      // Old save arrows already dealt damage when fired. Keep them visual-only.
+      if (!shot.ballistic || shot.stuck || shot.end <= this.tick) continue;
+      const nextX = shot.x + shot.vx;
+      const nextVy = Math.min(64, shot.vy + WATCH_ARROW_GRAVITY);
+      const nextY = shot.y + (shot.vy + nextVy) / 2;
+      let collision;
+      const consider = (t, kind, target) => {
+        if (t !== null && t >= 0 && t <= 1 && (!collision || t < collision.t)) collision = { t, kind, target };
+      };
+      for (const enemy of this.enemies) {
+        if (enemy.hp <= 0) continue;
+        const sprayer = this.sprayers.includes(enemy);
+        const flyer = this.flyers.includes(enemy);
+        const ground = watchGround(enemy.x) - (enemy.altitude ?? 0);
+        const radius = sprayer ? 24 : flyer ? 9 : enemy.kind === 'infected' ? 10 : 7;
+        const height = sprayer ? 62 : flyer ? 17 : 21;
+        consider(arrowBoxEntry(shot.x, shot.y, nextX, nextY,
+          enemy.x - radius, ground - height, enemy.x + radius, ground - 2), 'enemy', enemy);
+      }
+      if (this.phase === 'day') {
+        for (const [bird, pigeon] of WATCH_PIGEONS.entries()) {
+          if (this.huntedPigeons & (1 << bird)) continue;
+          const { x } = watchPigeonPose(pigeon, this.tick), ground = watchGround(x);
+          consider(arrowBoxEntry(shot.x, shot.y, nextX, nextY, x - 5, ground - 9, x + 5, ground - 1), 'pigeon', { bird, x });
+        }
+      }
+      for (const [value, next, min, max] of [[shot.x, nextX, WATCH_BOUNDS.left, WATCH_BOUNDS.right], [shot.y, nextY, -256, 256]]) {
+        if (next < min || next > max) consider(((next < min ? min : max) - value) / (next - value), 'edge');
+      }
+      // Half-pixel terrain sampling prevents a fast arrow skipping a narrow crest.
+      const steps = Math.max(1, Math.ceil(Math.max(Math.abs(nextX - shot.x), Math.abs(nextY - shot.y)) * 2));
+      for (let step = 0; step <= steps; step++) {
+        const t = step / steps;
+        const x = shot.x + (nextX - shot.x) * t, y = shot.y + (nextY - shot.y) * t;
+        if (x < WATCH_BOUNDS.left || x > WATCH_BOUNDS.right) break;
+        if (y >= watchGround(x)) { consider(t, 'ground'); break; }
+      }
+      const progress = collision?.t ?? 1;
+      shot.x += (nextX - shot.x) * progress;
+      shot.y += (nextY - shot.y) * progress;
+      shot.vy = nextVy;
+      if (!collision) continue;
+      if (collision.kind === 'ground') {
+        shot.y = watchGround(shot.x);
+        shot.stuck = true;
+        shot.end = this.tick + WATCH_ARROW_STICK_TICKS;
+      } else {
+        shot.end = this.tick;
+        if (collision.kind === 'enemy') this.damageEnemy(collision.target, shot.damage);
+        if (collision.kind === 'pigeon') {
+          const { bird, x } = collision.target;
+          this.huntedPigeons |= 1 << bird;
+          if (this.loot.length < 60) this.loot.push({ x, amount: 1 });
+          this.message = 'A guard hunted a pigeon. Guards will bring its copper to you.';
+        }
+      }
+    }
+    this.shots = this.shots.filter(({ end }) => end > this.tick);
   }
 
   damageEnemy(enemy, damage) {
@@ -870,7 +982,7 @@ export class CreekWatch {
       post.guards.forEach((guard, index) => {
         if (guard.fireAt > this.tick) return;
         const from = this.guardPosition(post, index);
-        const { range, damage, cooldown } = WATCH_GUARD_STATS[guard.rank];
+        const { range, cooldown } = WATCH_GUARD_STATS[guard.rank];
         let target;
         let closest = Infinity;
         for (const raider of enemies) {
@@ -882,9 +994,7 @@ export class CreekWatch {
           closest = distance;
         }
         if (!target) return;
-        if (this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0)) {
-          this.damageEnemy(target, damage);
-        }
+        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0, target);
       });
     }
   }

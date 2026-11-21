@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_AIM_SEED, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, hasWatchSprayer } from './watch.js';
+import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -49,6 +49,26 @@ const validWatchWall = ({ tier, health }) => [0, 1, 2].includes(tier)
 const watchSprayers = (state) => state.sprayers === undefined
   ? state.sprayer == null ? [] : [state.sprayer] : state.sprayers;
 const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && value <= WATCH_FLYER_ALTITUDE;
+const LEGACY_SHOT_FIELDS = new Set(['from', 'to', 'end', 'kind', 'altitude', 'missed']);
+const BALLISTIC_SHOT_FIELDS = new Set([...LEGACY_SHOT_FIELDS, 'ballistic', 'x', 'y', 'vx', 'vy', 'damage', 'stuck']);
+
+function validWatchShot(shot, tick) {
+  const { from, to, end, kind, altitude, missed, ballistic, x, y, vx, vy, damage, stuck } = shot;
+  if (!validWatchX(from) || !validWatchX(to) || !validWatchCount(end)
+      || ![undefined, 'pigeon', 'raid'].includes(kind)
+      || !(altitude === undefined || kind === 'raid' && validFlyerAltitude(altitude))
+      || !optionalWatchField(missed, validWatchFlag)) return false;
+  // Old arrows already dealt their damage before the slot was written. They
+  // retain their brief visual lifetime without becoming new physical attacks.
+  if (ballistic === undefined) return end <= tick + 9
+    && Object.keys(shot).every((key) => LEGACY_SHOT_FIELDS.has(key));
+  return ballistic === true && (kind === 'raid' || kind === 'pigeon')
+    && Object.keys(shot).every((key) => BALLISTIC_SHOT_FIELDS.has(key))
+    && validWatchX(x) && Number.isFinite(y) && y >= -256 && y <= 256
+    && Number.isFinite(vx) && Math.abs(vx) <= 16 && Number.isFinite(vy) && Math.abs(vy) <= 64
+    && [1, 2].includes(damage) && validWatchFlag(stuck)
+    && end > tick && end <= tick + (stuck ? WATCH_ARROW_STICK_TICKS : WATCH_ARROW_LIFETIME);
+}
 
 function validWatchState(state) {
   if (!state) return false;
@@ -105,10 +125,7 @@ function validWatchState(state) {
       && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt)
       && (kind === undefined ? rank === undefined : kind === 'infected' && [0, 1].includes(rank)
         && phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && struckAt <= tick))
-    && validWatchList(shots, Infinity, ({ from, to, end, kind, altitude, missed }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
-      && (kind === undefined || kind === 'pigeon' || kind === 'raid')
-      && (altitude === undefined || kind === 'raid' && validFlyerAltitude(altitude))
-      && optionalWatchField(missed, validWatchFlag))
+    && validWatchList(shots, Infinity, (shot) => validWatchShot(shot, tick))
     && validWatchList(loot, Infinity, ({ x, amount, forPlayer = false }) =>
       validWatchX(x) && validWatchCount(amount) && amount > 0 && validWatchFlag(forPlayer))
     && loot.filter((piece) => !piece.forPlayer).length <= 128

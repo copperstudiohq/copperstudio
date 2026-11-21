@@ -1102,6 +1102,40 @@ function drawTowerDiningRoom(ctx, watch) {
   ctx.restore();
 }
 
+function drawWatchArrow(ctx, shot, watch) {
+  if (shot.end <= watch.tick) return;
+  let { x, y, vx, vy } = shot;
+  if (!shot.ballistic) {
+    // Older saves contain a short-lived trace, not a physical projectile. Show
+    // only its moving arrowhead while that legacy visual finishes expiring.
+    const startY = watchGround(shot.from) - 12;
+    const targetY = watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16) - (shot.altitude ?? 0);
+    const progress = Math.max(0, Math.min(1, 1 - (shot.end - watch.tick) / 9));
+    vx = shot.to - shot.from;
+    vy = targetY - startY;
+    x = shot.from + vx * progress;
+    y = startY + vy * progress;
+  }
+  if (![x, y, vx, vy].every(Number.isFinite) || x < watch.camera - 12
+      || x >= watch.camera + VIEW_WIDTH + 12 || y < -12 || y > HEIGHT + 12) return;
+  const speed = Math.hypot(vx, vy);
+  const dx = speed > 0 ? vx / speed : shot.to >= shot.from ? 1 : -1;
+  const dy = speed > 0 ? vy / speed : 0;
+  const featherX = x - dx * 6, featherY = y - dy * 6;
+  const shaft = shot.stuck ? '#b88b58' : '#d3a56b';
+  // The model's x/y is the tip. A short wooden shaft follows its current
+  // velocity, so rising, falling and grounded arrows share the same anatomy.
+  for (let step = 1; step <= 7; step++) {
+    const shaftX = x - dx * step, shaftY = y - dy * step;
+    watchRect(ctx, '#785637', shaftX - dy, shaftY + dx, 1, 1);
+    watchRect(ctx, shaft, shaftX, shaftY, 1, 1);
+  }
+  watchRect(ctx, '#d8ddd1', featherX - dy, featherY + dx, 1, 1);
+  watchRect(ctx, '#a1b5b5', featherX + dy, featherY - dx, 1, 1);
+  watchRect(ctx, '#d5cdb8', x - dx - dy, y - dy + dx, 1, 1);
+  watchRect(ctx, '#f8edd0', x, y, 1, 1);
+}
+
 export function drawCreekWatch(ctx, watch) {
   if (watch.insideTower) {
     drawTowerDiningRoom(ctx, watch);
@@ -1161,14 +1195,7 @@ export function drawCreekWatch(ctx, watch) {
     else drawWatchOpus(ctx, raider, watch);
   }
   for (const flyer of watch.flyers ?? []) if (flyer.hp > 0 && onScreen(flyer.x, 48)) drawTriFlyer(ctx, flyer, watch.tick);
-  ctx.lineWidth = 1.2;
-  for (const shot of watch.shots) {
-    ctx.strokeStyle = shot.missed ? '#b8a88891' : '#f7d99dba';
-    ctx.beginPath();
-    ctx.moveTo(shot.from, watchGround(shot.from) - 12);
-    ctx.lineTo(shot.to, watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16) - (shot.altitude ?? 0));
-    ctx.stroke();
-  }
+  for (const shot of watch.shots) drawWatchArrow(ctx, shot, watch);
   const { x, direction, step } = watch.player;
   drawWatchPlayer(ctx, x, watchGround(x), direction, (step >> 2) % 2, watch.weapon, watch.tick - watch.swingAt);
   ctx.restore();
