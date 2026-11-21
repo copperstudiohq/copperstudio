@@ -26,6 +26,9 @@ export const WATCH_AIM_SEED = 0x43524545;
 export const WATCH_ARROW_GRAVITY = 0.22;
 export const WATCH_ARROW_LIFETIME = 180;
 export const WATCH_ARROW_STICK_TICKS = 18;
+export const WATCH_WALL_TOWER_COST = 200;
+export const WATCH_WALL_TOWER_HEALTH = 30;
+export const WATCH_WALL_TOWER_PLATFORM = 32;
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -293,12 +296,14 @@ export class CreekWatch {
     const wall = this.posts.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE)
       ?? this.forwardWalls.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE);
     if (wall && (!camp || Math.abs(player - wall.wallX) <= Math.abs(player - camp.x))) {
-      if (!wall.tier || (!wall.forward && !wall.health)) {
+      if (!wall.tier || (!wall.forward && !wall.health && wall.tier < 3)) {
         return { kind: 'build', post: wall, label: `Build ${wall.name.toLowerCase()} palisade`, cost: wall.forward ? 5 : 4 };
       }
       const repairCost = this.gear.includes('repair-kit') ? 1 : 2;
-      if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: repairCost };
+      if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall,
+        label: wall.tier === 3 ? 'Repair wall tower' : 'Repair palisade', cost: repairCost };
       if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
+      if (wall.tier === 2) return { kind: 'wall-tower', post: wall, label: 'Build wall tower', cost: WATCH_WALL_TOWER_COST };
     }
     if (camp) {
       if (this.campShelterProgress(camp) > 0) {
@@ -335,7 +340,7 @@ export class CreekWatch {
   }
 
   maxWall(post) {
-    return post.tier === 2 ? 11 : 6;
+    return post.tier === 3 ? WATCH_WALL_TOWER_HEALTH : post.tier === 2 ? 11 : 6;
   }
 
   buyMarketItem(id) {
@@ -438,12 +443,17 @@ export class CreekWatch {
         break;
       case 'repair':
         post.health = this.maxWall(post);
-        this.message = `${post.name} palisade repaired.`;
+        this.message = `${post.name} ${post.tier === 3 ? 'wall tower' : 'palisade'} repaired.`;
         break;
       case 'reinforce':
         post.tier = 2;
         post.health = this.maxWall(post);
         this.message = `${post.name} palisade reinforced.`;
+        break;
+      case 'wall-tower':
+        post.tier = 3;
+        post.health = this.maxWall(post);
+        this.message = `${post.name} wall tower built. Two posted guards can shoot from its raised platform.`;
         break;
       case 'build':
         post.tier = 1;
@@ -616,7 +626,7 @@ export class CreekWatch {
         const distance = Math.abs(position - x);
         if (distance >= nearest) return;
         nearest = distance;
-        target = { post, guard, x: position };
+        target = { post, guard, x: position, altitude: this.guardElevation(post, index) };
       });
     }
     return target;
@@ -652,8 +662,9 @@ export class CreekWatch {
       return;
     }
 
-    flyer.altitude = Math.max(0, flyer.altitude - 2);
-    const touching = soldier && Math.abs(soldier.x - flyer.x) <= 6 && flyer.altitude <= 4;
+    const targetAltitude = soldier?.altitude ?? 0;
+    flyer.altitude += Math.sign(targetAltitude - flyer.altitude) * Math.min(2, Math.abs(targetAltitude - flyer.altitude));
+    const touching = soldier && Math.abs(soldier.x - flyer.x) <= 6 && Math.abs(flyer.altitude - targetAltitude) <= 4;
     if (touching) this.infectGuard(soldier);
     if (touching || flyer.altitude === 0) {
       flyer.mode = 'crawl';
@@ -721,20 +732,32 @@ export class CreekWatch {
   strikeDefense(post, damage) {
     if (post) {
       post.health = Math.max(0, post.health - damage);
-      if (!post.health) this.message = `${post.name} palisade fell. The raid is heading for the signal.`;
+      if (!post.health) this.message = `${post.name} ${post.tier === 3 ? 'wall tower' : 'palisade'} fell. The raid is heading for the signal.`;
     } else {
       this.signal = Math.max(0, this.signal - damage);
     }
   }
 
-  guardX(post, index) {
+  guardWall(post) {
     const forward = this.forwardWalls[post.side === -1 ? 0 : 1];
-    const wallX = forward.health ? forward.wallX : post.wallX;
-    return wallX - post.side * (17 + (index % WATCH_GUARD_POSITIONS) * 8);
+    return forward.health ? forward : post;
+  }
+
+  guardX(post, index) {
+    const wall = this.guardWall(post);
+    if (wall.tier === 3 && wall.health > 0 && index < 2) return wall.wallX - post.side * (index ? 8 : -4);
+    return wall.wallX - post.side * (17 + (index % WATCH_GUARD_POSITIONS) * 8);
   }
 
   guardPosition(post, index) {
     return post.guards[index].x ?? this.guardX(post, index);
+  }
+
+  guardElevation(post, index) {
+    const wall = this.guardWall(post);
+    return index < 2 && wall.tier === 3 && wall.health > 0
+      && this.guardPosition(post, index) === this.guardX(post, index)
+      ? WATCH_WALL_TOWER_PLATFORM + watchGround(this.guardX(post, index)) - watchGround(wall.wallX) : 0;
   }
 
   patrolGuards() {
@@ -840,10 +863,13 @@ export class CreekWatch {
     const destination = wall?.wallX ?? watchTowerTarget(this, target.side);
     const sprayer = this.sprayers.includes(target);
     if (this.flyers.includes(target) && target.mode !== 'crawl') {
-      const goal = this.nearestFlyerGuard(target.x)?.x ?? destination;
+      const soldier = this.nearestFlyerGuard(target.x);
+      const goal = soldier?.x ?? destination;
       const x = target.x + Math.sign(goal - target.x) * Math.min(Math.abs(goal - target.x), 2.4 * flightTicks);
+      const landingAltitude = soldier?.altitude ?? 0;
       const predictedAltitude = target.mode === 'dive'
-        ? Math.max(0, altitude - 2 * flightTicks) : Math.min(WATCH_FLYER_ALTITUDE, altitude + 1.4 * flightTicks);
+        ? altitude + Math.sign(landingAltitude - altitude) * Math.min(Math.abs(landingAltitude - altitude), 2 * flightTicks)
+        : Math.min(WATCH_FLYER_ALTITUDE, altitude + 1.4 * flightTicks);
       return { x, altitude: predictedAltitude, height: 10 };
     }
     const speed = sprayer ? 1.14 + 0.47 * Math.sin(this.tick / 8)
@@ -854,7 +880,7 @@ export class CreekWatch {
     return { x: target.x + Math.sign(destination - target.x) * travel, altitude, height: sprayer ? 32 : 12 };
   }
 
-  shootWatchArrow(guard, from, to, cooldown, kind, altitude = 0, target = null) {
+  shootWatchArrow(guard, from, to, cooldown, kind, altitude = 0, target = null, elevation = 0) {
     guard.direction = Math.sign(to - from) || guard.direction;
     guard.shotAt = this.tick;
     guard.fireAt = this.tick + cooldown;
@@ -866,11 +892,11 @@ export class CreekWatch {
     const roll = ((value ^ (value >>> 14)) >>> 0) / 4294967296;
     const veteran = guard.rank === 1;
     const range = kind === 'pigeon' ? 42 : WATCH_GUARD_STATS[guard.rank].range;
-    const distance = Math.min(1, Math.hypot(to - from, altitude) / range);
+    const distance = Math.min(1, Math.hypot(to - from, altitude - elevation) / range);
     const accuracy = (veteran ? 0.98 : 0.9) - distance * (veteran ? 0.1 : 0.2)
       - Math.min(1, altitude / WATCH_FLYER_ALTITUDE) * 0.04;
     const hit = roll < accuracy;
-    const flightTicks = Math.max(22, Math.min(40, Math.ceil(Math.hypot(to - from, altitude) / 3) + 8));
+    const flightTicks = Math.max(22, Math.min(40, Math.ceil(Math.hypot(to - from, altitude - elevation) / 3) + 8));
     const aim = this.arrowTargetPose(target, to, altitude, flightTicks, kind);
     let endpoint = aim.x;
     if (!hit) {
@@ -882,7 +908,7 @@ export class CreekWatch {
     }
     endpoint = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, endpoint));
     const x = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, from + guard.direction * 4));
-    const y = watchGround(from) - 16;
+    const y = watchGround(from) - elevation - 16;
     const targetY = watchGround(endpoint) - aim.altitude - aim.height;
     this.shots.push({ from, to: endpoint, end: this.tick + WATCH_ARROW_LIFETIME, kind,
       ballistic: true, x, y, vx: (endpoint - x) / flightTicks,
@@ -982,19 +1008,20 @@ export class CreekWatch {
       post.guards.forEach((guard, index) => {
         if (guard.fireAt > this.tick) return;
         const from = this.guardPosition(post, index);
+        const elevation = this.guardElevation(post, index);
         const { range, cooldown } = WATCH_GUARD_STATS[guard.rank];
         let target;
         let closest = Infinity;
         for (const raider of enemies) {
           if (raider.hp <= 0 || (raider.side !== post.side && !this.flyers.includes(raider))
-              || Math.hypot(raider.x - from, raider.altitude ?? 0) > range) continue;
+              || Math.hypot(raider.x - from, (raider.altitude ?? 0) - elevation) > range) continue;
           const distance = Math.abs(raider.x - WATCH_SIGNAL);
           if (distance >= closest) continue;
           target = raider;
           closest = distance;
         }
         if (!target) return;
-        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0, target);
+        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0, target, elevation);
       });
     }
   }

@@ -1,6 +1,6 @@
 import { HEIGHT, POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
 import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow, sceneOval } from './art.js';
-import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_FLYER_HEALTH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_VENDORS, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
+import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_FLYER_HEALTH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_VENDORS, WATCH_WALL_TOWER_HEALTH, WATCH_WALL_TOWER_PLATFORM, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
 import { drawVendorPortraitImage } from './vendor-portraits.js';
 
 function watchRect(ctx, color, x, y, width, height) {
@@ -194,16 +194,84 @@ function drawUpgradedWatchSignal(ctx, watch) {
   }
 }
 
+function drawWallTower(ctx, post, x, y) {
+  if (!post.health) {
+    watchRect(ctx, '#43383b', x - 18, y - 3, 37, 3);
+    for (const [left, top, width] of [[-16, -7, 9], [-4, -6, 11], [10, -8, 7]]) {
+      watchRect(ctx, '#666664', x + left, y + top, width, -top - 1);
+      watchRect(ctx, '#a4a18a', x + left + 1, y + top, width - 2, 1);
+    }
+    watchRect(ctx, '#6f4e40', x - 12, y - 11, 4, 9);
+    watchRect(ctx, '#bb8258', x - 11, y - 11, 1, 7);
+    watchRect(ctx, '#a46e4d', x - 8, y - 6, 20, 2);
+    watchRect(ctx, '#ddaa73', x + 7, y - 6, 3, 1);
+    return;
+  }
+
+  const deck = y - WATCH_WALL_TOWER_PLATFORM;
+  // A broad stone footing supports the timber fighting platform. The open
+  // center leaves room for two archers, with copper-capped merlons at the ends.
+  watchRect(ctx, '#322c33', x - 18, y - 3, 37, 4);
+  watchRect(ctx, '#414447', x - 16, y - 21, 33, 21);
+  for (let row = 0; row < 4; row++) {
+    const top = y - 20 + row * 5;
+    watchRect(ctx, row % 2 ? '#777970' : '#686f6a', x - 15, top, 31, 4);
+    watchRect(ctx, '#9a9b82', x - 14, top, 29, 1);
+    for (let seam = -11 + row % 2 * 5; seam < 15; seam += 10) {
+      watchRect(ctx, '#464d4c', x + seam, top, 1, 4);
+    }
+  }
+  watchRect(ctx, '#303133', x + 11, y - 19, 4, 18);
+  watchRect(ctx, '#29272d', x - 5, y - 17, 11, 17);
+  watchRect(ctx, '#5d473b', x - 4, y - 16, 9, 16);
+  watchRect(ctx, '#866245', x - 3, y - 15, 2, 14);
+  watchRect(ctx, '#463730', x + 1, y - 15, 1, 15);
+  watchRect(ctx, '#c78c58', x + 2, y - 9, 2, 2);
+  watchRect(ctx, '#b2ad8c', x - 6, y - 19, 13, 2);
+
+  watchRect(ctx, '#443137', x - 13, deck + 3, 27, 9);
+  for (const left of [-14, 11]) {
+    watchRect(ctx, '#493239', x + left, deck + 2, 4, 25);
+    watchRect(ctx, '#a5724d', x + left + 1, deck + 3, 2, 22);
+    watchRect(ctx, '#d6a16b', x + left + 1, deck + 4, 1, 10);
+    for (const top of [deck + 6, deck + 20]) {
+      watchRect(ctx, '#b0764b', x + left, top, 4, 2);
+      watchRect(ctx, '#e8b778', x + left + 1, top, 1, 1);
+    }
+  }
+  for (let brace = 0; brace < 10; brace++) {
+    watchRect(ctx, '#92704e', x - 12 + brace, deck + 5 + brace, 2, 2);
+    watchRect(ctx, '#6e5142', x + 11 - brace, deck + 5 + brace, 2, 2);
+  }
+  watchRect(ctx, '#3e3033', x - 17, deck, 35, 5);
+  watchRect(ctx, '#ce9b63', x - 16, deck, 33, 1);
+  watchRect(ctx, '#956340', x - 16, deck + 1, 33, 2);
+  watchRect(ctx, '#5b4540', x - 15, deck + 3, 31, 1);
+  for (const left of [-17, 11]) {
+    watchRect(ctx, '#473a3c', x + left, deck - 9, 7, 10);
+    watchRect(ctx, '#858b78', x + left + 1, deck - 8, 5, 8);
+    watchRect(ctx, '#c3c2a1', x + left + 1, deck - 8, 1, 7);
+    watchRect(ctx, '#b57950', x + left, deck - 10, 7, 2);
+    watchRect(ctx, '#e8b67b', x + left + 1, deck - 10, 5, 1);
+  }
+  const strength = Math.max(0, Math.min(1, post.health / WATCH_WALL_TOWER_HEALTH));
+  watchRect(ctx, '#221e2b', x - 15, deck - 30, 30, 2);
+  watchRect(ctx, '#86bfa6', x - 15, deck - 30, Math.ceil(30 * strength), 2);
+}
+
 function drawWatchPost(ctx, post) {
   const x = post.wallX;
   const y = watchGround(x);
   if (post.forward) {
-    watchRect(ctx, '#785d4d', x + 12, y - 26, 2, 26);
-    watchRect(ctx, '#bf8a5d', x + 12, y - 27, 10, 2);
-    watchRect(ctx, '#6d8f82', x + 14, y - 25, 8, 7);
-    watchRect(ctx, '#abd0a7', x + 15, y - 24, 5, 1);
-    watchRect(ctx, '#517666', x + 15, y - 18, 4, 2);
+    const flagX = x + (post.tier === 3 ? 22 : 12);
+    const flagY = y - (post.tier === 3 ? 40 : 26);
+    watchRect(ctx, '#785d4d', flagX, flagY, 2, y - flagY);
+    watchRect(ctx, '#bf8a5d', flagX, flagY - 1, 10, 2);
+    watchRect(ctx, '#6d8f82', flagX + 2, flagY + 1, 8, 7);
+    watchRect(ctx, '#abd0a7', flagX + 3, flagY + 2, 5, 1);
+    watchRect(ctx, '#517666', flagX + 3, flagY + 8, 4, 2);
   }
+  if (post.tier === 3) return drawWallTower(ctx, post, x, y);
   if (!post.health) {
     watchRect(ctx, '#543d3a', x - 7, y - 2, 15, 2);
     watchRect(ctx, '#825b48', x - 4, y - 6, 3, 6);
@@ -1170,12 +1238,12 @@ export function drawCreekWatch(ctx, watch) {
       if (onScreen(pose.x, 11)) drawWatchPigeon(ctx, pose, watch.tick);
     }
   }
-  for (const wall of watch.forwardWalls) if (onScreen(wall.wallX, 24)) drawWatchPost(ctx, wall);
+  for (const wall of watch.forwardWalls) if (onScreen(wall.wallX, 34)) drawWatchPost(ctx, wall);
   for (const post of watch.posts) {
     drawWatchPost(ctx, post);
     for (let index = 0; index < post.guards.length; index++) {
       const x = watch.guardPosition(post, index);
-      if (onScreen(x, 12)) drawWatchGuard(ctx, x, watchGround(x), post.guards[index], watch.tick);
+      if (onScreen(x, 12)) drawWatchGuard(ctx, x, watchGround(x) - watch.guardElevation(post, index), post.guards[index], watch.tick);
     }
   }
   for (const coin of watch.loot) {

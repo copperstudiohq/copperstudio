@@ -472,6 +472,7 @@ dialog dd { margin: 2px 0 0; }
       <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
       <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Press E or use the action button at a camp to hire guards for 3 copper each, with no limit on the roster. Guards fill the two banks evenly. After hiring three guards, either keep recruiting or train a guard as a veteran for 4 copper. Recruits take shelter until nearby Tri Opus pass.</dd></div>
       <div><dt>Bridge market</dt><dd>Build both forward walls for 5 copper each to open the market east of the tower. Approach a stall and press E to shop. Buying a weapon equips it. Face a Tri and press F or use Swing to attack.</dd></div>
+      <div><dt>Wall towers · 200 copper</dt><dd>Build and reinforce a palisade, then repair it to full health. At that wall, press E or choose Build wall tower to upgrade it for 200 copper. Each of the four walls can become a tower with 30 health. Two existing guards use the elevated platform at their outermost standing defense; they still gather coins by day and return for the raid. Damaged or destroyed wall towers can be repaired without buying the upgrade again. Named saves keep the towers.</dd></div>
       <div><dt>Arcing arrows</dt><dd>Soldiers shoot arrows up into the air. Gravity curves their flight, and they deal damage only when they physically strike a creature. Moving targets can dodge them. Veterans aim more tightly than regular soldiers; long shots and flying targets are harder. Stray arrows fall and briefly stick in the ground. Pigeon hunting also needs a real hit, and named saves keep arrows already in flight.</dd></div>
       <div><dt>A room in the tower</dt><dd>During the day, stand beside the tower and choose Upgrade tower for 100 copper. You pay once. Then choose Enter tower to visit the dining room with its red tablecloth. Walk with A/D, the arrow keys, or tap the floor. Approach one of the four chairs and press E or Sit to take a seat. Press E or move to stand up. Use Leave tower room to return outside. The outside watch pauses while you are inside. Named saves keep the upgrade, room position and seated chair.</dd></div>
       <div><dt>Keep the light burning</dt><dd>At dusk, Tri Opus walk out of both portals and strike your defenses with pulses of light. Each dawn starts a new day until the tower falls.</dd></div>
@@ -2608,6 +2609,9 @@ const WATCH_AIM_SEED = 0x43524545;
 const WATCH_ARROW_GRAVITY = 0.22;
 const WATCH_ARROW_LIFETIME = 180;
 const WATCH_ARROW_STICK_TICKS = 18;
+const WATCH_WALL_TOWER_COST = 200;
+const WATCH_WALL_TOWER_HEALTH = 30;
+const WATCH_WALL_TOWER_PLATFORM = 32;
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -2875,12 +2879,14 @@ class CreekWatch {
     const wall = this.posts.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE)
       ?? this.forwardWalls.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE);
     if (wall && (!camp || Math.abs(player - wall.wallX) <= Math.abs(player - camp.x))) {
-      if (!wall.tier || (!wall.forward && !wall.health)) {
+      if (!wall.tier || (!wall.forward && !wall.health && wall.tier < 3)) {
         return { kind: 'build', post: wall, label: `Build ${wall.name.toLowerCase()} palisade`, cost: wall.forward ? 5 : 4 };
       }
       const repairCost = this.gear.includes('repair-kit') ? 1 : 2;
-      if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall, label: 'Repair palisade', cost: repairCost };
+      if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall,
+        label: wall.tier === 3 ? 'Repair wall tower' : 'Repair palisade', cost: repairCost };
       if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
+      if (wall.tier === 2) return { kind: 'wall-tower', post: wall, label: 'Build wall tower', cost: WATCH_WALL_TOWER_COST };
     }
     if (camp) {
       if (this.campShelterProgress(camp) > 0) {
@@ -2917,7 +2923,7 @@ class CreekWatch {
   }
 
   maxWall(post) {
-    return post.tier === 2 ? 11 : 6;
+    return post.tier === 3 ? WATCH_WALL_TOWER_HEALTH : post.tier === 2 ? 11 : 6;
   }
 
   buyMarketItem(id) {
@@ -3020,12 +3026,17 @@ class CreekWatch {
         break;
       case 'repair':
         post.health = this.maxWall(post);
-        this.message = `${post.name} palisade repaired.`;
+        this.message = `${post.name} ${post.tier === 3 ? 'wall tower' : 'palisade'} repaired.`;
         break;
       case 'reinforce':
         post.tier = 2;
         post.health = this.maxWall(post);
         this.message = `${post.name} palisade reinforced.`;
+        break;
+      case 'wall-tower':
+        post.tier = 3;
+        post.health = this.maxWall(post);
+        this.message = `${post.name} wall tower built. Two posted guards can shoot from its raised platform.`;
         break;
       case 'build':
         post.tier = 1;
@@ -3198,7 +3209,7 @@ class CreekWatch {
         const distance = Math.abs(position - x);
         if (distance >= nearest) return;
         nearest = distance;
-        target = { post, guard, x: position };
+        target = { post, guard, x: position, altitude: this.guardElevation(post, index) };
       });
     }
     return target;
@@ -3234,8 +3245,9 @@ class CreekWatch {
       return;
     }
 
-    flyer.altitude = Math.max(0, flyer.altitude - 2);
-    const touching = soldier && Math.abs(soldier.x - flyer.x) <= 6 && flyer.altitude <= 4;
+    const targetAltitude = soldier?.altitude ?? 0;
+    flyer.altitude += Math.sign(targetAltitude - flyer.altitude) * Math.min(2, Math.abs(targetAltitude - flyer.altitude));
+    const touching = soldier && Math.abs(soldier.x - flyer.x) <= 6 && Math.abs(flyer.altitude - targetAltitude) <= 4;
     if (touching) this.infectGuard(soldier);
     if (touching || flyer.altitude === 0) {
       flyer.mode = 'crawl';
@@ -3303,20 +3315,32 @@ class CreekWatch {
   strikeDefense(post, damage) {
     if (post) {
       post.health = Math.max(0, post.health - damage);
-      if (!post.health) this.message = `${post.name} palisade fell. The raid is heading for the signal.`;
+      if (!post.health) this.message = `${post.name} ${post.tier === 3 ? 'wall tower' : 'palisade'} fell. The raid is heading for the signal.`;
     } else {
       this.signal = Math.max(0, this.signal - damage);
     }
   }
 
-  guardX(post, index) {
+  guardWall(post) {
     const forward = this.forwardWalls[post.side === -1 ? 0 : 1];
-    const wallX = forward.health ? forward.wallX : post.wallX;
-    return wallX - post.side * (17 + (index % WATCH_GUARD_POSITIONS) * 8);
+    return forward.health ? forward : post;
+  }
+
+  guardX(post, index) {
+    const wall = this.guardWall(post);
+    if (wall.tier === 3 && wall.health > 0 && index < 2) return wall.wallX - post.side * (index ? 8 : -4);
+    return wall.wallX - post.side * (17 + (index % WATCH_GUARD_POSITIONS) * 8);
   }
 
   guardPosition(post, index) {
     return post.guards[index].x ?? this.guardX(post, index);
+  }
+
+  guardElevation(post, index) {
+    const wall = this.guardWall(post);
+    return index < 2 && wall.tier === 3 && wall.health > 0
+      && this.guardPosition(post, index) === this.guardX(post, index)
+      ? WATCH_WALL_TOWER_PLATFORM + watchGround(this.guardX(post, index)) - watchGround(wall.wallX) : 0;
   }
 
   patrolGuards() {
@@ -3422,10 +3446,13 @@ class CreekWatch {
     const destination = wall?.wallX ?? watchTowerTarget(this, target.side);
     const sprayer = this.sprayers.includes(target);
     if (this.flyers.includes(target) && target.mode !== 'crawl') {
-      const goal = this.nearestFlyerGuard(target.x)?.x ?? destination;
+      const soldier = this.nearestFlyerGuard(target.x);
+      const goal = soldier?.x ?? destination;
       const x = target.x + Math.sign(goal - target.x) * Math.min(Math.abs(goal - target.x), 2.4 * flightTicks);
+      const landingAltitude = soldier?.altitude ?? 0;
       const predictedAltitude = target.mode === 'dive'
-        ? Math.max(0, altitude - 2 * flightTicks) : Math.min(WATCH_FLYER_ALTITUDE, altitude + 1.4 * flightTicks);
+        ? altitude + Math.sign(landingAltitude - altitude) * Math.min(Math.abs(landingAltitude - altitude), 2 * flightTicks)
+        : Math.min(WATCH_FLYER_ALTITUDE, altitude + 1.4 * flightTicks);
       return { x, altitude: predictedAltitude, height: 10 };
     }
     const speed = sprayer ? 1.14 + 0.47 * Math.sin(this.tick / 8)
@@ -3436,7 +3463,7 @@ class CreekWatch {
     return { x: target.x + Math.sign(destination - target.x) * travel, altitude, height: sprayer ? 32 : 12 };
   }
 
-  shootWatchArrow(guard, from, to, cooldown, kind, altitude = 0, target = null) {
+  shootWatchArrow(guard, from, to, cooldown, kind, altitude = 0, target = null, elevation = 0) {
     guard.direction = Math.sign(to - from) || guard.direction;
     guard.shotAt = this.tick;
     guard.fireAt = this.tick + cooldown;
@@ -3448,11 +3475,11 @@ class CreekWatch {
     const roll = ((value ^ (value >>> 14)) >>> 0) / 4294967296;
     const veteran = guard.rank === 1;
     const range = kind === 'pigeon' ? 42 : WATCH_GUARD_STATS[guard.rank].range;
-    const distance = Math.min(1, Math.hypot(to - from, altitude) / range);
+    const distance = Math.min(1, Math.hypot(to - from, altitude - elevation) / range);
     const accuracy = (veteran ? 0.98 : 0.9) - distance * (veteran ? 0.1 : 0.2)
       - Math.min(1, altitude / WATCH_FLYER_ALTITUDE) * 0.04;
     const hit = roll < accuracy;
-    const flightTicks = Math.max(22, Math.min(40, Math.ceil(Math.hypot(to - from, altitude) / 3) + 8));
+    const flightTicks = Math.max(22, Math.min(40, Math.ceil(Math.hypot(to - from, altitude - elevation) / 3) + 8));
     const aim = this.arrowTargetPose(target, to, altitude, flightTicks, kind);
     let endpoint = aim.x;
     if (!hit) {
@@ -3464,7 +3491,7 @@ class CreekWatch {
     }
     endpoint = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, endpoint));
     const x = Math.max(WATCH_BOUNDS.left, Math.min(WATCH_BOUNDS.right, from + guard.direction * 4));
-    const y = watchGround(from) - 16;
+    const y = watchGround(from) - elevation - 16;
     const targetY = watchGround(endpoint) - aim.altitude - aim.height;
     this.shots.push({ from, to: endpoint, end: this.tick + WATCH_ARROW_LIFETIME, kind,
       ballistic: true, x, y, vx: (endpoint - x) / flightTicks,
@@ -3564,19 +3591,20 @@ class CreekWatch {
       post.guards.forEach((guard, index) => {
         if (guard.fireAt > this.tick) return;
         const from = this.guardPosition(post, index);
+        const elevation = this.guardElevation(post, index);
         const { range, cooldown } = WATCH_GUARD_STATS[guard.rank];
         let target;
         let closest = Infinity;
         for (const raider of enemies) {
           if (raider.hp <= 0 || (raider.side !== post.side && !this.flyers.includes(raider))
-              || Math.hypot(raider.x - from, raider.altitude ?? 0) > range) continue;
+              || Math.hypot(raider.x - from, (raider.altitude ?? 0) - elevation) > range) continue;
           const distance = Math.abs(raider.x - WATCH_SIGNAL);
           if (distance >= closest) continue;
           target = raider;
           closest = distance;
         }
         if (!target) return;
-        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0, target);
+        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0, target, elevation);
       });
     }
   }
@@ -3626,8 +3654,8 @@ const validWatchFlag = (value) => typeof value === 'boolean';
 const optionalWatchField = (value, isValid) => value === undefined || isValid(value);
 const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.length <= limit
   && items.every((item) => item && isValid(item));
-const validWatchWall = ({ tier, health }) => [0, 1, 2].includes(tier)
-  && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0);
+const validWatchWall = ({ tier, health }) => [0, 1, 2, 3].includes(tier)
+  && validWatchCount(health) && health <= (tier === 3 ? WATCH_WALL_TOWER_HEALTH : tier === 2 ? 11 : tier === 1 ? 6 : 0);
 const watchSprayers = (state) => state.sprayers === undefined
   ? state.sprayer == null ? [] : [state.sprayer] : state.sprayers;
 const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && value <= WATCH_FLYER_ALTITUDE;
@@ -4032,16 +4060,84 @@ function drawUpgradedWatchSignal(ctx, watch) {
   }
 }
 
+function drawWallTower(ctx, post, x, y) {
+  if (!post.health) {
+    watchRect(ctx, '#43383b', x - 18, y - 3, 37, 3);
+    for (const [left, top, width] of [[-16, -7, 9], [-4, -6, 11], [10, -8, 7]]) {
+      watchRect(ctx, '#666664', x + left, y + top, width, -top - 1);
+      watchRect(ctx, '#a4a18a', x + left + 1, y + top, width - 2, 1);
+    }
+    watchRect(ctx, '#6f4e40', x - 12, y - 11, 4, 9);
+    watchRect(ctx, '#bb8258', x - 11, y - 11, 1, 7);
+    watchRect(ctx, '#a46e4d', x - 8, y - 6, 20, 2);
+    watchRect(ctx, '#ddaa73', x + 7, y - 6, 3, 1);
+    return;
+  }
+
+  const deck = y - WATCH_WALL_TOWER_PLATFORM;
+  // A broad stone footing supports the timber fighting platform. The open
+  // center leaves room for two archers, with copper-capped merlons at the ends.
+  watchRect(ctx, '#322c33', x - 18, y - 3, 37, 4);
+  watchRect(ctx, '#414447', x - 16, y - 21, 33, 21);
+  for (let row = 0; row < 4; row++) {
+    const top = y - 20 + row * 5;
+    watchRect(ctx, row % 2 ? '#777970' : '#686f6a', x - 15, top, 31, 4);
+    watchRect(ctx, '#9a9b82', x - 14, top, 29, 1);
+    for (let seam = -11 + row % 2 * 5; seam < 15; seam += 10) {
+      watchRect(ctx, '#464d4c', x + seam, top, 1, 4);
+    }
+  }
+  watchRect(ctx, '#303133', x + 11, y - 19, 4, 18);
+  watchRect(ctx, '#29272d', x - 5, y - 17, 11, 17);
+  watchRect(ctx, '#5d473b', x - 4, y - 16, 9, 16);
+  watchRect(ctx, '#866245', x - 3, y - 15, 2, 14);
+  watchRect(ctx, '#463730', x + 1, y - 15, 1, 15);
+  watchRect(ctx, '#c78c58', x + 2, y - 9, 2, 2);
+  watchRect(ctx, '#b2ad8c', x - 6, y - 19, 13, 2);
+
+  watchRect(ctx, '#443137', x - 13, deck + 3, 27, 9);
+  for (const left of [-14, 11]) {
+    watchRect(ctx, '#493239', x + left, deck + 2, 4, 25);
+    watchRect(ctx, '#a5724d', x + left + 1, deck + 3, 2, 22);
+    watchRect(ctx, '#d6a16b', x + left + 1, deck + 4, 1, 10);
+    for (const top of [deck + 6, deck + 20]) {
+      watchRect(ctx, '#b0764b', x + left, top, 4, 2);
+      watchRect(ctx, '#e8b778', x + left + 1, top, 1, 1);
+    }
+  }
+  for (let brace = 0; brace < 10; brace++) {
+    watchRect(ctx, '#92704e', x - 12 + brace, deck + 5 + brace, 2, 2);
+    watchRect(ctx, '#6e5142', x + 11 - brace, deck + 5 + brace, 2, 2);
+  }
+  watchRect(ctx, '#3e3033', x - 17, deck, 35, 5);
+  watchRect(ctx, '#ce9b63', x - 16, deck, 33, 1);
+  watchRect(ctx, '#956340', x - 16, deck + 1, 33, 2);
+  watchRect(ctx, '#5b4540', x - 15, deck + 3, 31, 1);
+  for (const left of [-17, 11]) {
+    watchRect(ctx, '#473a3c', x + left, deck - 9, 7, 10);
+    watchRect(ctx, '#858b78', x + left + 1, deck - 8, 5, 8);
+    watchRect(ctx, '#c3c2a1', x + left + 1, deck - 8, 1, 7);
+    watchRect(ctx, '#b57950', x + left, deck - 10, 7, 2);
+    watchRect(ctx, '#e8b67b', x + left + 1, deck - 10, 5, 1);
+  }
+  const strength = Math.max(0, Math.min(1, post.health / WATCH_WALL_TOWER_HEALTH));
+  watchRect(ctx, '#221e2b', x - 15, deck - 30, 30, 2);
+  watchRect(ctx, '#86bfa6', x - 15, deck - 30, Math.ceil(30 * strength), 2);
+}
+
 function drawWatchPost(ctx, post) {
   const x = post.wallX;
   const y = watchGround(x);
   if (post.forward) {
-    watchRect(ctx, '#785d4d', x + 12, y - 26, 2, 26);
-    watchRect(ctx, '#bf8a5d', x + 12, y - 27, 10, 2);
-    watchRect(ctx, '#6d8f82', x + 14, y - 25, 8, 7);
-    watchRect(ctx, '#abd0a7', x + 15, y - 24, 5, 1);
-    watchRect(ctx, '#517666', x + 15, y - 18, 4, 2);
+    const flagX = x + (post.tier === 3 ? 22 : 12);
+    const flagY = y - (post.tier === 3 ? 40 : 26);
+    watchRect(ctx, '#785d4d', flagX, flagY, 2, y - flagY);
+    watchRect(ctx, '#bf8a5d', flagX, flagY - 1, 10, 2);
+    watchRect(ctx, '#6d8f82', flagX + 2, flagY + 1, 8, 7);
+    watchRect(ctx, '#abd0a7', flagX + 3, flagY + 2, 5, 1);
+    watchRect(ctx, '#517666', flagX + 3, flagY + 8, 4, 2);
   }
+  if (post.tier === 3) return drawWallTower(ctx, post, x, y);
   if (!post.health) {
     watchRect(ctx, '#543d3a', x - 7, y - 2, 15, 2);
     watchRect(ctx, '#825b48', x - 4, y - 6, 3, 6);
@@ -5008,12 +5104,12 @@ function drawCreekWatch(ctx, watch) {
       if (onScreen(pose.x, 11)) drawWatchPigeon(ctx, pose, watch.tick);
     }
   }
-  for (const wall of watch.forwardWalls) if (onScreen(wall.wallX, 24)) drawWatchPost(ctx, wall);
+  for (const wall of watch.forwardWalls) if (onScreen(wall.wallX, 34)) drawWatchPost(ctx, wall);
   for (const post of watch.posts) {
     drawWatchPost(ctx, post);
     for (let index = 0; index < post.guards.length; index++) {
       const x = watch.guardPosition(post, index);
-      if (onScreen(x, 12)) drawWatchGuard(ctx, x, watchGround(x), post.guards[index], watch.tick);
+      if (onScreen(x, 12)) drawWatchGuard(ctx, x, watchGround(x) - watch.guardElevation(post, index), post.guards[index], watch.tick);
     }
   }
   for (const coin of watch.loot) {
@@ -5435,9 +5531,10 @@ function drawWatchMode() {
   watchHealth.value = watch.signal;
   setWatchText(watchHealthLabel, `${watch.signal}/${WATCH_HEALTH}`);
   watch.posts.forEach((post, index) => {
-    const wall = post.health ? `Wall ${post.health}/${watch.maxWall(post)}` : 'No wall';
+    const wall = post.tier === 3 ? `Wall tower ${post.health}/${watch.maxWall(post)}`
+      : post.health ? `Wall ${post.health}/${watch.maxWall(post)}` : 'No wall';
     const forward = watch.forwardWalls[index];
-    const defense = forward.tier ? `${wall} · Forward ${forward.health}/${watch.maxWall(forward)}` : wall;
+    const defense = forward.tier ? `${wall} · Forward${forward.tier === 3 ? ' tower' : ''} ${forward.health}/${watch.maxWall(forward)}` : wall;
     const guards = `${post.guards.length} ${post.guards.length === 1 ? 'guard' : 'guards'}`;
     const veterans = post.guards.filter(({ rank }) => rank === 1).length;
     setWatchText(watchBankLabels[index], `${defense} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}`);

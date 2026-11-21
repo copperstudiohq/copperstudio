@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, hasWatchSprayer } from './watch.js';
+import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, WATCH_WALL_TOWER_HEALTH, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -44,8 +44,8 @@ const validWatchFlag = (value) => typeof value === 'boolean';
 const optionalWatchField = (value, isValid) => value === undefined || isValid(value);
 const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.length <= limit
   && items.every((item) => item && isValid(item));
-const validWatchWall = ({ tier, health }) => [0, 1, 2].includes(tier)
-  && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0);
+const validWatchWall = ({ tier, health }) => [0, 1, 2, 3].includes(tier)
+  && validWatchCount(health) && health <= (tier === 3 ? WATCH_WALL_TOWER_HEALTH : tier === 2 ? 11 : tier === 1 ? 6 : 0);
 const watchSprayers = (state) => state.sprayers === undefined
   ? state.sprayer == null ? [] : [state.sprayer] : state.sprayers;
 const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && value <= WATCH_FLYER_ALTITUDE;

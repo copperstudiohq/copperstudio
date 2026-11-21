@@ -399,9 +399,10 @@ function drawWatchMode() {
   watchHealth.value = watch.signal;
   setWatchText(watchHealthLabel, `${watch.signal}/${WATCH_HEALTH}`);
   watch.posts.forEach((post, index) => {
-    const wall = post.health ? `Wall ${post.health}/${watch.maxWall(post)}` : 'No wall';
+    const wall = post.tier === 3 ? `Wall tower ${post.health}/${watch.maxWall(post)}`
+      : post.health ? `Wall ${post.health}/${watch.maxWall(post)}` : 'No wall';
     const forward = watch.forwardWalls[index];
-    const defense = forward.tier ? `${wall} · Forward ${forward.health}/${watch.maxWall(forward)}` : wall;
+    const defense = forward.tier ? `${wall} · Forward${forward.tier === 3 ? ' tower' : ''} ${forward.health}/${watch.maxWall(forward)}` : wall;
     const guards = `${post.guards.length} ${post.guards.length === 1 ? 'guard' : 'guards'}`;
     const veterans = post.guards.filter(({ rank }) => rank === 1).length;
     setWatchText(watchBankLabels[index], `${defense} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}`);
