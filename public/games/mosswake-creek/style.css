@@ -124,6 +124,17 @@ button, input[type="range"] { cursor: pointer; }
 .watch-tower:hover { background: #6c4732; }
 .watch-builder { border-color: #bc9457; background: #57412a; color: #ffe3ad; }
 .watch-builder:hover { background: #6a5031; }
+.watch-builder-orders { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.watch-builder-orders h3 { margin: 0 0 8px; font-size: 16px; color: #ffe3ad; }
+.watch-builder-orders p { margin: 8px 0; line-height: 1.45; }
+.watch-builder-orders label { display: block; margin: 10px 0 5px; font-size: 14px; color: #e6c698; }
+.watch-builder-command-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.watch-builder-command-row input { flex: 1 1 130px; min-width: 0; padding: 9px; border: 1px solid #a17b4f; border-radius: 6px; background: #211d1a; color: #fff1d9; font: inherit; font-size: 16px; }
+.watch-builder-command-row .button { flex: 0 0 auto; }
+.watch-builder-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.watch-builder-shortcuts .button { flex: 1 1 105px; padding-inline: 8px; white-space: normal; font-size: 14px; }
+.watch-builder-shortcuts [aria-pressed="true"] { border-color: #bc9457; background: #57412a; color: #ffe3ad; }
+.watch-builder-orders .watch-builder-fees { font-size: 14px; color: var(--muted); }
 .watch-swing { border-color: #a67650; background: #48322a; color: #fce0b3; }
 .watch-swing:hover { background: #593c30; }
 .watch-panel .watch-message { min-height: 37px; margin-top: 11px; }

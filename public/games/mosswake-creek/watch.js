@@ -31,6 +31,7 @@ export const WATCH_WALL_TOWER_HEALTH = 30;
 export const WATCH_WALL_TOWER_PLATFORM = 32;
 export const WATCH_BUILDER_COST = 3;
 export const WATCH_BUILDER_REPAIR_TICKS = 2 * TICKS_PER_SECOND;
+export const WATCH_BUILDER_REPAIR_IDS = Object.freeze(['west-wall', 'east-wall', 'west-forward', 'east-forward', 'signal']);
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -183,6 +184,8 @@ export class CreekWatch {
     this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
     this.forwardWalls = WATCH_FORWARD_WALLS.map((wall) => ({ ...wall, tier: 0, health: 0 }));
     this.builders = [];
+    this.builderOrder = 'idle';
+    this.builderPaidRepairs = [];
     this.gear = [];
     this.weapon = null;
     this.swingAt = WATCH_NO_ACTION;
@@ -288,7 +291,8 @@ export class CreekWatch {
     const player = this.player.x;
     const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
     if (atSignal && this.phase === 'day') {
-      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower', cost: 3 };
+      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower',
+        cost: this.builderPaidRepairs.includes('signal') ? 0 : 3 };
       return { kind: 'bell', label: this.recallingGuards ? 'Waiting for guards to return' : 'Ring the dusk bell', cost: 0 };
     }
     if (this.marketOpen) {
@@ -299,10 +303,11 @@ export class CreekWatch {
     const wall = this.posts.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE)
       ?? this.forwardWalls.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE);
     if (wall && (!camp || Math.abs(player - wall.wallX) <= Math.abs(player - camp.x))) {
-      if (!wall.tier || (!wall.forward && !wall.health && wall.tier < 3)) {
+      const fundedRepair = this.builderPaidRepairs.includes(this.builderRepairId(wall));
+      if (!wall.tier || (!wall.forward && !wall.health && wall.tier < 3 && !fundedRepair)) {
         return { kind: 'build', post: wall, label: `Build ${wall.name.toLowerCase()} palisade`, cost: wall.forward ? 5 : 4 };
       }
-      const repairCost = this.gear.includes('repair-kit') ? 1 : 2;
+      const repairCost = fundedRepair ? 0 : this.gear.includes('repair-kit') ? 1 : 2;
       if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall,
         label: wall.tier === 3 ? 'Repair wall tower' : 'Repair palisade', cost: repairCost };
       if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
@@ -343,6 +348,49 @@ export class CreekWatch {
     const west = this.builders.filter(({ side }) => side === -1).length;
     const post = this.posts[west <= this.builders.length - west ? 0 : 1];
     return { kind: 'hire-builder', post, camp, label: `Hire ${post.name.toLowerCase()} builder`, cost: WATCH_BUILDER_COST };
+  }
+
+  setBuilderOrder(order) {
+    if (!['repair', 'idle'].includes(order)) {
+      this.message = 'Tell builders “fix walls” or “stop repairs”.';
+      return false;
+    }
+    if (this.status !== 'running' || this.insideTower) {
+      this.message = 'Give builder orders outside in a running watch.';
+      return false;
+    }
+    if (!this.builders.length) {
+      this.message = 'Hire a builder at a recruiting camp before giving an order.';
+      return false;
+    }
+    this.builderOrder = order;
+    if (order === 'idle') {
+      this.builders.forEach((builder, index) => {
+        builder.working = false;
+        builder.returning = builder.x !== this.builderHome(builder, index);
+        builder.walking = builder.returning;
+        builder.workAt = this.tick;
+      });
+    }
+    this.message = order === 'repair'
+      ? `Builders ordered to repair existing defenses by day. Each wall job costs ${this.gear.includes('repair-kit') ? 1 : 2} copper; the signal tower costs 3. Payment is due when work first restores health.`
+      : 'Builders stopped repairing and are returning home. Unfinished paid repairs keep their credit.';
+    return true;
+  }
+
+  orderBuilders(input) {
+    if (typeof input !== 'string' || input.length > 120) {
+      this.message = 'Use a builder command of up to 120 characters: “fix walls” or “stop repairs”.';
+      return false;
+    }
+    const command = input.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const repairWords = /\b(?:fix|fixing|repair|repairs|repairing)\b/.test(command);
+    const negative = /\b(?:do not|dont|not|never|no|cancel)\b/.test(command);
+    if (/\b(?:stop (?:fixing|repair|repairs|repairing)|return home)\b/.test(command)
+        || /^(?:please )?(?:wait|stop)$/.test(command) || repairWords && negative) return this.setBuilderOrder('idle');
+    if (/\b(?:fix|repair) (?:all |the |our )?(?:walls|defenses|defences|stuff|stuf)\b/.test(command)) return this.setBuilderOrder('repair');
+    this.message = 'Tell builders “fix walls” to repair defenses, or “stop repairs” to send them home.';
+    return false;
   }
 
   getTrainingAction() {
@@ -448,6 +496,7 @@ export class CreekWatch {
         return true;
       case 'signal':
         this.signal = WATCH_HEALTH;
+        this.clearBuilderRepair(this);
         this.message = 'Signal tower repaired. Ring the bell when you’re ready.';
         break;
       case 'hire':
@@ -457,7 +506,7 @@ export class CreekWatch {
       case 'hire-builder':
         this.builders.push({ side: post.side, x: action.camp.x, direction: -action.camp.side,
           stride: 0, walking: false, returning: false, working: false, workAt: this.tick });
-        this.message = `Builder hired at the camp and sent to the ${post.name.toLowerCase()} bank. Builders repair existing defenses by day.`;
+        this.message = `Builder hired at the camp and sent to the ${post.name.toLowerCase()} bank. Tell builders “fix walls” when you want repairs.`;
         break;
       case 'train':
         action.guard.rank = 1;
@@ -465,21 +514,25 @@ export class CreekWatch {
         break;
       case 'repair':
         post.health = this.maxWall(post);
+        this.clearBuilderRepair(post);
         this.message = `${post.name} ${post.tier === 3 ? 'wall tower' : 'palisade'} repaired.`;
         break;
       case 'reinforce':
         post.tier = 2;
         post.health = this.maxWall(post);
+        this.clearBuilderRepair(post);
         this.message = `${post.name} palisade reinforced.`;
         break;
       case 'wall-tower':
         post.tier = 3;
         post.health = this.maxWall(post);
+        this.clearBuilderRepair(post);
         this.message = `${post.name} wall tower built. Two posted guards can shoot from its raised platform.`;
         break;
       case 'build':
         post.tier = 1;
         post.health = this.maxWall(post);
+        this.clearBuilderRepair(post);
         this.message = post.forward && this.marketOpen ? 'Both forward palisades are built. The bridge market is open.'
           : `${post.name} palisade built.`;
         break;
@@ -803,10 +856,43 @@ export class CreekWatch {
     const bank = side === -1 ? 0 : 1;
     const jobs = [this.posts[bank], this.forwardWalls[bank]]
       .filter((wall) => wall.tier > 0 && wall.health < this.maxWall(wall))
-      .map((wall) => ({ defense: wall, x: wall.wallX - side * 20, direction: side }));
+      .map((wall) => ({ defense: wall, id: this.builderRepairId(wall), cost: this.builderRepairCost(wall),
+        x: wall.wallX - side * 20, direction: side }));
     if (this.signal < WATCH_HEALTH) jobs.push({ defense: this,
-      x: watchTowerTarget(this, side) + side * 15, direction: -side });
+      id: 'signal', cost: 3, x: watchTowerTarget(this, side) + side * 15, direction: -side });
     return jobs;
+  }
+
+  builderRepairId(defense) {
+    if (defense === this) return 'signal';
+    const post = this.posts.indexOf(defense);
+    if (post >= 0) return WATCH_BUILDER_REPAIR_IDS[post];
+    const forward = this.forwardWalls.indexOf(defense);
+    return forward >= 0 ? WATCH_BUILDER_REPAIR_IDS[forward + 2] : null;
+  }
+
+  builderRepairCost(defense) {
+    return defense === this ? 3 : this.gear.includes('repair-kit') ? 1 : 2;
+  }
+
+  clearBuilderRepair(defense) {
+    const id = this.builderRepairId(defense);
+    this.builderPaidRepairs = this.builderPaidRepairs.filter((credit) => credit !== id);
+  }
+
+  pruneBuilderRepairs() {
+    const active = new Set([...this.builderRepairJobs(-1), ...this.builderRepairJobs(1)].map(({ id }) => id));
+    this.builderPaidRepairs = this.builderPaidRepairs.filter((id) => active.has(id));
+  }
+
+  payBuilderRepair(job) {
+    if (this.builderPaidRepairs.includes(job.id)) return true;
+    if (this.coins < job.cost) return false;
+    this.coins -= job.cost;
+    this.builderPaidRepairs.push(job.id);
+    const name = job.defense === this ? 'signal tower' : `${job.defense.name.toLowerCase()} ${job.defense.tier === 3 ? 'wall tower' : 'palisade'}`;
+    this.message = `Builders spent ${job.cost} copper to start repairing the ${name}.`;
+    return true;
   }
 
   canBuilderVisit(builder, target, home) {
@@ -817,19 +903,22 @@ export class CreekWatch {
   }
 
   stepBuilders() {
+    this.pruneBuilderRepairs();
     const claimed = new Set();
     const jobs = { '-1': this.builderRepairJobs(-1), '1': this.builderRepairJobs(1) };
     this.builders.forEach((builder, index) => {
       const home = this.builderHome(builder, index);
       const returnTicks = Math.ceil(Math.abs(builder.x - home) / WATCH_GUARD_RETURN_SPEED);
-      const mustReturn = this.phase !== 'day' || this.recallingGuards
+      const mustReturn = this.builderOrder !== 'repair' || this.phase !== 'day' || this.recallingGuards
         || WATCH_DAY - this.phaseTick <= returnTicks + WATCH_GUARD_RETURN_MARGIN;
       let job;
       let nearest = Infinity;
       if (!mustReturn) {
         for (const candidate of jobs[builder.side]) {
           const distance = Math.abs(candidate.x - builder.x);
-          if (claimed.has(candidate.defense) || distance >= nearest || !this.canBuilderVisit(builder, candidate.x, home)) continue;
+          if (claimed.has(candidate.defense) || distance >= nearest
+              || !this.builderPaidRepairs.includes(candidate.id) && this.coins < candidate.cost
+              || !this.canBuilderVisit(builder, candidate.x, home)) continue;
           job = candidate;
           nearest = distance;
         }
@@ -852,8 +941,10 @@ export class CreekWatch {
       builder.working = true;
       builder.direction = job.direction;
       if (this.tick < builder.workAt) return;
+      if (!this.payBuilderRepair(job)) return;
       if (job.defense === this) this.signal = Math.min(WATCH_HEALTH, this.signal + 1);
       else job.defense.health = Math.min(this.maxWall(job.defense), job.defense.health + 1);
+      if (job.defense === this ? this.signal === WATCH_HEALTH : job.defense.health === this.maxWall(job.defense)) this.clearBuilderRepair(job.defense);
       builder.workAt = this.tick + WATCH_BUILDER_REPAIR_TICKS;
     });
   }

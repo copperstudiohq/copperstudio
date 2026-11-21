@@ -21,6 +21,8 @@ function builder(side, x) {
 function preparedWatch() {
   const watch = new CreekWatch();
   watch.start();
+  watch.builderOrder = 'repair';
+  watch.coins = 20;
   watch.loot = [];
   for (const wall of watch.posts) Object.assign(wall, { tier: 2, health: 4 });
   return watch;

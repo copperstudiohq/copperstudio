@@ -8,14 +8,18 @@ test('builder questions explain tent hiring, on-site repair labor and safe recal
   for (const question of [
     'How do I hire builders from the tents in Creek Watch?',
     'Will builder guys repair wall towers in Mosswake Creek?',
-    'Do builders cost extra coins to repair the walls in Creek Watch?'
+    'Do builders cost extra coins to repair the walls in Creek Watch?',
+    'How do I command builders to fix walls in Creek Watch?',
+    'How do I stop builder repairs in Mosswake Creek?'
   ]) {
     assert.equal(rankKnowledge(question, OCTO_KNOWLEDGE, 'sandbox')[0]?.entry.id, 'sandbox-builders');
     const { reply, links, command } = replyAsOcto(createOctoChat(), question);
-    assert.match(reply, /separate Hire builder button for 3 copper.*walks out of that actual tent.*fewer builders/);
-    assert.match(reply, /During the day.*walk.*restore 1 health every 2 seconds.*working there.*no extra copper/);
-    assert.match(reply, /bell recalls builders as well as guards.*everyone to return.*rest at night/);
-    assert.match(reply, /Named saves keep your builders.*old saves start with no builders/);
+    assert.match(reply, /separate Hire builder button for 3 copper.*walk out of that actual tent.*fewer builders/);
+    assert.match(reply, /type fix walls in Builder orders.*Repair defenses.*each day until stop repairs/);
+    assert.match(reply, /repair costs 2 copper, or 1 with the Repair Kit.*signal tower costs 3/);
+    assert.match(reply, /taken once.*first health point.*1 health every 2 seconds.*save\/load/);
+    assert.match(reply, /wait if you cannot afford.*resume automatically.*return before night/);
+    assert.match(reply, /Named saves keep orders.*old saves wait for your order/);
     assert.equal(command, null);
     assert.equal(links[0].href, 'https://copperstudio.nl/games/mosswake-creek/');
   }

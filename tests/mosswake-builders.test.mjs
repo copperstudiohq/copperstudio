@@ -14,6 +14,7 @@ function builderWatch() {
 function hireBuilder(watch, camp = WATCH_CAMPS[0]) {
   watch.player.x = camp.x;
   assert.ok(watch.use('builder'));
+  assert.ok(watch.setBuilderOrder('repair'));
   return watch.builders.at(-1);
 }
 
@@ -84,10 +85,10 @@ test('builder recruitment requires a running watch at an open tent and cannot ch
   assert.equal(watch.coins, 300);
 });
 
-test('builders must travel to a repair site, then spend two full seconds there before each free health point', () => {
+test('builders travel and work for two full seconds before their first paid repair, then continue the funded job', () => {
   const watch = builderWatch(), wall = watch.posts[0];
   Object.assign(wall, { tier: 2, health: 1 });
-  watch.coins = 3;
+  watch.coins = 5;
   const builder = hireBuilder(watch);
   watch.player.x = WATCH_SIGNAL;
   while (!builder.working && watch.tick < WATCH_DAY) {
@@ -105,7 +106,7 @@ test('builders must travel to a repair site, then spend two full seconds there b
   assert.equal(wall.health, 2);
   for (let tick = 0; tick < WATCH_BUILDER_REPAIR_TICKS; tick++) watch.step();
   assert.equal(wall.health, 3);
-  assert.equal(watch.coins, 0, 'ongoing labor has no additional coin charge');
+  assert.equal(watch.coins, 0, 'health increments after the first payment have no additional charge');
   assert.equal(watch.shots.length, 0);
   assert.equal(watch.huntedPigeons, 0);
   assert.deepEqual(watch.loot, []);
@@ -153,7 +154,7 @@ test('workers on opposite banks share the central signal as one job and never ov
 
 test('builders repair existing damaged towers to their cap without buying walls, upgrades or gear', () => {
   const watch = builderWatch(), builder = hireBuilder(watch), wall = watch.posts[0];
-  watch.coins = 0;
+  watch.coins = 2;
   watch.player.x = WATCH_SIGNAL;
   Object.assign(wall, { tier: 3, health: 29 });
   builder.x = wall.wallX + 20;
@@ -167,6 +168,7 @@ test('builders repair existing damaged towers to their cap without buying walls,
   assert.deepEqual(watch.gear, []);
   assert.equal(watch.towerUpgraded, false);
   Object.assign(wall, { tier: 1, health: 5 });
+  watch.coins = 2;
   builder.x = wall.wallX + 20;
   builder.working = false;
   for (let tick = 0; tick <= WATCH_BUILDER_REPAIR_TICKS * 2; tick++) watch.step();

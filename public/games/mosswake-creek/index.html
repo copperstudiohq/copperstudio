@@ -134,6 +134,17 @@ button, input[type="range"] { cursor: pointer; }
 .watch-tower:hover { background: #6c4732; }
 .watch-builder { border-color: #bc9457; background: #57412a; color: #ffe3ad; }
 .watch-builder:hover { background: #6a5031; }
+.watch-builder-orders { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.watch-builder-orders h3 { margin: 0 0 8px; font-size: 16px; color: #ffe3ad; }
+.watch-builder-orders p { margin: 8px 0; line-height: 1.45; }
+.watch-builder-orders label { display: block; margin: 10px 0 5px; font-size: 14px; color: #e6c698; }
+.watch-builder-command-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.watch-builder-command-row input { flex: 1 1 130px; min-width: 0; padding: 9px; border: 1px solid #a17b4f; border-radius: 6px; background: #211d1a; color: #fff1d9; font: inherit; font-size: 16px; }
+.watch-builder-command-row .button { flex: 0 0 auto; }
+.watch-builder-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.watch-builder-shortcuts .button { flex: 1 1 105px; padding-inline: 8px; white-space: normal; font-size: 14px; }
+.watch-builder-shortcuts [aria-pressed="true"] { border-color: #bc9457; background: #57412a; color: #ffe3ad; }
+.watch-builder-orders .watch-builder-fees { font-size: 14px; color: var(--muted); }
 .watch-swing { border-color: #a67650; background: #48322a; color: #fce0b3; }
 .watch-swing:hover { background: #593c30; }
 .watch-panel .watch-message { min-height: 37px; margin-top: 11px; }
@@ -434,6 +445,22 @@ dialog dd { margin: 2px 0 0; }
         <button class="button watch-action" id="watch-train" type="button" hidden></button>
         <button class="button watch-action watch-builder" id="watch-builder" type="button" hidden></button>
         <button class="button watch-action watch-swing" id="watch-swing" type="button" hidden></button>
+        <section class="watch-builder-orders" id="watch-builder-orders" aria-labelledby="watch-builder-orders-title" hidden>
+          <h3 id="watch-builder-orders-title">Builder orders</h3>
+          <p id="watch-builder-order-status" role="status">Waiting for your repair order.</p>
+          <form id="watch-builder-command-form">
+            <label for="watch-builder-command">Command</label>
+            <div class="watch-builder-command-row">
+              <input id="watch-builder-command" name="command" type="text" maxlength="120" placeholder="fix walls" autocomplete="off" spellcheck="false" aria-describedby="watch-builder-fees">
+              <button class="button" type="submit">Give order</button>
+            </div>
+          </form>
+          <div class="watch-builder-shortcuts" role="group" aria-label="Builder repair orders">
+            <button class="button" type="button" data-builder-order="repair" aria-pressed="false">Repair defenses</button>
+            <button class="button" type="button" data-builder-order="idle" aria-pressed="true">Stop repairs</button>
+          </div>
+          <p class="watch-builder-fees" id="watch-builder-fees"></p>
+        </section>
         <p id="watch-message" class="watch-message" role="status">Build palisades and hire guards before the first raid.</p>
       </aside>
     </div>
@@ -475,7 +502,7 @@ dialog dd { margin: 2px 0 0; }
       <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
       <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Press E or use the action button at a camp to hire guards for 3 copper each, with no limit on the roster. Guards fill the two banks evenly. After hiring three guards, either keep recruiting or train a guard as a veteran for 4 copper. Recruits take shelter until nearby Tri Opus pass.</dd></div>
       <div><dt>Bridge market</dt><dd>Build both forward walls for 5 copper each to open the market east of the tower. Approach a stall and press E to shop. Buying a weapon equips it. Face a Tri and press F or use Swing to attack.</dd></div>
-      <div><dt>Builders from the tents</dt><dd>At an open recruiting tent, choose Hire builder for 3 copper. Builders walk out of that tent and join the bank with fewer builders. By day, they walk to damaged walls, wall towers, or the signal tower and repair 1 health every 2 seconds while working there. Their labor needs no extra coins. Buy buildings and upgrades yourself. Builders return behind the defenses before night, and ringing the bell recalls them too. Named saves keep your builders and their work progress.</dd></div>
+      <div><dt>Command your builders</dt><dd>Hire builders at open tents for 3 copper each, then type “fix walls” in Builder orders or choose Repair defenses. They keep repairing damaged defenses each day until you order “stop repairs.” Each wall or wall tower repair costs 2 copper, or 1 with the Repair Kit; the signal tower costs 3. You pay once when the first health point is restored, then the builder finishes that repair at 1 health every 2 seconds. Interrupted repairs keep their payment, including after saving. Without enough copper, builders wait and resume when you have enough. Builders still return before night. Buildings and upgrades are bought separately.</dd></div>
       <div><dt>Wall towers · 200 copper</dt><dd>Build and reinforce a palisade, then repair it to full health. At that wall, press E or choose Build wall tower to upgrade it for 200 copper. Each of the four walls can become a tower with 30 health. Two existing guards use the elevated platform at their outermost standing defense; they still gather coins by day and return for the raid. Damaged or destroyed wall towers can be repaired without buying the upgrade again. Named saves keep the towers.</dd></div>
       <div><dt>Arcing arrows</dt><dd>Soldiers shoot arrows up into the air. Gravity curves their flight, and they deal damage only when they physically strike a creature. Moving targets can dodge them. Veterans aim more tightly than regular soldiers; long shots and flying targets are harder. Stray arrows fall and briefly stick in the ground. Pigeon hunting also needs a real hit, and named saves keep arrows already in flight.</dd></div>
       <div><dt>A room in the tower</dt><dd>During the day, stand beside the tower and choose Upgrade tower for 100 copper. You pay once. Then choose Enter tower to visit the dining room with its red tablecloth. Walk with A/D, the arrow keys, or tap the floor. Approach one of the four chairs and press E or Sit to take a seat. Press E or move to stand up. Use Leave tower room to return outside. The outside watch pauses while you are inside. Named saves keep the upgrade, room position and seated chair.</dd></div>
@@ -2618,6 +2645,7 @@ const WATCH_WALL_TOWER_HEALTH = 30;
 const WATCH_WALL_TOWER_PLATFORM = 32;
 const WATCH_BUILDER_COST = 3;
 const WATCH_BUILDER_REPAIR_TICKS = 2 * TICKS_PER_SECOND;
+const WATCH_BUILDER_REPAIR_IDS = Object.freeze(['west-wall', 'east-wall', 'west-forward', 'east-forward', 'signal']);
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -2770,6 +2798,8 @@ class CreekWatch {
     this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
     this.forwardWalls = WATCH_FORWARD_WALLS.map((wall) => ({ ...wall, tier: 0, health: 0 }));
     this.builders = [];
+    this.builderOrder = 'idle';
+    this.builderPaidRepairs = [];
     this.gear = [];
     this.weapon = null;
     this.swingAt = WATCH_NO_ACTION;
@@ -2875,7 +2905,8 @@ class CreekWatch {
     const player = this.player.x;
     const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
     if (atSignal && this.phase === 'day') {
-      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower', cost: 3 };
+      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower',
+        cost: this.builderPaidRepairs.includes('signal') ? 0 : 3 };
       return { kind: 'bell', label: this.recallingGuards ? 'Waiting for guards to return' : 'Ring the dusk bell', cost: 0 };
     }
     if (this.marketOpen) {
@@ -2886,10 +2917,11 @@ class CreekWatch {
     const wall = this.posts.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE)
       ?? this.forwardWalls.find(({ wallX }) => Math.abs(player - wallX) <= WATCH_USE_RANGE);
     if (wall && (!camp || Math.abs(player - wall.wallX) <= Math.abs(player - camp.x))) {
-      if (!wall.tier || (!wall.forward && !wall.health && wall.tier < 3)) {
+      const fundedRepair = this.builderPaidRepairs.includes(this.builderRepairId(wall));
+      if (!wall.tier || (!wall.forward && !wall.health && wall.tier < 3 && !fundedRepair)) {
         return { kind: 'build', post: wall, label: `Build ${wall.name.toLowerCase()} palisade`, cost: wall.forward ? 5 : 4 };
       }
-      const repairCost = this.gear.includes('repair-kit') ? 1 : 2;
+      const repairCost = fundedRepair ? 0 : this.gear.includes('repair-kit') ? 1 : 2;
       if (wall.health < this.maxWall(wall)) return { kind: 'repair', post: wall,
         label: wall.tier === 3 ? 'Repair wall tower' : 'Repair palisade', cost: repairCost };
       if (wall.tier === 1) return { kind: 'reinforce', post: wall, label: 'Reinforce palisade', cost: 5 };
@@ -2930,6 +2962,49 @@ class CreekWatch {
     const west = this.builders.filter(({ side }) => side === -1).length;
     const post = this.posts[west <= this.builders.length - west ? 0 : 1];
     return { kind: 'hire-builder', post, camp, label: `Hire ${post.name.toLowerCase()} builder`, cost: WATCH_BUILDER_COST };
+  }
+
+  setBuilderOrder(order) {
+    if (!['repair', 'idle'].includes(order)) {
+      this.message = 'Tell builders “fix walls” or “stop repairs”.';
+      return false;
+    }
+    if (this.status !== 'running' || this.insideTower) {
+      this.message = 'Give builder orders outside in a running watch.';
+      return false;
+    }
+    if (!this.builders.length) {
+      this.message = 'Hire a builder at a recruiting camp before giving an order.';
+      return false;
+    }
+    this.builderOrder = order;
+    if (order === 'idle') {
+      this.builders.forEach((builder, index) => {
+        builder.working = false;
+        builder.returning = builder.x !== this.builderHome(builder, index);
+        builder.walking = builder.returning;
+        builder.workAt = this.tick;
+      });
+    }
+    this.message = order === 'repair'
+      ? `Builders ordered to repair existing defenses by day. Each wall job costs ${this.gear.includes('repair-kit') ? 1 : 2} copper; the signal tower costs 3. Payment is due when work first restores health.`
+      : 'Builders stopped repairing and are returning home. Unfinished paid repairs keep their credit.';
+    return true;
+  }
+
+  orderBuilders(input) {
+    if (typeof input !== 'string' || input.length > 120) {
+      this.message = 'Use a builder command of up to 120 characters: “fix walls” or “stop repairs”.';
+      return false;
+    }
+    const command = input.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const repairWords = /\b(?:fix|fixing|repair|repairs|repairing)\b/.test(command);
+    const negative = /\b(?:do not|dont|not|never|no|cancel)\b/.test(command);
+    if (/\b(?:stop (?:fixing|repair|repairs|repairing)|return home)\b/.test(command)
+        || /^(?:please )?(?:wait|stop)$/.test(command) || repairWords && negative) return this.setBuilderOrder('idle');
+    if (/\b(?:fix|repair) (?:all |the |our )?(?:walls|defenses|defences|stuff|stuf)\b/.test(command)) return this.setBuilderOrder('repair');
+    this.message = 'Tell builders “fix walls” to repair defenses, or “stop repairs” to send them home.';
+    return false;
   }
 
   getTrainingAction() {
@@ -3035,6 +3110,7 @@ class CreekWatch {
         return true;
       case 'signal':
         this.signal = WATCH_HEALTH;
+        this.clearBuilderRepair(this);
         this.message = 'Signal tower repaired. Ring the bell when you’re ready.';
         break;
       case 'hire':
@@ -3044,7 +3120,7 @@ class CreekWatch {
       case 'hire-builder':
         this.builders.push({ side: post.side, x: action.camp.x, direction: -action.camp.side,
           stride: 0, walking: false, returning: false, working: false, workAt: this.tick });
-        this.message = `Builder hired at the camp and sent to the ${post.name.toLowerCase()} bank. Builders repair existing defenses by day.`;
+        this.message = `Builder hired at the camp and sent to the ${post.name.toLowerCase()} bank. Tell builders “fix walls” when you want repairs.`;
         break;
       case 'train':
         action.guard.rank = 1;
@@ -3052,21 +3128,25 @@ class CreekWatch {
         break;
       case 'repair':
         post.health = this.maxWall(post);
+        this.clearBuilderRepair(post);
         this.message = `${post.name} ${post.tier === 3 ? 'wall tower' : 'palisade'} repaired.`;
         break;
       case 'reinforce':
         post.tier = 2;
         post.health = this.maxWall(post);
+        this.clearBuilderRepair(post);
         this.message = `${post.name} palisade reinforced.`;
         break;
       case 'wall-tower':
         post.tier = 3;
         post.health = this.maxWall(post);
+        this.clearBuilderRepair(post);
         this.message = `${post.name} wall tower built. Two posted guards can shoot from its raised platform.`;
         break;
       case 'build':
         post.tier = 1;
         post.health = this.maxWall(post);
+        this.clearBuilderRepair(post);
         this.message = post.forward && this.marketOpen ? 'Both forward palisades are built. The bridge market is open.'
           : `${post.name} palisade built.`;
         break;
@@ -3390,10 +3470,43 @@ class CreekWatch {
     const bank = side === -1 ? 0 : 1;
     const jobs = [this.posts[bank], this.forwardWalls[bank]]
       .filter((wall) => wall.tier > 0 && wall.health < this.maxWall(wall))
-      .map((wall) => ({ defense: wall, x: wall.wallX - side * 20, direction: side }));
+      .map((wall) => ({ defense: wall, id: this.builderRepairId(wall), cost: this.builderRepairCost(wall),
+        x: wall.wallX - side * 20, direction: side }));
     if (this.signal < WATCH_HEALTH) jobs.push({ defense: this,
-      x: watchTowerTarget(this, side) + side * 15, direction: -side });
+      id: 'signal', cost: 3, x: watchTowerTarget(this, side) + side * 15, direction: -side });
     return jobs;
+  }
+
+  builderRepairId(defense) {
+    if (defense === this) return 'signal';
+    const post = this.posts.indexOf(defense);
+    if (post >= 0) return WATCH_BUILDER_REPAIR_IDS[post];
+    const forward = this.forwardWalls.indexOf(defense);
+    return forward >= 0 ? WATCH_BUILDER_REPAIR_IDS[forward + 2] : null;
+  }
+
+  builderRepairCost(defense) {
+    return defense === this ? 3 : this.gear.includes('repair-kit') ? 1 : 2;
+  }
+
+  clearBuilderRepair(defense) {
+    const id = this.builderRepairId(defense);
+    this.builderPaidRepairs = this.builderPaidRepairs.filter((credit) => credit !== id);
+  }
+
+  pruneBuilderRepairs() {
+    const active = new Set([...this.builderRepairJobs(-1), ...this.builderRepairJobs(1)].map(({ id }) => id));
+    this.builderPaidRepairs = this.builderPaidRepairs.filter((id) => active.has(id));
+  }
+
+  payBuilderRepair(job) {
+    if (this.builderPaidRepairs.includes(job.id)) return true;
+    if (this.coins < job.cost) return false;
+    this.coins -= job.cost;
+    this.builderPaidRepairs.push(job.id);
+    const name = job.defense === this ? 'signal tower' : `${job.defense.name.toLowerCase()} ${job.defense.tier === 3 ? 'wall tower' : 'palisade'}`;
+    this.message = `Builders spent ${job.cost} copper to start repairing the ${name}.`;
+    return true;
   }
 
   canBuilderVisit(builder, target, home) {
@@ -3404,19 +3517,22 @@ class CreekWatch {
   }
 
   stepBuilders() {
+    this.pruneBuilderRepairs();
     const claimed = new Set();
     const jobs = { '-1': this.builderRepairJobs(-1), '1': this.builderRepairJobs(1) };
     this.builders.forEach((builder, index) => {
       const home = this.builderHome(builder, index);
       const returnTicks = Math.ceil(Math.abs(builder.x - home) / WATCH_GUARD_RETURN_SPEED);
-      const mustReturn = this.phase !== 'day' || this.recallingGuards
+      const mustReturn = this.builderOrder !== 'repair' || this.phase !== 'day' || this.recallingGuards
         || WATCH_DAY - this.phaseTick <= returnTicks + WATCH_GUARD_RETURN_MARGIN;
       let job;
       let nearest = Infinity;
       if (!mustReturn) {
         for (const candidate of jobs[builder.side]) {
           const distance = Math.abs(candidate.x - builder.x);
-          if (claimed.has(candidate.defense) || distance >= nearest || !this.canBuilderVisit(builder, candidate.x, home)) continue;
+          if (claimed.has(candidate.defense) || distance >= nearest
+              || !this.builderPaidRepairs.includes(candidate.id) && this.coins < candidate.cost
+              || !this.canBuilderVisit(builder, candidate.x, home)) continue;
           job = candidate;
           nearest = distance;
         }
@@ -3439,8 +3555,10 @@ class CreekWatch {
       builder.working = true;
       builder.direction = job.direction;
       if (this.tick < builder.workAt) return;
+      if (!this.payBuilderRepair(job)) return;
       if (job.defense === this) this.signal = Math.min(WATCH_HEALTH, this.signal + 1);
       else job.defense.health = Math.min(this.maxWall(job.defense), job.defense.health + 1);
+      if (job.defense === this ? this.signal === WATCH_HEALTH : job.defense.health === this.maxWall(job.defense)) this.clearBuilderRepair(job.defense);
       builder.workAt = this.tick + WATCH_BUILDER_REPAIR_TICKS;
     });
   }
@@ -3756,8 +3874,9 @@ const validWatchFlag = (value) => typeof value === 'boolean';
 const optionalWatchField = (value, isValid) => value === undefined || isValid(value);
 const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.length <= limit
   && items.every((item) => item && isValid(item));
+const watchWallCapacity = (tier) => tier === 3 ? WATCH_WALL_TOWER_HEALTH : tier === 2 ? 11 : tier === 1 ? 6 : 0;
 const validWatchWall = ({ tier, health }) => [0, 1, 2, 3].includes(tier)
-  && validWatchCount(health) && health <= (tier === 3 ? WATCH_WALL_TOWER_HEALTH : tier === 2 ? 11 : tier === 1 ? 6 : 0);
+  && validWatchCount(health) && health <= watchWallCapacity(tier);
 const watchSprayers = (state) => state.sprayers === undefined
   ? state.sprayer == null ? [] : [state.sprayer] : state.sprayers;
 const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && value <= WATCH_FLYER_ALTITUDE;
@@ -3773,6 +3892,14 @@ function validWatchBuilder(builder, tick, phase) {
     && validWatchFlag(walking) && validWatchFlag(returning) && validWatchFlag(working)
     && validWatchCount(workAt) && workAt <= tick + WATCH_BUILDER_REPAIR_TICKS
     && (!working || phase === 'day' && !walking && !returning);
+}
+
+function validBuilderRepairCredit(id, posts, forwardWalls, signal) {
+  if (!WATCH_BUILDER_REPAIR_IDS.includes(id)) return false;
+  if (id === 'signal') return signal < WATCH_HEALTH;
+  const wall = { 'west-wall': posts?.[0], 'east-wall': posts?.[1],
+    'west-forward': forwardWalls?.[0], 'east-forward': forwardWalls?.[1] }[id];
+  return wall && validWatchWall(wall) && wall.tier > 0 && wall.health < watchWallCapacity(wall.tier);
 }
 
 function validWatchShot(shot, tick) {
@@ -3797,7 +3924,7 @@ function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
     shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, builders = [], gear = [], weapon = null,
-    swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
+    swingAt = -TICKS_PER_SECOND, recallingGuards = false, builderOrder = 'idle', builderPaidRepairs = [], towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = 1,
     interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
   const room = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM : WATCH_TOWER_ROOM;
@@ -3811,6 +3938,10 @@ function validWatchState(state) {
       || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
       || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length
       || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')
+      || !['idle', 'repair'].includes(builderOrder)
+      || !validWatchList(builderPaidRepairs, WATCH_BUILDER_REPAIR_IDS.length,
+        (id) => validBuilderRepairCredit(id, posts, forwardWalls, signal))
+      || new Set(builderPaidRepairs).size !== builderPaidRepairs.length
       || !validWatchFlag(towerUpgraded) || !validWatchFlag(insideTower)
       || (towerRoomLayout !== 1 && towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT)
       || !Number.isFinite(interiorX) || interiorX < room.left || interiorX > room.right
@@ -3881,10 +4012,10 @@ function validFlyer(flyer, tick) {
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
     shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, builders = [], gear = [], weapon = null,
-    swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
+    swingAt = -TICKS_PER_SECOND, recallingGuards = false, builderOrder = 'idle', builderPaidRepairs = [], towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, aimSeed,
-    sprayers: watchSprayers(watch), flyers, flyerQueue, builders,
+    sprayers: watchSprayers(watch), flyers, flyerQueue, builders, builderOrder, builderPaidRepairs,
     gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
@@ -5411,6 +5542,12 @@ const watchMapRoute = document.querySelector('.watch-route');
 const watchMapDestinations = document.querySelector('.watch-destinations');
 const watchTrain = document.querySelector('#watch-train');
 const watchBuilder = document.querySelector('#watch-builder');
+const watchBuilderOrders = document.querySelector('#watch-builder-orders');
+const watchBuilderOrderStatus = document.querySelector('#watch-builder-order-status');
+const watchBuilderFees = document.querySelector('#watch-builder-fees');
+const watchBuilderCommandForm = document.querySelector('#watch-builder-command-form');
+const watchBuilderCommand = document.querySelector('#watch-builder-command');
+const watchBuilderOrderButtons = document.querySelectorAll('[data-builder-order]');
 const watchSwing = document.querySelector('#watch-swing');
 const watchMessage = document.querySelector('#watch-message');
 const watchCoins = document.querySelector('#watch-coins');
@@ -5744,6 +5881,17 @@ function drawWatchMode() {
     setWatchText(watchBuilder, `${builder.label} · ${builder.cost} copper`);
     watchBuilder.disabled = paused;
   }
+  watchBuilderOrders.hidden = !active || watch.insideTower || watch.builders.length === 0;
+  const paidRepairs = watch.builderPaidRepairs.length;
+  const builderOrderStatus = watch.builderOrder === 'repair'
+    ? 'Automatic repairs on. Builders keep this order each day.' : 'Waiting for your repair order.';
+  setWatchText(watchBuilderOrderStatus, builderOrderStatus
+    + (paidRepairs ? ` ${paidRepairs} unfinished repair${paidRepairs === 1 ? '' : 's'} already paid.` : ''));
+  const wallRepairCost = watch.gear.includes('repair-kit') ? 1 : 2;
+  setWatchText(watchBuilderFees, `Walls and wall towers: ${wallRepairCost} copper. Signal tower: 3. Pay once per repair; workers wait if coins run low.`);
+  for (const button of watchBuilderOrderButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.builderOrder === watch.builderOrder));
+  }
   watchMarketRoute.hidden = !watch.marketOpen;
   watchSwing.hidden = !watch.weapon || watch.insideTower;
   if (watch.weapon) {
@@ -5828,6 +5976,15 @@ function useWatchStation(kind) {
       lag = 0;
       world.focus({ preventScroll: true });
     }
+  }
+  dirty = true;
+}
+
+function commandWatchBuilders(input, direct = false) {
+  const accepted = direct ? watch.setBuilderOrder(input) : watch.orderBuilders(input);
+  if (accepted) {
+    watchBuilderCommand.value = '';
+    world.focus({ preventScroll: true });
   }
   dirty = true;
 }
@@ -5951,6 +6108,17 @@ watchAction.addEventListener('click', () => useWatchStation());
 watchTower.addEventListener('click', () => useWatchStation('tower'));
 watchTrain.addEventListener('click', () => useWatchStation('train'));
 watchBuilder.addEventListener('click', () => useWatchStation('builder'));
+watchBuilderCommandForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  commandWatchBuilders(watchBuilderCommand.value);
+});
+watchBuilderCommand.addEventListener('focus', () => {
+  walkKeys.clear();
+  walkTarget = null;
+});
+for (const button of watchBuilderOrderButtons) {
+  button.addEventListener('click', () => commandWatchBuilders(button.dataset.builderOrder, true));
+}
 watchSwing.addEventListener('click', swingWatchWeapon);
 watchMarketDialog.addEventListener('close', () => world.focus({ preventScroll: true }));
 for (const button of watchMoveButtons) {
