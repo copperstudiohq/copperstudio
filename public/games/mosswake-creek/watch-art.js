@@ -1161,9 +1161,9 @@ export function drawCreekWatch(ctx, watch) {
     else drawWatchOpus(ctx, raider, watch);
   }
   for (const flyer of watch.flyers ?? []) if (flyer.hp > 0 && onScreen(flyer.x, 48)) drawTriFlyer(ctx, flyer, watch.tick);
-  ctx.strokeStyle = '#f7d99dba';
   ctx.lineWidth = 1.2;
   for (const shot of watch.shots) {
+    ctx.strokeStyle = shot.missed ? '#b8a88891' : '#f7d99dba';
     ctx.beginPath();
     ctx.moveTo(shot.from, watchGround(shot.from) - 12);
     ctx.lineTo(shot.to, watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16) - (shot.altitude ?? 0));

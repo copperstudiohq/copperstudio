@@ -472,6 +472,7 @@ dialog dd { margin: 2px 0 0; }
       <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
       <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Press E or use the action button at a camp to hire guards for 3 copper each, with no limit on the roster. Guards fill the two banks evenly. After hiring three guards, either keep recruiting or train a guard as a veteran for 4 copper. Recruits take shelter until nearby Tri Opus pass.</dd></div>
       <div><dt>Bridge market</dt><dd>Build both forward walls for 5 copper each to open the market east of the tower. Approach a stall and press E to shop. Buying a weapon equips it. Face a Tri and press F or use Swing to attack.</dd></div>
+      <div><dt>Soldier aim</dt><dd>Soldiers can miss their shots. Distant and airborne targets are harder to hit, and veterans aim better than regular soldiers. A missed arrow goes wide and deals no damage; hunting arrows can also miss pigeons.</dd></div>
       <div><dt>A room in the tower</dt><dd>During the day, stand beside the tower and choose Upgrade tower for 100 copper. You pay once. Then choose Enter tower to visit the dining room with its red tablecloth. Walk with A/D, the arrow keys, or tap the floor. Approach one of the four chairs and press E or Sit to take a seat. Press E or move to stand up. Use Leave tower room to return outside. The outside watch pauses while you are inside. Named saves keep the upgrade, room position and seated chair.</dd></div>
       <div><dt>Keep the light burning</dt><dd>At dusk, Tri Opus walk out of both portals and strike your defenses with pulses of light. Each dawn starts a new day until the tower falls.</dd></div>
       <div><dt>Blood moons</dt><dd>Every tenth night has a blood moon. Ichor Sprayers appear at both portals on night 20 and every night from 30 onward, releasing new Tri Opus in bursts of ichor.</dd></div>
@@ -2603,6 +2604,7 @@ const WATCH_PORTALS = [
 const WATCH_HEALTH = 10;
 const WATCH_DAY = DAY_TICKS;
 const WATCH_NIGHT = NIGHT_TICKS;
+const WATCH_AIM_SEED = 0x43524545;
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -2747,6 +2749,7 @@ class CreekWatch {
     this.flyers = [];
     this.flyerQueue = [];
     this.shots = [];
+    this.aimSeed = WATCH_AIM_SEED;
     this.loot = [];
     this.huntedPigeons = 0;
     this.recallingGuards = false;
@@ -3352,10 +3355,11 @@ class CreekWatch {
           if (pigeon.side !== post.side || (this.huntedPigeons & (1 << bird))) continue;
           const { x: to } = watchPigeonPose(pigeon, this.tick);
           if (Math.abs(to - from) > 42) continue;
-          this.huntedPigeons |= 1 << bird;
-          if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
-          this.shootWatchArrow(guard, from, to, 44, 'pigeon');
-          this.message = 'A guard hunted a pigeon. Guards will bring its copper to you.';
+          if (this.shootWatchArrow(guard, from, to, 44, 'pigeon')) {
+            this.huntedPigeons |= 1 << bird;
+            if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
+            this.message = 'A guard hunted a pigeon. Guards will bring its copper to you.';
+          }
           break;
         }
       });
@@ -3395,7 +3399,29 @@ class CreekWatch {
     guard.direction = Math.sign(to - from) || guard.direction;
     guard.shotAt = this.tick;
     guard.fireAt = this.tick + cooldown;
-    this.shots.push({ from, to, end: this.tick + 9, kind, ...(altitude > 0 ? { altitude } : {}) });
+    // One saved PRNG step per arrow keeps aiming identical after a save/load.
+    this.aimSeed = (this.aimSeed + 0x6d2b79f5) >>> 0;
+    let value = this.aimSeed;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    const roll = ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    const veteran = guard.rank === 1;
+    const range = kind === 'pigeon' ? 42 : WATCH_GUARD_STATS[guard.rank].range;
+    const distance = Math.min(1, Math.hypot(to - from, altitude) / range);
+    const accuracy = (veteran ? 0.98 : 0.9) - distance * (veteran ? 0.1 : 0.2)
+      - Math.min(1, altitude / WATCH_FLYER_ALTITUDE) * 0.04;
+    const hit = roll < accuracy;
+    let endpoint = to;
+    if (!hit) {
+      const offset = 12 + Math.floor((roll - accuracy) / (1 - accuracy) * 14);
+      const sign = this.aimSeed & 1 ? 1 : -1;
+      const candidates = [to + sign * offset, to - sign * offset]
+        .filter((x) => x >= WATCH_BOUNDS.left && x <= WATCH_BOUNDS.right);
+      endpoint = candidates.find((x) => (x - from) * guard.direction >= 0) ?? candidates[0];
+    }
+    this.shots.push({ from, to: endpoint, end: this.tick + 9, kind,
+      ...(altitude > 0 ? { altitude } : {}), ...(!hit ? { missed: true } : {}) });
+    return hit;
   }
 
   damageEnemy(enemy, damage) {
@@ -3438,8 +3464,9 @@ class CreekWatch {
           closest = distance;
         }
         if (!target) return;
-        this.damageEnemy(target, damage);
-        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0);
+        if (this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0)) {
+          this.damageEnemy(target, damage);
+        }
       });
     }
   }
@@ -3497,7 +3524,7 @@ const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && va
 
 function validWatchState(state) {
   if (!state) return false;
-  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
+  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
     shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = 1,
@@ -3509,6 +3536,7 @@ function validWatchState(state) {
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
       || !validWatchCount(coins) || !validWatchCount(signal) || signal > WATCH_HEALTH
+      || !Number.isInteger(aimSeed) || aimSeed < 0 || aimSeed > 0xffffffff
       || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
       || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length
       || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')
@@ -3549,9 +3577,10 @@ function validWatchState(state) {
       && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt)
       && (kind === undefined ? rank === undefined : kind === 'infected' && [0, 1].includes(rank)
         && phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && struckAt <= tick))
-    && validWatchList(shots, Infinity, ({ from, to, end, kind, altitude }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
+    && validWatchList(shots, Infinity, ({ from, to, end, kind, altitude, missed }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
       && (kind === undefined || kind === 'pigeon' || kind === 'raid')
-      && (altitude === undefined || kind === 'raid' && validFlyerAltitude(altitude)))
+      && (altitude === undefined || kind === 'raid' && validFlyerAltitude(altitude))
+      && optionalWatchField(missed, validWatchFlag))
     && validWatchList(loot, Infinity, ({ x, amount, forPlayer = false }) =>
       validWatchX(x) && validWatchCount(amount) && amount > 0 && validWatchFlag(forPlayer))
     && loot.filter((piece) => !piece.forPlayer).length <= 128
@@ -3581,11 +3610,11 @@ function validFlyer(flyer, tick) {
 }
 
 function captureWatchState(watch) {
-  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
+  const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
     shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
-  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message,
+  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, aimSeed,
     sprayers: watchSprayers(watch), flyers, flyerQueue,
     gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
@@ -4843,9 +4872,9 @@ function drawCreekWatch(ctx, watch) {
     else drawWatchOpus(ctx, raider, watch);
   }
   for (const flyer of watch.flyers ?? []) if (flyer.hp > 0 && onScreen(flyer.x, 48)) drawTriFlyer(ctx, flyer, watch.tick);
-  ctx.strokeStyle = '#f7d99dba';
   ctx.lineWidth = 1.2;
   for (const shot of watch.shots) {
+    ctx.strokeStyle = shot.missed ? '#b8a88891' : '#f7d99dba';
     ctx.beginPath();
     ctx.moveTo(shot.from, watchGround(shot.from) - 12);
     ctx.lineTo(shot.to, watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16) - (shot.altitude ?? 0));

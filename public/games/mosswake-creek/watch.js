@@ -22,6 +22,7 @@ export const WATCH_PORTALS = [
 export const WATCH_HEALTH = 10;
 export const WATCH_DAY = DAY_TICKS;
 export const WATCH_NIGHT = NIGHT_TICKS;
+export const WATCH_AIM_SEED = 0x43524545;
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -166,6 +167,7 @@ export class CreekWatch {
     this.flyers = [];
     this.flyerQueue = [];
     this.shots = [];
+    this.aimSeed = WATCH_AIM_SEED;
     this.loot = [];
     this.huntedPigeons = 0;
     this.recallingGuards = false;
@@ -771,10 +773,11 @@ export class CreekWatch {
           if (pigeon.side !== post.side || (this.huntedPigeons & (1 << bird))) continue;
           const { x: to } = watchPigeonPose(pigeon, this.tick);
           if (Math.abs(to - from) > 42) continue;
-          this.huntedPigeons |= 1 << bird;
-          if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
-          this.shootWatchArrow(guard, from, to, 44, 'pigeon');
-          this.message = 'A guard hunted a pigeon. Guards will bring its copper to you.';
+          if (this.shootWatchArrow(guard, from, to, 44, 'pigeon')) {
+            this.huntedPigeons |= 1 << bird;
+            if (this.loot.length < 60) this.loot.push({ x: to, amount: 1 });
+            this.message = 'A guard hunted a pigeon. Guards will bring its copper to you.';
+          }
           break;
         }
       });
@@ -814,7 +817,29 @@ export class CreekWatch {
     guard.direction = Math.sign(to - from) || guard.direction;
     guard.shotAt = this.tick;
     guard.fireAt = this.tick + cooldown;
-    this.shots.push({ from, to, end: this.tick + 9, kind, ...(altitude > 0 ? { altitude } : {}) });
+    // One saved PRNG step per arrow keeps aiming identical after a save/load.
+    this.aimSeed = (this.aimSeed + 0x6d2b79f5) >>> 0;
+    let value = this.aimSeed;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    const roll = ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+    const veteran = guard.rank === 1;
+    const range = kind === 'pigeon' ? 42 : WATCH_GUARD_STATS[guard.rank].range;
+    const distance = Math.min(1, Math.hypot(to - from, altitude) / range);
+    const accuracy = (veteran ? 0.98 : 0.9) - distance * (veteran ? 0.1 : 0.2)
+      - Math.min(1, altitude / WATCH_FLYER_ALTITUDE) * 0.04;
+    const hit = roll < accuracy;
+    let endpoint = to;
+    if (!hit) {
+      const offset = 12 + Math.floor((roll - accuracy) / (1 - accuracy) * 14);
+      const sign = this.aimSeed & 1 ? 1 : -1;
+      const candidates = [to + sign * offset, to - sign * offset]
+        .filter((x) => x >= WATCH_BOUNDS.left && x <= WATCH_BOUNDS.right);
+      endpoint = candidates.find((x) => (x - from) * guard.direction >= 0) ?? candidates[0];
+    }
+    this.shots.push({ from, to: endpoint, end: this.tick + 9, kind,
+      ...(altitude > 0 ? { altitude } : {}), ...(!hit ? { missed: true } : {}) });
+    return hit;
   }
 
   damageEnemy(enemy, damage) {
@@ -857,8 +882,9 @@ export class CreekWatch {
           closest = distance;
         }
         if (!target) return;
-        this.damageEnemy(target, damage);
-        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0);
+        if (this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0)) {
+          this.damageEnemy(target, damage);
+        }
       });
     }
   }
