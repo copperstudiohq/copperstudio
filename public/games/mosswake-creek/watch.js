@@ -31,6 +31,7 @@ export const WATCH_WALL_TOWER_HEALTH = 30;
 export const WATCH_WALL_TOWER_PLATFORM = 32;
 export const WATCH_BUILDER_COST = 3;
 export const WATCH_BUILDER_REPAIR_TICKS = 2 * TICKS_PER_SECOND;
+export const WATCH_BUILDER_UPGRADE_TICKS = 4 * TICKS_PER_SECOND;
 export const WATCH_BUILDER_REPAIR_IDS = Object.freeze(['west-wall', 'east-wall', 'west-forward', 'east-forward', 'signal']);
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
@@ -351,8 +352,8 @@ export class CreekWatch {
   }
 
   setBuilderOrder(order) {
-    if (!['repair', 'idle'].includes(order)) {
-      this.message = 'Tell builders “fix walls” or “stop repairs”.';
+    if (!['repair', 'upgrade', 'idle'].includes(order)) {
+      this.message = 'Tell builders “fix walls”, “upgrade walls” or “stop work”.';
       return false;
     }
     if (this.status !== 'running' || this.insideTower) {
@@ -363,6 +364,12 @@ export class CreekWatch {
       this.message = 'Hire a builder at a recruiting camp before giving an order.';
       return false;
     }
+    if (this.builderOrder !== order) {
+      for (const builder of this.builders) {
+        builder.working = false;
+        builder.workAt = this.tick;
+      }
+    }
     this.builderOrder = order;
     if (order === 'idle') {
       this.builders.forEach((builder, index) => {
@@ -372,24 +379,27 @@ export class CreekWatch {
         builder.workAt = this.tick;
       });
     }
-    this.message = order === 'repair'
+    this.message = order === 'upgrade'
+      ? `Builders ordered to repair, then upgrade existing walls by day: 5 copper to reinforce and ${WATCH_WALL_TOWER_COST} for a wall tower. Upgrades are paid after four seconds of work at the wall.`
+      : order === 'repair'
       ? `Builders ordered to repair existing defenses by day. Each wall job costs ${this.gear.includes('repair-kit') ? 1 : 2} copper; the signal tower costs 3. Payment is due when work first restores health.`
-      : 'Builders stopped repairing and are returning home. Unfinished paid repairs keep their credit.';
+      : 'Builders stopped working and are returning home. Unfinished paid repairs keep their credit.';
     return true;
   }
 
   orderBuilders(input) {
     if (typeof input !== 'string' || input.length > 120) {
-      this.message = 'Use a builder command of up to 120 characters: “fix walls” or “stop repairs”.';
+      this.message = 'Use a builder command of up to 120 characters: “fix walls”, “upgrade walls” or “stop work”.';
       return false;
     }
     const command = input.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-    const repairWords = /\b(?:fix|fixing|repair|repairs|repairing)\b/.test(command);
+    const workWords = /\b(?:fix|fixing|repair|repairs|repairing|upgrade|upgrades|upgrading)\b/.test(command);
     const negative = /\b(?:do not|dont|not|never|no|cancel)\b/.test(command);
-    if (/\b(?:stop (?:fixing|repair|repairs|repairing)|return home)\b/.test(command)
-        || /^(?:please )?(?:wait|stop)$/.test(command) || repairWords && negative) return this.setBuilderOrder('idle');
+    if (/\b(?:stop (?:work|fixing|repair|repairs|repairing|upgrade|upgrades|upgrading)|return home)\b/.test(command)
+        || /^(?:please )?(?:wait|stop)$/.test(command) || workWords && negative) return this.setBuilderOrder('idle');
+    if (/\b(?:upgrade (?:all |the |our )?walls|auto upgrade)\b/.test(command)) return this.setBuilderOrder('upgrade');
     if (/\b(?:fix|repair) (?:all |the |our )?(?:walls|defenses|defences|stuff|stuf)\b/.test(command)) return this.setBuilderOrder('repair');
-    this.message = 'Tell builders “fix walls” to repair defenses, or “stop repairs” to send them home.';
+    this.message = 'Tell builders “fix walls”, “upgrade walls” or “stop work”.';
     return false;
   }
 
@@ -819,6 +829,7 @@ export class CreekWatch {
     } else {
       this.signal = Math.max(0, this.signal - damage);
     }
+    this.resetBuilderWork(post ?? this);
   }
 
   guardWall(post) {
@@ -856,10 +867,25 @@ export class CreekWatch {
     const bank = side === -1 ? 0 : 1;
     const jobs = [this.posts[bank], this.forwardWalls[bank]]
       .filter((wall) => wall.tier > 0 && wall.health < this.maxWall(wall))
-      .map((wall) => ({ defense: wall, id: this.builderRepairId(wall), cost: this.builderRepairCost(wall),
+      .map((wall) => ({ defense: wall, id: this.builderRepairId(wall), kind: 'repair', duration: WATCH_BUILDER_REPAIR_TICKS,
+        cost: this.builderRepairCost(wall),
         x: wall.wallX - side * 20, direction: side }));
     if (this.signal < WATCH_HEALTH) jobs.push({ defense: this,
-      id: 'signal', cost: 3, x: watchTowerTarget(this, side) + side * 15, direction: -side });
+      id: 'signal', kind: 'repair', duration: WATCH_BUILDER_REPAIR_TICKS,
+      cost: 3, x: watchTowerTarget(this, side) + side * 15, direction: -side });
+    return jobs;
+  }
+
+  builderWorkJobs(side) {
+    const jobs = this.builderRepairJobs(side);
+    if (this.builderOrder !== 'upgrade') return jobs;
+    const bank = side === -1 ? 0 : 1;
+    for (const wall of [this.posts[bank], this.forwardWalls[bank]]) {
+      if (![1, 2].includes(wall.tier) || wall.health !== this.maxWall(wall)) continue;
+      jobs.push({ defense: wall, id: this.builderRepairId(wall), kind: wall.tier === 1 ? 'reinforce' : 'wall-tower',
+        cost: wall.tier === 1 ? 5 : WATCH_WALL_TOWER_COST, duration: WATCH_BUILDER_UPGRADE_TICKS,
+        x: wall.wallX - side * 20, direction: side });
+    }
     return jobs;
   }
 
@@ -878,6 +904,18 @@ export class CreekWatch {
   clearBuilderRepair(defense) {
     const id = this.builderRepairId(defense);
     this.builderPaidRepairs = this.builderPaidRepairs.filter((credit) => credit !== id);
+    this.resetBuilderWork(defense);
+  }
+
+  resetBuilderWork(defense) {
+    for (const builder of this.builders) {
+      if (defense !== this && builder.side !== defense.side) continue;
+      const site = defense === this ? watchTowerTarget(this, builder.side) + builder.side * 15
+        : defense.wallX - builder.side * 20;
+      if (builder.x !== site) continue;
+      builder.working = false;
+      builder.workAt = this.tick;
+    }
   }
 
   pruneBuilderRepairs() {
@@ -895,32 +933,50 @@ export class CreekWatch {
     return true;
   }
 
-  canBuilderVisit(builder, target, home) {
+  finishBuilderUpgrade(job) {
+    const wall = job.defense;
+    const tier = job.kind === 'reinforce' ? 1 : job.kind === 'wall-tower' ? 2 : null;
+    if (wall.tier !== tier || wall.health !== this.maxWall(wall) || this.coins < job.cost) return false;
+    this.coins -= job.cost;
+    wall.tier++;
+    wall.health = this.maxWall(wall);
+    this.clearBuilderRepair(wall);
+    this.message = job.kind === 'reinforce'
+      ? `Builders reinforced the ${wall.name.toLowerCase()} palisade for ${job.cost} copper.`
+      : `Builders completed the ${wall.name.toLowerCase()} wall tower for ${job.cost} copper.`;
+    return true;
+  }
+
+  canBuilderVisit(builder, target, home, duration = WATCH_BUILDER_REPAIR_TICKS) {
     const travel = Math.ceil(Math.abs(target - builder.x) / WATCH_GUARD_SPEED);
     const back = Math.ceil(Math.abs(target - home) / WATCH_GUARD_RETURN_SPEED);
-    const work = builder.working ? Math.max(0, builder.workAt - this.tick) : WATCH_BUILDER_REPAIR_TICKS;
+    const work = builder.working && builder.x === target ? Math.max(0, builder.workAt - this.tick) : duration;
     return travel + work + back + WATCH_GUARD_RETURN_MARGIN < WATCH_DAY - this.phaseTick;
   }
 
   stepBuilders() {
     this.pruneBuilderRepairs();
     const claimed = new Set();
-    const jobs = { '-1': this.builderRepairJobs(-1), '1': this.builderRepairJobs(1) };
+    const jobs = { '-1': this.builderWorkJobs(-1), '1': this.builderWorkJobs(1) };
     this.builders.forEach((builder, index) => {
       const home = this.builderHome(builder, index);
       const returnTicks = Math.ceil(Math.abs(builder.x - home) / WATCH_GUARD_RETURN_SPEED);
-      const mustReturn = this.builderOrder !== 'repair' || this.phase !== 'day' || this.recallingGuards
+      const mustReturn = !['repair', 'upgrade'].includes(this.builderOrder) || this.phase !== 'day' || this.recallingGuards
         || WATCH_DAY - this.phaseTick <= returnTicks + WATCH_GUARD_RETURN_MARGIN;
       let job;
       let nearest = Infinity;
+      let priority = Infinity;
       if (!mustReturn) {
         for (const candidate of jobs[builder.side]) {
           const distance = Math.abs(candidate.x - builder.x);
-          if (claimed.has(candidate.defense) || distance >= nearest
-              || !this.builderPaidRepairs.includes(candidate.id) && this.coins < candidate.cost
-              || !this.canBuilderVisit(builder, candidate.x, home)) continue;
+          const category = candidate.kind === 'repair' ? 0 : 1;
+          const funded = candidate.kind === 'repair' && this.builderPaidRepairs.includes(candidate.id);
+          if (claimed.has(candidate.defense) || category > priority || category === priority && distance >= nearest
+              || !funded && this.coins < candidate.cost
+              || !this.canBuilderVisit(builder, candidate.x, home, candidate.duration)) continue;
           job = candidate;
           nearest = distance;
+          priority = category;
         }
       }
       const wasWorking = builder.working;
@@ -935,12 +991,16 @@ export class CreekWatch {
       claimed.add(job.defense);
       builder.returning = false;
       walkWatchGuard(builder, builder.x, job.x, WATCH_GUARD_SPEED);
-      if (builder.walking || !wasWorking) builder.workAt = this.tick + WATCH_BUILDER_REPAIR_TICKS;
+      if (builder.walking || !wasWorking) builder.workAt = this.tick + job.duration;
       if (builder.x !== job.x) return;
       builder.walking = false;
       builder.working = true;
       builder.direction = job.direction;
       if (this.tick < builder.workAt) return;
+      if (job.kind !== 'repair') {
+        this.finishBuilderUpgrade(job);
+        return;
+      }
       if (!this.payBuilderRepair(job)) return;
       if (job.defense === this) this.signal = Math.min(WATCH_HEALTH, this.signal + 1);
       else job.defense.health = Math.min(this.maxWall(job.defense), job.defense.health + 1);

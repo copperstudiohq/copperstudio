@@ -441,12 +441,13 @@ function drawWatchMode() {
   }
   watchBuilderOrders.hidden = !active || watch.insideTower || watch.builders.length === 0;
   const paidRepairs = watch.builderPaidRepairs.length;
-  const builderOrderStatus = watch.builderOrder === 'repair'
-    ? 'Automatic repairs on. Builders keep this order each day.' : 'Waiting for your repair order.';
+  const builderOrderStatus = watch.builderOrder === 'upgrade'
+    ? 'Automatic upgrades on. Builders repair first, then improve existing walls.'
+    : watch.builderOrder === 'repair' ? 'Automatic repairs on. Builders keep this order each day.' : 'Waiting for your builder order.';
   setWatchText(watchBuilderOrderStatus, builderOrderStatus
     + (paidRepairs ? ` ${paidRepairs} unfinished repair${paidRepairs === 1 ? '' : 's'} already paid.` : ''));
   const wallRepairCost = watch.gear.includes('repair-kit') ? 1 : 2;
-  setWatchText(watchBuilderFees, `Walls and wall towers: ${wallRepairCost} copper. Signal tower: 3. Pay once per repair; workers wait if coins run low.`);
+  setWatchText(watchBuilderFees, `Repairs: walls ${wallRepairCost} copper, signal tower 3. Upgrades: reinforce 5, wall tower 200. Builders wait if coins run low.`);
   for (const button of watchBuilderOrderButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.builderOrder === watch.builderOrder));
   }

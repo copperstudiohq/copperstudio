@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_BUILDER_REPAIR_IDS, WATCH_BUILDER_REPAIR_TICKS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, WATCH_WALL_TOWER_HEALTH, hasWatchSprayer } from './watch.js';
+import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_BUILDER_REPAIR_IDS, WATCH_BUILDER_REPAIR_TICKS, WATCH_BUILDER_UPGRADE_TICKS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, WATCH_WALL_TOWER_HEALTH, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -54,13 +54,13 @@ const LEGACY_SHOT_FIELDS = new Set(['from', 'to', 'end', 'kind', 'altitude', 'mi
 const BALLISTIC_SHOT_FIELDS = new Set([...LEGACY_SHOT_FIELDS, 'ballistic', 'x', 'y', 'vx', 'vy', 'damage', 'stuck']);
 const BUILDER_FIELDS = new Set(['side', 'x', 'direction', 'stride', 'walking', 'returning', 'working', 'workAt']);
 
-function validWatchBuilder(builder, tick, phase) {
+function validWatchBuilder(builder, tick, phase, order) {
   const { side, x, direction, stride, walking, returning, working, workAt } = builder;
   return Object.keys(builder).length === BUILDER_FIELDS.size
     && Object.keys(builder).every((key) => BUILDER_FIELDS.has(key))
     && validWatchSide(side) && validWatchX(x) && validWatchSide(direction) && validWatchCount(stride)
     && validWatchFlag(walking) && validWatchFlag(returning) && validWatchFlag(working)
-    && validWatchCount(workAt) && workAt <= tick + WATCH_BUILDER_REPAIR_TICKS
+    && validWatchCount(workAt) && workAt <= tick + (order === 'upgrade' ? WATCH_BUILDER_UPGRADE_TICKS : WATCH_BUILDER_REPAIR_TICKS)
     && (!working || phase === 'day' && !walking && !returning);
 }
 
@@ -108,7 +108,7 @@ function validWatchState(state) {
       || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
       || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length
       || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')
-      || !['idle', 'repair'].includes(builderOrder)
+      || !['idle', 'repair', 'upgrade'].includes(builderOrder)
       || !validWatchList(builderPaidRepairs, WATCH_BUILDER_REPAIR_IDS.length,
         (id) => validBuilderRepairCredit(id, posts, forwardWalls, signal))
       || new Set(builderPaidRepairs).size !== builderPaidRepairs.length
@@ -131,7 +131,7 @@ function validWatchState(state) {
     && [-1, 1].every((side) => flyers.filter((flyer) => flyer.side === side).length
       + flyerQueue.filter((entry) => entry.side === side).length <= WATCH_FLYERS_PER_SIDE)
     && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
-    && validWatchList(builders, Infinity, (builder) => validWatchBuilder(builder, tick, phase))
+    && validWatchList(builders, Infinity, (builder) => validWatchBuilder(builder, tick, phase, builderOrder))
     && optionalWatchField(forwardWalls, (walls) => validWatchList(walls, 2, validWatchWall) && walls.length === 2)
     && validWatchList(gear, Object.keys(WATCH_MARKET_ITEMS).length,
       (id) => typeof id === 'string' && Object.hasOwn(WATCH_MARKET_ITEMS, id)) && new Set(gear).size === gear.length
