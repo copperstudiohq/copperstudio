@@ -4281,38 +4281,38 @@ function drawTowerDiningRoom(ctx, watch) {
   watchRect(ctx, '#6e4932', 70, 17, 2, 2);
   watchRect(ctx, '#ca8a52', 74, 19, 2, 1);
   // The dining table sits in front of the centered door.
-  ctx.save();
-  ctx.translate(door - 64, 0);
-  for (const x of [51, 75]) {
+  const tableWidth = Math.floor(width * 0.8);
+  const tableLeft = Math.round(door - tableWidth / 2);
+  const tableRight = tableLeft + tableWidth;
+  for (const x of [tableLeft - 5, tableRight + 2]) {
     watchRect(ctx, '#49322c', x, 34, 4, 18);
     watchRect(ctx, '#b58250', x, 34, 4, 2);
     watchRect(ctx, '#bc8d56', x, 38, 1, 14);
     watchRect(ctx, '#a26d42', x, 44, 5, 2);
     watchRect(ctx, '#63432f', x + 3, 46, 1, 6);
   }
-  for (const x of [56, 71]) {
+  for (const x of [tableLeft + 3, door - 1, tableRight - 4]) {
     watchRect(ctx, '#6a442f', x, 40, 2, 12);
     watchRect(ctx, '#c38a52', x, 41, 1, 10);
   }
-  watchRect(ctx, '#62352f', 55, 36, 18, 5);
-  watchRect(ctx, '#bd4945', 54, 36, 20, 8);
-  watchRect(ctx, '#e7745b', 55, 36, 18, 1);
-  watchRect(ctx, '#9e353b', 54, 39, 20, 5);
-  for (let x = 56; x < 73; x += 5) {
+  watchRect(ctx, '#62352f', tableLeft + 1, 36, tableWidth - 2, 5);
+  watchRect(ctx, '#bd4945', tableLeft, 36, tableWidth, 8);
+  watchRect(ctx, '#e7745b', tableLeft + 1, 36, tableWidth - 2, 1);
+  watchRect(ctx, '#9e353b', tableLeft, 39, tableWidth, 5);
+  for (let x = tableLeft + 2; x < tableRight - 2; x += 5) {
     watchRect(ctx, '#d65b4e', x, 39, 1, 4);
     watchRect(ctx, '#6e2b34', x + 2, 39, 1, 5);
   }
-  watchRect(ctx, '#e5b576', 54, 43, 20, 1);
-  for (const x of [57, 67]) {
+  watchRect(ctx, '#e5b576', tableLeft, 43, tableWidth, 1);
+  for (const x of [tableLeft + 5, tableLeft + 19, tableRight - 24, tableRight - 10]) {
     watchRect(ctx, '#d7c5a0', x, 34, 5, 2);
     watchRect(ctx, '#f5e2b7', x + 1, 34, 3, 1);
     watchRect(ctx, '#d1a66a', x - 2, 34, 1, 2);
   }
-  watchRect(ctx, '#a77543', 63, 34, 3, 2);
-  watchRect(ctx, '#f1d9a1', 64, 30, 1, 4);
-  watchRect(ctx, '#f2ae61', 64, 28, 1, 2);
-  watchRect(ctx, '#ffedab', 64, 29, 1, 1);
-  ctx.restore();
+  watchRect(ctx, '#a77543', door - 1, 34, 3, 2);
+  watchRect(ctx, '#f1d9a1', door, 30, 1, 4);
+  watchRect(ctx, '#f2ae61', door, 28, 1, 2);
+  watchRect(ctx, '#ffedab', door, 29, 1, 1);
   for (const x of [18, width - 8]) {
     sceneGlow(ctx, '#f3b86c38', x, 13, 12);
     watchRect(ctx, '#53372b', x - 1, 9, 3, 9);
