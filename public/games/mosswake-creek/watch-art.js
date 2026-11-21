@@ -719,20 +719,30 @@ function drawTowerDiningRoom(ctx, watch) {
   ctx.translate((VIEW_WIDTH - width * scale) / 2, (HEIGHT - height * scale) / 2);
   ctx.scale(scale, scale);
   watchRect(ctx, '#332c2e', -wall, -wall, width + wall * 2, height + wall * 2);
-  watchRect(ctx, '#7b6752', 0, 0, width, ground);
-  for (let row = 0; row < 8; row++) {
-    const y = row * 6;
-    for (let col = -1; col < Math.ceil(width / 11) + 1; col++) {
-      const x = col * 11 + (row % 2) * 5;
-      const left = Math.max(0, x);
-      const right = Math.min(width, x + 10);
-      if (left >= right) continue;
-      watchRect(ctx, (row + col) % 3 ? '#857058' : '#92795c', left, y, right - left, 5);
-      watchRect(ctx, '#ac8d66', left, y, right - left, 1);
-      if (x >= 0 && x + 9 < width) watchRect(ctx, '#705b49', x + 9, y + 1, 1, 4);
+  watchRect(ctx, '#56392c', 0, 0, width, ground);
+  // Tall oak boards have staggered joints, fine grain, and dark little knots.
+  const oak = ['#8a5938', '#986541', '#805032', '#a16d46'];
+  for (let x = 0, board = 0; x < width; x += 6, board++) {
+    const boardWidth = Math.min(6, width - x);
+    watchRect(ctx, oak[board % oak.length], x, 0, boardWidth, ground - 3);
+    watchRect(ctx, '#bc8754', x, 0, 1, ground - 3);
+    watchRect(ctx, '#503528', x + boardWidth - 1, 0, 1, ground - 3);
+    if (boardWidth < 5) continue;
+    const joint = 18 + board % 3 * 9;
+    watchRect(ctx, '#65412d', x + 1, joint, boardWidth - 2, 1);
+    watchRect(ctx, '#b17a4a', x + 1, joint + 1, boardWidth - 2, 1);
+    for (let y = 3 + board % 4; y < ground - 6; y += 13) {
+      watchRect(ctx, '#74482f', x + 2, y, 1, 6);
+      watchRect(ctx, '#b07b4d', x + 3, y + 3, 1, 7);
+    }
+    if (board % 3 === 1) {
+      const knot = 9 + board * 7 % 30;
+      watchRect(ctx, '#b18150', x + 1, knot - 1, 3, 3);
+      watchRect(ctx, '#5f3b2b', x + 1, knot, 3, 1);
+      watchRect(ctx, '#75452e', x + 2, knot - 1, 1, 3);
     }
   }
-  // Thick oak edges, worn plank floor, and stone walls have no windows.
+  // Thick oak edges and a worn plank floor enclose the windowless room.
   for (const x of [-wall, width]) {
     watchRect(ctx, '#4a342d', x, -wall, wall, height + wall * 2);
     watchRect(ctx, '#ad7c4f', x, 0, 1, height);
@@ -751,66 +761,65 @@ function drawTowerDiningRoom(ctx, watch) {
       if (x + 12 < width) watchRect(ctx, '#60402f', x + 12, y, 1, 2);
     }
   }
-  // A human-height door leads straight back onto the bridge.
-  watchRect(ctx, '#47332f', door - 7, ground - 33, 15, 33);
-  watchRect(ctx, '#c39b6b', door - 6, ground - 32, 13, 32);
-  watchRect(ctx, '#674431', door - 5, ground - 30, 11, 30);
-  for (let x = door - 4; x < door + 5; x += 3) {
-    watchRect(ctx, '#a37547', x, ground - 29, 1, 27);
-    watchRect(ctx, '#51372e', x + 1, ground - 28, 1, 28);
+  // The taller, wider doorway sits directly in the center of the room.
+  watchRect(ctx, '#392d2b', door - 10, ground - 36, 21, 36);
+  watchRect(ctx, '#392d2b', door - 8, ground - 38, 17, 2);
+  watchRect(ctx, '#c39b6b', door - 9, ground - 35, 19, 35);
+  watchRect(ctx, '#c39b6b', door - 7, ground - 37, 15, 2);
+  watchRect(ctx, '#5d3c2d', door - 7, ground - 34, 15, 34);
+  for (let x = door - 6; x < door + 7; x += 3) {
+    watchRect(ctx, '#a37547', x, ground - 33, 1, 31);
+    watchRect(ctx, '#51372e', x + 1, ground - 32, 1, 32);
   }
-  for (const y of [ground - 24, ground - 8]) {
-    watchRect(ctx, '#47413b', door - 5, y, 11, 2);
-    watchRect(ctx, '#aaa07d', door - 4, y, 1, 1);
-    watchRect(ctx, '#aaa07d', door + 4, y + 1, 1, 1);
+  for (const y of [ground - 27, ground - 9]) {
+    watchRect(ctx, '#47413b', door - 7, y, 15, 2);
+    watchRect(ctx, '#aaa07d', door - 6, y, 1, 1);
+    watchRect(ctx, '#aaa07d', door + 6, y + 1, 1, 1);
   }
-  watchRect(ctx, '#f3c477', door + 2, ground - 16, 2, 3);
-  watchRect(ctx, '#c29964', door - 7, ground, 15, 1);
-  ctx.save();
-  ctx.translate((width - 64) / 2, 0);
+  watchRect(ctx, '#f3c477', door + 4, ground - 18, 2, 3);
+  watchRect(ctx, '#c29964', door - 10, ground, 21, 1);
   // A shelf of plates and a small copper kettle above the dining table.
-  watchRect(ctx, '#4c352e', 37, 18, 21, 3);
-  watchRect(ctx, '#b98650', 37, 18, 21, 1);
-  for (const x of [39, 43]) {
-    watchRect(ctx, '#ddd0a8', x, 14, 3, 4);
-    watchRect(ctx, '#f6e4b8', x, 14, 2, 1);
+  watchRect(ctx, '#4c352e', 52, 24, 24, 3);
+  watchRect(ctx, '#b98650', 52, 24, 24, 1);
+  for (const x of [54, 58]) {
+    watchRect(ctx, '#ddd0a8', x, 20, 3, 4);
+    watchRect(ctx, '#f6e4b8', x, 20, 2, 1);
   }
-  watchRect(ctx, '#a55d3c', 50, 13, 5, 5);
-  watchRect(ctx, '#e5a66c', 51, 13, 3, 4);
-  watchRect(ctx, '#6e4932', 51, 11, 2, 2);
-  watchRect(ctx, '#ca8a52', 55, 13, 2, 1);
-  // A compact table and two chairs fit the actual tower footprint.
-  for (const x of [27, 58]) {
+  watchRect(ctx, '#a55d3c', 69, 19, 5, 5);
+  watchRect(ctx, '#e5a66c', 70, 19, 3, 4);
+  watchRect(ctx, '#6e4932', 70, 17, 2, 2);
+  watchRect(ctx, '#ca8a52', 74, 19, 2, 1);
+  // The dinner setting stays to the right, leaving the central entry clear.
+  for (const x of [51, 75]) {
     watchRect(ctx, '#49322c', x, 34, 4, 18);
     watchRect(ctx, '#b58250', x, 34, 4, 2);
     watchRect(ctx, '#bc8d56', x, 38, 1, 14);
-    watchRect(ctx, '#a26d42', x - 1, 44, 6, 2);
+    watchRect(ctx, '#a26d42', x, 44, 5, 2);
     watchRect(ctx, '#63432f', x + 3, 46, 1, 6);
   }
-  for (const x of [34, 52]) {
+  for (const x of [56, 71]) {
     watchRect(ctx, '#6a442f', x, 40, 2, 12);
     watchRect(ctx, '#c38a52', x, 41, 1, 10);
   }
-  watchRect(ctx, '#62352f', 32, 36, 24, 5);
-  watchRect(ctx, '#bd4945', 31, 36, 26, 8);
-  watchRect(ctx, '#e7745b', 32, 36, 24, 1);
-  watchRect(ctx, '#9e353b', 31, 39, 26, 5);
-  for (let x = 33; x < 56; x += 5) {
+  watchRect(ctx, '#62352f', 55, 36, 18, 5);
+  watchRect(ctx, '#bd4945', 54, 36, 20, 8);
+  watchRect(ctx, '#e7745b', 55, 36, 18, 1);
+  watchRect(ctx, '#9e353b', 54, 39, 20, 5);
+  for (let x = 56; x < 73; x += 5) {
     watchRect(ctx, '#d65b4e', x, 39, 1, 4);
     watchRect(ctx, '#6e2b34', x + 2, 39, 1, 5);
   }
-  watchRect(ctx, '#e5b576', 31, 43, 26, 1);
-  for (const x of [35, 49]) {
+  watchRect(ctx, '#e5b576', 54, 43, 20, 1);
+  for (const x of [57, 67]) {
     watchRect(ctx, '#d7c5a0', x, 34, 5, 2);
     watchRect(ctx, '#f5e2b7', x + 1, 34, 3, 1);
     watchRect(ctx, '#d1a66a', x - 2, 34, 1, 2);
   }
-  watchRect(ctx, '#a77543', 43, 34, 3, 2);
-  watchRect(ctx, '#f1d9a1', 44, 30, 1, 4);
-  watchRect(ctx, '#f2ae61', 44, 28, 1, 2);
-  watchRect(ctx, '#ffedab', 44, 29, 1, 1);
-  ctx.restore();
-  for (const x of [28, width - 8]) {
+  watchRect(ctx, '#a77543', 63, 34, 3, 2);
+  watchRect(ctx, '#f1d9a1', 64, 30, 1, 4);
+  watchRect(ctx, '#f2ae61', 64, 28, 1, 2);
+  watchRect(ctx, '#ffedab', 64, 29, 1, 1);
+  for (const x of [18, width - 8]) {
     sceneGlow(ctx, '#f3b86c38', x, 13, 12);
     watchRect(ctx, '#53372b', x - 1, 9, 3, 9);
     watchRect(ctx, '#c99253', x - 2, 10, 5, 7);
