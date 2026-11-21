@@ -132,6 +132,8 @@ button, input[type="range"] { cursor: pointer; }
 .watch-action:disabled { opacity: .58; cursor: default; }
 .watch-tower { font-size: 14px; border-color: #ba8256; background: #593a2c; color: #ffe0ad; }
 .watch-tower:hover { background: #6c4732; }
+.watch-builder { border-color: #bc9457; background: #57412a; color: #ffe3ad; }
+.watch-builder:hover { background: #6a5031; }
 .watch-swing { border-color: #a67650; background: #48322a; color: #fce0b3; }
 .watch-swing:hover { background: #593c30; }
 .watch-panel .watch-message { min-height: 37px; margin-top: 11px; }
@@ -430,6 +432,7 @@ dialog dd { margin: 2px 0 0; }
         <button class="button watch-action" id="watch-use" type="button">Begin watch</button>
         <button class="button watch-action watch-tower" id="watch-tower" type="button" hidden></button>
         <button class="button watch-action" id="watch-train" type="button" hidden></button>
+        <button class="button watch-action watch-builder" id="watch-builder" type="button" hidden></button>
         <button class="button watch-action watch-swing" id="watch-swing" type="button" hidden></button>
         <p id="watch-message" class="watch-message" role="status">Build palisades and hire guards before the first raid.</p>
       </aside>
@@ -472,6 +475,7 @@ dialog dd { margin: 2px 0 0; }
       <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
       <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Press E or use the action button at a camp to hire guards for 3 copper each, with no limit on the roster. Guards fill the two banks evenly. After hiring three guards, either keep recruiting or train a guard as a veteran for 4 copper. Recruits take shelter until nearby Tri Opus pass.</dd></div>
       <div><dt>Bridge market</dt><dd>Build both forward walls for 5 copper each to open the market east of the tower. Approach a stall and press E to shop. Buying a weapon equips it. Face a Tri and press F or use Swing to attack.</dd></div>
+      <div><dt>Builders from the tents</dt><dd>At an open recruiting tent, choose Hire builder for 3 copper. Builders walk out of that tent and join the bank with fewer builders. By day, they walk to damaged walls, wall towers, or the signal tower and repair 1 health every 2 seconds while working there. Their labor needs no extra coins. Buy buildings and upgrades yourself. Builders return behind the defenses before night, and ringing the bell recalls them too. Named saves keep your builders and their work progress.</dd></div>
       <div><dt>Wall towers · 200 copper</dt><dd>Build and reinforce a palisade, then repair it to full health. At that wall, press E or choose Build wall tower to upgrade it for 200 copper. Each of the four walls can become a tower with 30 health. Two existing guards use the elevated platform at their outermost standing defense; they still gather coins by day and return for the raid. Damaged or destroyed wall towers can be repaired without buying the upgrade again. Named saves keep the towers.</dd></div>
       <div><dt>Arcing arrows</dt><dd>Soldiers shoot arrows up into the air. Gravity curves their flight, and they deal damage only when they physically strike a creature. Moving targets can dodge them. Veterans aim more tightly than regular soldiers; long shots and flying targets are harder. Stray arrows fall and briefly stick in the ground. Pigeon hunting also needs a real hit, and named saves keep arrows already in flight.</dd></div>
       <div><dt>A room in the tower</dt><dd>During the day, stand beside the tower and choose Upgrade tower for 100 copper. You pay once. Then choose Enter tower to visit the dining room with its red tablecloth. Walk with A/D, the arrow keys, or tap the floor. Approach one of the four chairs and press E or Sit to take a seat. Press E or move to stand up. Use Leave tower room to return outside. The outside watch pauses while you are inside. Named saves keep the upgrade, room position and seated chair.</dd></div>
@@ -2612,6 +2616,8 @@ const WATCH_ARROW_STICK_TICKS = 18;
 const WATCH_WALL_TOWER_COST = 200;
 const WATCH_WALL_TOWER_HEALTH = 30;
 const WATCH_WALL_TOWER_PLATFORM = 32;
+const WATCH_BUILDER_COST = 3;
+const WATCH_BUILDER_REPAIR_TICKS = 2 * TICKS_PER_SECOND;
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -2763,6 +2769,7 @@ class CreekWatch {
     this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
     this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
     this.forwardWalls = WATCH_FORWARD_WALLS.map((wall) => ({ ...wall, tier: 0, health: 0 }));
+    this.builders = [];
     this.gear = [];
     this.weapon = null;
     this.swingAt = WATCH_NO_ACTION;
@@ -2911,6 +2918,20 @@ class CreekWatch {
     return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
   }
 
+  getBuilderAction() {
+    if (this.getAction()?.kind !== 'hire') return null;
+    let camp;
+    for (const candidate of WATCH_CAMPS) {
+      const distance = Math.abs(candidate.x - this.player.x);
+      if (distance <= WATCH_USE_RANGE && this.campShelterProgress(candidate) === 0
+          && (!camp || distance < Math.abs(camp.x - this.player.x))) camp = candidate;
+    }
+    if (!camp) return null;
+    const west = this.builders.filter(({ side }) => side === -1).length;
+    const post = this.posts[west <= this.builders.length - west ? 0 : 1];
+    return { kind: 'hire-builder', post, camp, label: `Hire ${post.name.toLowerCase()} builder`, cost: WATCH_BUILDER_COST };
+  }
+
   getTrainingAction() {
     if (this.getAction()?.kind !== 'hire') return null;
     const recruits = this.posts.reduce((count, { guards }) => count + guards.length, 0);
@@ -2963,9 +2984,9 @@ class CreekWatch {
   }
 
   use(kind) {
-    if (this.status === 'ready') return kind === 'train' || kind === 'tower' ? false : this.start();
+    if (this.status === 'ready') return kind === 'train' || kind === 'tower' || kind === 'builder' ? false : this.start();
     const action = kind === 'train' ? this.getTrainingAction()
-      : kind === 'tower' ? this.getTowerAction() : this.getAction();
+      : kind === 'tower' ? this.getTowerAction() : kind === 'builder' ? this.getBuilderAction() : this.getAction();
     if (!action) {
       if (this.status === 'running' && kind !== 'train') this.message = 'Walk up to a camp, a palisade, or the signal tower.';
       return false;
@@ -3020,6 +3041,11 @@ class CreekWatch {
         post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: WATCH_NO_ACTION, carriedCoins: 0 });
         this.message = `Guard hired and sent to the ${post.name.toLowerCase()} bank.`;
         break;
+      case 'hire-builder':
+        this.builders.push({ side: post.side, x: action.camp.x, direction: -action.camp.side,
+          stride: 0, walking: false, returning: false, working: false, workAt: this.tick });
+        this.message = `Builder hired at the camp and sent to the ${post.name.toLowerCase()} bank. Builders repair existing defenses by day.`;
+        break;
       case 'train':
         action.guard.rank = 1;
         this.message = `${post.name} veteran trained. Veterans shoot farther and deal double damage.`;
@@ -3051,9 +3077,10 @@ class CreekWatch {
   startNight() {
     if (this.insideTower) return false;
     if (!this.posts.every((post) => post.guards.every((guard, index) =>
-      this.guardPosition(post, index) === this.guardX(post, index)))) {
+      this.guardPosition(post, index) === this.guardX(post, index)))
+      || !this.builders.every((builder, index) => builder.x === this.builderHome(builder, index))) {
       this.recallingGuards = true;
-      this.message = 'Guards are returning to their defenses. The portals will open when everyone is home.';
+      this.message = `${this.builders.length ? 'Guards and builders' : 'Guards'} are returning to their defenses. The portals will open when everyone is home.`;
       return false;
     }
     this.recallingGuards = false;
@@ -3062,6 +3089,10 @@ class CreekWatch {
         guard.returning = false;
         guard.walking = false;
       }
+    }
+    for (const builder of this.builders) {
+      builder.returning = builder.walking = builder.working = false;
+      builder.workAt = this.tick;
     }
     this.phase = 'night';
     this.phaseTick = 0;
@@ -3101,6 +3132,7 @@ class CreekWatch {
     this.huntedPigeons = 0;
     this.recallingGuards = false;
     for (const post of this.posts) for (const guard of post.guards) guard.returning = false;
+    for (const builder of this.builders) builder.returning = builder.working = false;
     this.coins += 3;
     this.stockCaches();
     this.message = `Dawn of day ${this.day}. You earned 3 copper. Repair and prepare for the next raid.`;
@@ -3139,12 +3171,14 @@ class CreekWatch {
         this.message = 'Dusk in 10 seconds. The guards are securing their posts.';
       }
       this.patrolGuards();
+      this.stepBuilders();
       if (this.recallingGuards) this.startNight();
       return;
     }
     for (const post of this.posts) {
       post.guards.forEach((guard, index) => walkWatchGuard(guard, this.guardPosition(post, index), this.guardX(post, index), WATCH_GUARD_RETURN_SPEED));
     }
+    this.stepBuilders();
     while (this.queue[0]?.due <= this.phaseTick) {
       const { side } = this.queue.shift();
       const portal = WATCH_PORTALS[side === -1 ? 0 : 1];
@@ -3341,6 +3375,74 @@ class CreekWatch {
     return index < 2 && wall.tier === 3 && wall.health > 0
       && this.guardPosition(post, index) === this.guardX(post, index)
       ? WATCH_WALL_TOWER_PLATFORM + watchGround(this.guardX(post, index)) - watchGround(wall.wallX) : 0;
+  }
+
+  builderHome(builder, index = this.builders.indexOf(builder)) {
+    const bank = builder.side === -1 ? 0 : 1;
+    const wall = this.forwardWalls[bank].health > 0 ? this.forwardWalls[bank]
+      : this.posts[bank].health > 0 ? this.posts[bank] : null;
+    const spacing = Math.max(0, index) % 4 * 8;
+    return wall ? wall.wallX - builder.side * (38 + spacing)
+      : watchTowerTarget(this, builder.side) + builder.side * (24 + spacing);
+  }
+
+  builderRepairJobs(side) {
+    const bank = side === -1 ? 0 : 1;
+    const jobs = [this.posts[bank], this.forwardWalls[bank]]
+      .filter((wall) => wall.tier > 0 && wall.health < this.maxWall(wall))
+      .map((wall) => ({ defense: wall, x: wall.wallX - side * 20, direction: side }));
+    if (this.signal < WATCH_HEALTH) jobs.push({ defense: this,
+      x: watchTowerTarget(this, side) + side * 15, direction: -side });
+    return jobs;
+  }
+
+  canBuilderVisit(builder, target, home) {
+    const travel = Math.ceil(Math.abs(target - builder.x) / WATCH_GUARD_SPEED);
+    const back = Math.ceil(Math.abs(target - home) / WATCH_GUARD_RETURN_SPEED);
+    const work = builder.working ? Math.max(0, builder.workAt - this.tick) : WATCH_BUILDER_REPAIR_TICKS;
+    return travel + work + back + WATCH_GUARD_RETURN_MARGIN < WATCH_DAY - this.phaseTick;
+  }
+
+  stepBuilders() {
+    const claimed = new Set();
+    const jobs = { '-1': this.builderRepairJobs(-1), '1': this.builderRepairJobs(1) };
+    this.builders.forEach((builder, index) => {
+      const home = this.builderHome(builder, index);
+      const returnTicks = Math.ceil(Math.abs(builder.x - home) / WATCH_GUARD_RETURN_SPEED);
+      const mustReturn = this.phase !== 'day' || this.recallingGuards
+        || WATCH_DAY - this.phaseTick <= returnTicks + WATCH_GUARD_RETURN_MARGIN;
+      let job;
+      let nearest = Infinity;
+      if (!mustReturn) {
+        for (const candidate of jobs[builder.side]) {
+          const distance = Math.abs(candidate.x - builder.x);
+          if (claimed.has(candidate.defense) || distance >= nearest || !this.canBuilderVisit(builder, candidate.x, home)) continue;
+          job = candidate;
+          nearest = distance;
+        }
+      }
+      const wasWorking = builder.working;
+      builder.working = false;
+      if (!job) {
+        builder.returning = builder.x !== home;
+        walkWatchGuard(builder, builder.x, home, WATCH_GUARD_RETURN_SPEED);
+        if (builder.x === home) builder.returning = false;
+        builder.workAt = this.tick;
+        return;
+      }
+      claimed.add(job.defense);
+      builder.returning = false;
+      walkWatchGuard(builder, builder.x, job.x, WATCH_GUARD_SPEED);
+      if (builder.walking || !wasWorking) builder.workAt = this.tick + WATCH_BUILDER_REPAIR_TICKS;
+      if (builder.x !== job.x) return;
+      builder.walking = false;
+      builder.working = true;
+      builder.direction = job.direction;
+      if (this.tick < builder.workAt) return;
+      if (job.defense === this) this.signal = Math.min(WATCH_HEALTH, this.signal + 1);
+      else job.defense.health = Math.min(this.maxWall(job.defense), job.defense.health + 1);
+      builder.workAt = this.tick + WATCH_BUILDER_REPAIR_TICKS;
+    });
   }
 
   patrolGuards() {
@@ -3661,6 +3763,17 @@ const watchSprayers = (state) => state.sprayers === undefined
 const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && value <= WATCH_FLYER_ALTITUDE;
 const LEGACY_SHOT_FIELDS = new Set(['from', 'to', 'end', 'kind', 'altitude', 'missed']);
 const BALLISTIC_SHOT_FIELDS = new Set([...LEGACY_SHOT_FIELDS, 'ballistic', 'x', 'y', 'vx', 'vy', 'damage', 'stuck']);
+const BUILDER_FIELDS = new Set(['side', 'x', 'direction', 'stride', 'walking', 'returning', 'working', 'workAt']);
+
+function validWatchBuilder(builder, tick, phase) {
+  const { side, x, direction, stride, walking, returning, working, workAt } = builder;
+  return Object.keys(builder).length === BUILDER_FIELDS.size
+    && Object.keys(builder).every((key) => BUILDER_FIELDS.has(key))
+    && validWatchSide(side) && validWatchX(x) && validWatchSide(direction) && validWatchCount(stride)
+    && validWatchFlag(walking) && validWatchFlag(returning) && validWatchFlag(working)
+    && validWatchCount(workAt) && workAt <= tick + WATCH_BUILDER_REPAIR_TICKS
+    && (!working || phase === 'day' && !walking && !returning);
+}
 
 function validWatchShot(shot, tick) {
   const { from, to, end, kind, altitude, missed, ballistic, x, y, vx, vy, damage, stuck } = shot;
@@ -3683,7 +3796,7 @@ function validWatchShot(shot, tick) {
 function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
-    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
+    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, builders = [], gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = 1,
     interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
@@ -3717,6 +3830,7 @@ function validWatchState(state) {
     && [-1, 1].every((side) => flyers.filter((flyer) => flyer.side === side).length
       + flyerQueue.filter((entry) => entry.side === side).length <= WATCH_FLYERS_PER_SIDE)
     && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
+    && validWatchList(builders, Infinity, (builder) => validWatchBuilder(builder, tick, phase))
     && optionalWatchField(forwardWalls, (walls) => validWatchList(walls, 2, validWatchWall) && walls.length === 2)
     && validWatchList(gear, Object.keys(WATCH_MARKET_ITEMS).length,
       (id) => typeof id === 'string' && Object.hasOwn(WATCH_MARKET_ITEMS, id)) && new Set(gear).size === gear.length
@@ -3766,11 +3880,11 @@ function validFlyer(flyer, tick) {
 
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
-    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
+    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, builders = [], gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, aimSeed,
-    sprayers: watchSprayers(watch), flyers, flyerQueue,
+    sprayers: watchSprayers(watch), flyers, flyerQueue, builders,
     gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
@@ -4468,6 +4582,68 @@ function drawWatchGuard(ctx, x, y, guard, tick) {
   ctx.restore();
 }
 
+function drawWatchBuilder(ctx, builder, tick) {
+  const { x, direction, walking, working } = builder;
+  const stride = walking ? Math.round(2 * Math.sin(builder.stride * Math.PI / 8)) : 0;
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(watchGround(x)));
+  ctx.scale(direction, 1);
+  watchRect(ctx, '#252433', -7, -1, 15, 2);
+  watchRect(ctx, '#453e3b', -4 - stride, -6, 4, 5);
+  watchRect(ctx, '#68624e', 1 + stride, -6, 4, 5);
+  watchRect(ctx, '#352c2d', -5 - stride, -2, 5, 2);
+  watchRect(ctx, '#4d3830', 1 + stride, -2, 5, 2);
+
+  // Ochre work clothes, a leather apron and a worn side bag distinguish the
+  // builders from blue-coated bowmen without changing their human scale.
+  watchRect(ctx, '#392d32', -6, -16, 12, 11);
+  watchRect(ctx, '#9b6e37', -5, -15, 10, 9);
+  watchRect(ctx, '#cea45e', -4, -15, 8, 3);
+  watchRect(ctx, '#795039', -3, -14, 7, 9);
+  watchRect(ctx, '#ad7545', -2, -14, 5, 8);
+  watchRect(ctx, '#d6a15d', -2, -14, 1, 5);
+  watchRect(ctx, '#604333', -1, -10, 4, 3);
+  watchRect(ctx, '#c68d50', -1, -10, 4, 1);
+  watchRect(ctx, '#3f302d', -6, -8, 12, 2);
+  watchRect(ctx, '#d8a264', 0, -8, 2, 2);
+  watchRect(ctx, '#49332d', -8, -10, 4, 7);
+  watchRect(ctx, '#8b5e3b', -8, -9, 3, 5);
+  watchRect(ctx, '#d09a5a', -7, -10, 2, 2);
+  watchRect(ctx, '#bd8d61', -6, -13, 2, 5);
+  watchRect(ctx, '#ddb18b', -6, -8, 2, 2);
+
+  watchRect(ctx, '#46312f', -3, -22, 9, 7);
+  watchRect(ctx, '#b57e55', -2, -21, 7, 6);
+  watchRect(ctx, '#e0ac7d', 1, -21, 4, 4);
+  watchRect(ctx, '#30272b', 3, -20, 2, 1);
+  watchRect(ctx, '#8f5f42', 1, -16, 4, 1);
+  watchRect(ctx, '#5d3e32', -5, -23, 12, 3);
+  watchRect(ctx, '#b87548', -4, -24, 10, 3);
+  watchRect(ctx, '#dca56a', -3, -25, 8, 2);
+  watchRect(ctx, '#f0c58b', -2, -25, 3, 1);
+  watchRect(ctx, '#8d5f40', -5, -22, 12, 1);
+
+  const pose = working ? Math.floor(tick / 4) % 3 : 3;
+  const [handX, handY, headX, headY] = [
+    [4, -19, 7, -25], [8, -14, 13, -17], [8, -8, 14, -8], [6, -10, 9, -5]
+  ][pose];
+  for (let step = 0; step <= 4; step++) {
+    const armX = 4 + (handX - 4) * step / 4;
+    const armY = -14 + (handY + 14) * step / 4;
+    watchRect(ctx, step < 3 ? '#d0a15b' : '#ddb18b', armX, armY, 2, 2);
+  }
+  // Whole-pixel wooden handle and an iron head, held in a visible bare hand.
+  for (let step = 0; step <= 6; step++) {
+    watchRect(ctx, '#a17a50', handX + (headX - handX) * step / 6,
+      handY + (headY - handY) * step / 6, 1, 2);
+  }
+  watchRect(ctx, '#e3b88b', handX, handY, 2, 2);
+  watchRect(ctx, '#42484b', headX - 2, headY - 1, 6, 3);
+  watchRect(ctx, '#a5b6ab', headX - 2, headY - 1, 5, 1);
+  watchRect(ctx, '#6b807b', headX + 2, headY, 2, 2);
+  ctx.restore();
+}
+
 function drawWatchPigeon(ctx, { x, direction, walking }, tick) {
   const stride = walking ? ((tick >> 2) % 2 ? 1 : -1) : 0;
   const nod = walking ? Number(stride < 0) : 1;
@@ -5112,6 +5288,9 @@ function drawCreekWatch(ctx, watch) {
       if (onScreen(x, 12)) drawWatchGuard(ctx, x, watchGround(x) - watch.guardElevation(post, index), post.guards[index], watch.tick);
     }
   }
+  for (const builder of watch.builders ?? []) {
+    if (onScreen(builder.x, 18)) drawWatchBuilder(ctx, builder, watch.tick);
+  }
   for (const coin of watch.loot) {
     if (!onScreen(coin.x, 3)) continue;
     const y = watchGround(coin.x) - 4 - (watch.tick >> 4) % 2;
@@ -5231,6 +5410,7 @@ const watchPanelDescription = document.querySelector('#watch-description');
 const watchMapRoute = document.querySelector('.watch-route');
 const watchMapDestinations = document.querySelector('.watch-destinations');
 const watchTrain = document.querySelector('#watch-train');
+const watchBuilder = document.querySelector('#watch-builder');
 const watchSwing = document.querySelector('#watch-swing');
 const watchMessage = document.querySelector('#watch-message');
 const watchCoins = document.querySelector('#watch-coins');
@@ -5537,7 +5717,8 @@ function drawWatchMode() {
     const defense = forward.tier ? `${wall} · Forward${forward.tier === 3 ? ' tower' : ''} ${forward.health}/${watch.maxWall(forward)}` : wall;
     const guards = `${post.guards.length} ${post.guards.length === 1 ? 'guard' : 'guards'}`;
     const veterans = post.guards.filter(({ rank }) => rank === 1).length;
-    setWatchText(watchBankLabels[index], `${defense} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}`);
+    const builders = watch.builders.filter(({ side }) => side === post.side).length;
+    setWatchText(watchBankLabels[index], `${defense} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}${builders ? ` · ${builders} builder${builders === 1 ? '' : 's'}` : ''}`);
   });
   const action = watch.getAction();
   const cost = action?.cost ? ` · ${action.cost} copper` : '';
@@ -5556,6 +5737,12 @@ function drawWatchMode() {
   if (training) {
     setWatchText(watchTrain, `${training.label} · ${training.cost} copper`);
     watchTrain.disabled = paused;
+  }
+  const builder = action?.kind === 'hire' ? watch.getBuilderAction() : null;
+  watchBuilder.hidden = !builder;
+  if (builder) {
+    setWatchText(watchBuilder, `${builder.label} · ${builder.cost} copper`);
+    watchBuilder.disabled = paused;
   }
   watchMarketRoute.hidden = !watch.marketOpen;
   watchSwing.hidden = !watch.weapon || watch.insideTower;
@@ -5632,7 +5819,7 @@ function useWatchStation(kind) {
   if (!paused) {
     const wasInside = watch.insideTower;
     const wasSeated = watch.seatedChair;
-    const action = kind === 'train' || kind === 'tower' ? null : watch.getAction();
+    const action = kind === 'train' || kind === 'tower' || kind === 'builder' ? null : watch.getAction();
     if (action?.kind === 'market') openWatchMarket(action.vendor);
     else watch.use(kind);
     if (watch.insideTower !== wasInside || watch.seatedChair !== wasSeated) {
@@ -5763,6 +5950,7 @@ document.querySelector('#menu-return').addEventListener('click', () => {
 watchAction.addEventListener('click', () => useWatchStation());
 watchTower.addEventListener('click', () => useWatchStation('tower'));
 watchTrain.addEventListener('click', () => useWatchStation('train'));
+watchBuilder.addEventListener('click', () => useWatchStation('builder'));
 watchSwing.addEventListener('click', swingWatchWeapon);
 watchMarketDialog.addEventListener('close', () => world.focus({ preventScroll: true }));
 for (const button of watchMoveButtons) {

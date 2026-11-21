@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, WATCH_WALL_TOWER_HEALTH, hasWatchSprayer } from './watch.js';
+import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_BUILDER_REPAIR_TICKS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, WATCH_WALL_TOWER_HEALTH, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -51,6 +51,17 @@ const watchSprayers = (state) => state.sprayers === undefined
 const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && value <= WATCH_FLYER_ALTITUDE;
 const LEGACY_SHOT_FIELDS = new Set(['from', 'to', 'end', 'kind', 'altitude', 'missed']);
 const BALLISTIC_SHOT_FIELDS = new Set([...LEGACY_SHOT_FIELDS, 'ballistic', 'x', 'y', 'vx', 'vy', 'damage', 'stuck']);
+const BUILDER_FIELDS = new Set(['side', 'x', 'direction', 'stride', 'walking', 'returning', 'working', 'workAt']);
+
+function validWatchBuilder(builder, tick, phase) {
+  const { side, x, direction, stride, walking, returning, working, workAt } = builder;
+  return Object.keys(builder).length === BUILDER_FIELDS.size
+    && Object.keys(builder).every((key) => BUILDER_FIELDS.has(key))
+    && validWatchSide(side) && validWatchX(x) && validWatchSide(direction) && validWatchCount(stride)
+    && validWatchFlag(walking) && validWatchFlag(returning) && validWatchFlag(working)
+    && validWatchCount(workAt) && workAt <= tick + WATCH_BUILDER_REPAIR_TICKS
+    && (!working || phase === 'day' && !walking && !returning);
+}
 
 function validWatchShot(shot, tick) {
   const { from, to, end, kind, altitude, missed, ballistic, x, y, vx, vy, damage, stuck } = shot;
@@ -73,7 +84,7 @@ function validWatchShot(shot, tick) {
 function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
-    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
+    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, builders = [], gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = 1,
     interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
@@ -107,6 +118,7 @@ function validWatchState(state) {
     && [-1, 1].every((side) => flyers.filter((flyer) => flyer.side === side).length
       + flyerQueue.filter((entry) => entry.side === side).length <= WATCH_FLYERS_PER_SIDE)
     && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
+    && validWatchList(builders, Infinity, (builder) => validWatchBuilder(builder, tick, phase))
     && optionalWatchField(forwardWalls, (walls) => validWatchList(walls, 2, validWatchWall) && walls.length === 2)
     && validWatchList(gear, Object.keys(WATCH_MARKET_ITEMS).length,
       (id) => typeof id === 'string' && Object.hasOwn(WATCH_MARKET_ITEMS, id)) && new Set(gear).size === gear.length
@@ -156,11 +168,11 @@ function validFlyer(flyer, tick) {
 
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
-    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
+    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, builders = [], gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, aimSeed,
-    sprayers: watchSprayers(watch), flyers, flyerQueue,
+    sprayers: watchSprayers(watch), flyers, flyerQueue, builders,
     gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };

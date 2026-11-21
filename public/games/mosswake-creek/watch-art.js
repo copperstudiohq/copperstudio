@@ -602,6 +602,68 @@ function drawWatchGuard(ctx, x, y, guard, tick) {
   ctx.restore();
 }
 
+function drawWatchBuilder(ctx, builder, tick) {
+  const { x, direction, walking, working } = builder;
+  const stride = walking ? Math.round(2 * Math.sin(builder.stride * Math.PI / 8)) : 0;
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(watchGround(x)));
+  ctx.scale(direction, 1);
+  watchRect(ctx, '#252433', -7, -1, 15, 2);
+  watchRect(ctx, '#453e3b', -4 - stride, -6, 4, 5);
+  watchRect(ctx, '#68624e', 1 + stride, -6, 4, 5);
+  watchRect(ctx, '#352c2d', -5 - stride, -2, 5, 2);
+  watchRect(ctx, '#4d3830', 1 + stride, -2, 5, 2);
+
+  // Ochre work clothes, a leather apron and a worn side bag distinguish the
+  // builders from blue-coated bowmen without changing their human scale.
+  watchRect(ctx, '#392d32', -6, -16, 12, 11);
+  watchRect(ctx, '#9b6e37', -5, -15, 10, 9);
+  watchRect(ctx, '#cea45e', -4, -15, 8, 3);
+  watchRect(ctx, '#795039', -3, -14, 7, 9);
+  watchRect(ctx, '#ad7545', -2, -14, 5, 8);
+  watchRect(ctx, '#d6a15d', -2, -14, 1, 5);
+  watchRect(ctx, '#604333', -1, -10, 4, 3);
+  watchRect(ctx, '#c68d50', -1, -10, 4, 1);
+  watchRect(ctx, '#3f302d', -6, -8, 12, 2);
+  watchRect(ctx, '#d8a264', 0, -8, 2, 2);
+  watchRect(ctx, '#49332d', -8, -10, 4, 7);
+  watchRect(ctx, '#8b5e3b', -8, -9, 3, 5);
+  watchRect(ctx, '#d09a5a', -7, -10, 2, 2);
+  watchRect(ctx, '#bd8d61', -6, -13, 2, 5);
+  watchRect(ctx, '#ddb18b', -6, -8, 2, 2);
+
+  watchRect(ctx, '#46312f', -3, -22, 9, 7);
+  watchRect(ctx, '#b57e55', -2, -21, 7, 6);
+  watchRect(ctx, '#e0ac7d', 1, -21, 4, 4);
+  watchRect(ctx, '#30272b', 3, -20, 2, 1);
+  watchRect(ctx, '#8f5f42', 1, -16, 4, 1);
+  watchRect(ctx, '#5d3e32', -5, -23, 12, 3);
+  watchRect(ctx, '#b87548', -4, -24, 10, 3);
+  watchRect(ctx, '#dca56a', -3, -25, 8, 2);
+  watchRect(ctx, '#f0c58b', -2, -25, 3, 1);
+  watchRect(ctx, '#8d5f40', -5, -22, 12, 1);
+
+  const pose = working ? Math.floor(tick / 4) % 3 : 3;
+  const [handX, handY, headX, headY] = [
+    [4, -19, 7, -25], [8, -14, 13, -17], [8, -8, 14, -8], [6, -10, 9, -5]
+  ][pose];
+  for (let step = 0; step <= 4; step++) {
+    const armX = 4 + (handX - 4) * step / 4;
+    const armY = -14 + (handY + 14) * step / 4;
+    watchRect(ctx, step < 3 ? '#d0a15b' : '#ddb18b', armX, armY, 2, 2);
+  }
+  // Whole-pixel wooden handle and an iron head, held in a visible bare hand.
+  for (let step = 0; step <= 6; step++) {
+    watchRect(ctx, '#a17a50', handX + (headX - handX) * step / 6,
+      handY + (headY - handY) * step / 6, 1, 2);
+  }
+  watchRect(ctx, '#e3b88b', handX, handY, 2, 2);
+  watchRect(ctx, '#42484b', headX - 2, headY - 1, 6, 3);
+  watchRect(ctx, '#a5b6ab', headX - 2, headY - 1, 5, 1);
+  watchRect(ctx, '#6b807b', headX + 2, headY, 2, 2);
+  ctx.restore();
+}
+
 function drawWatchPigeon(ctx, { x, direction, walking }, tick) {
   const stride = walking ? ((tick >> 2) % 2 ? 1 : -1) : 0;
   const nod = walking ? Number(stride < 0) : 1;
@@ -1245,6 +1307,9 @@ export function drawCreekWatch(ctx, watch) {
       const x = watch.guardPosition(post, index);
       if (onScreen(x, 12)) drawWatchGuard(ctx, x, watchGround(x) - watch.guardElevation(post, index), post.guards[index], watch.tick);
     }
+  }
+  for (const builder of watch.builders ?? []) {
+    if (onScreen(builder.x, 18)) drawWatchBuilder(ctx, builder, watch.tick);
   }
   for (const coin of watch.loot) {
     if (!onScreen(coin.x, 3)) continue;

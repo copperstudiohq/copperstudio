@@ -99,6 +99,7 @@ const watchPanelDescription = document.querySelector('#watch-description');
 const watchMapRoute = document.querySelector('.watch-route');
 const watchMapDestinations = document.querySelector('.watch-destinations');
 const watchTrain = document.querySelector('#watch-train');
+const watchBuilder = document.querySelector('#watch-builder');
 const watchSwing = document.querySelector('#watch-swing');
 const watchMessage = document.querySelector('#watch-message');
 const watchCoins = document.querySelector('#watch-coins');
@@ -405,7 +406,8 @@ function drawWatchMode() {
     const defense = forward.tier ? `${wall} · Forward${forward.tier === 3 ? ' tower' : ''} ${forward.health}/${watch.maxWall(forward)}` : wall;
     const guards = `${post.guards.length} ${post.guards.length === 1 ? 'guard' : 'guards'}`;
     const veterans = post.guards.filter(({ rank }) => rank === 1).length;
-    setWatchText(watchBankLabels[index], `${defense} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}`);
+    const builders = watch.builders.filter(({ side }) => side === post.side).length;
+    setWatchText(watchBankLabels[index], `${defense} · ${guards}${veterans ? ` · ${veterans} veteran${veterans === 1 ? '' : 's'}` : ''}${builders ? ` · ${builders} builder${builders === 1 ? '' : 's'}` : ''}`);
   });
   const action = watch.getAction();
   const cost = action?.cost ? ` · ${action.cost} copper` : '';
@@ -424,6 +426,12 @@ function drawWatchMode() {
   if (training) {
     setWatchText(watchTrain, `${training.label} · ${training.cost} copper`);
     watchTrain.disabled = paused;
+  }
+  const builder = action?.kind === 'hire' ? watch.getBuilderAction() : null;
+  watchBuilder.hidden = !builder;
+  if (builder) {
+    setWatchText(watchBuilder, `${builder.label} · ${builder.cost} copper`);
+    watchBuilder.disabled = paused;
   }
   watchMarketRoute.hidden = !watch.marketOpen;
   watchSwing.hidden = !watch.weapon || watch.insideTower;
@@ -500,7 +508,7 @@ function useWatchStation(kind) {
   if (!paused) {
     const wasInside = watch.insideTower;
     const wasSeated = watch.seatedChair;
-    const action = kind === 'train' || kind === 'tower' ? null : watch.getAction();
+    const action = kind === 'train' || kind === 'tower' || kind === 'builder' ? null : watch.getAction();
     if (action?.kind === 'market') openWatchMarket(action.vendor);
     else watch.use(kind);
     if (watch.insideTower !== wasInside || watch.seatedChair !== wasSeated) {
@@ -631,6 +639,7 @@ document.querySelector('#menu-return').addEventListener('click', () => {
 watchAction.addEventListener('click', () => useWatchStation());
 watchTower.addEventListener('click', () => useWatchStation('tower'));
 watchTrain.addEventListener('click', () => useWatchStation('train'));
+watchBuilder.addEventListener('click', () => useWatchStation('builder'));
 watchSwing.addEventListener('click', swingWatchWeapon);
 watchMarketDialog.addEventListener('close', () => world.focus({ preventScroll: true }));
 for (const button of watchMoveButtons) {

@@ -29,6 +29,8 @@ export const WATCH_ARROW_STICK_TICKS = 18;
 export const WATCH_WALL_TOWER_COST = 200;
 export const WATCH_WALL_TOWER_HEALTH = 30;
 export const WATCH_WALL_TOWER_PLATFORM = 32;
+export const WATCH_BUILDER_COST = 3;
+export const WATCH_BUILDER_REPAIR_TICKS = 2 * TICKS_PER_SECOND;
 const WATCH_GUARD_POSITIONS = 8;
 const WATCH_VETERAN_UNLOCK = 3;
 const WATCH_RAIDER_LIMIT = 12;
@@ -180,6 +182,7 @@ export class CreekWatch {
     this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
     this.posts = WATCH_POSTS.map((post) => ({ ...post, tier: 0, health: 0, guards: [] }));
     this.forwardWalls = WATCH_FORWARD_WALLS.map((wall) => ({ ...wall, tier: 0, health: 0 }));
+    this.builders = [];
     this.gear = [];
     this.weapon = null;
     this.swingAt = WATCH_NO_ACTION;
@@ -328,6 +331,20 @@ export class CreekWatch {
     return { kind: 'hire', post, label: `Hire ${post.name.toLowerCase()} guard`, cost: 3 };
   }
 
+  getBuilderAction() {
+    if (this.getAction()?.kind !== 'hire') return null;
+    let camp;
+    for (const candidate of WATCH_CAMPS) {
+      const distance = Math.abs(candidate.x - this.player.x);
+      if (distance <= WATCH_USE_RANGE && this.campShelterProgress(candidate) === 0
+          && (!camp || distance < Math.abs(camp.x - this.player.x))) camp = candidate;
+    }
+    if (!camp) return null;
+    const west = this.builders.filter(({ side }) => side === -1).length;
+    const post = this.posts[west <= this.builders.length - west ? 0 : 1];
+    return { kind: 'hire-builder', post, camp, label: `Hire ${post.name.toLowerCase()} builder`, cost: WATCH_BUILDER_COST };
+  }
+
   getTrainingAction() {
     if (this.getAction()?.kind !== 'hire') return null;
     const recruits = this.posts.reduce((count, { guards }) => count + guards.length, 0);
@@ -380,9 +397,9 @@ export class CreekWatch {
   }
 
   use(kind) {
-    if (this.status === 'ready') return kind === 'train' || kind === 'tower' ? false : this.start();
+    if (this.status === 'ready') return kind === 'train' || kind === 'tower' || kind === 'builder' ? false : this.start();
     const action = kind === 'train' ? this.getTrainingAction()
-      : kind === 'tower' ? this.getTowerAction() : this.getAction();
+      : kind === 'tower' ? this.getTowerAction() : kind === 'builder' ? this.getBuilderAction() : this.getAction();
     if (!action) {
       if (this.status === 'running' && kind !== 'train') this.message = 'Walk up to a camp, a palisade, or the signal tower.';
       return false;
@@ -437,6 +454,11 @@ export class CreekWatch {
         post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: WATCH_NO_ACTION, carriedCoins: 0 });
         this.message = `Guard hired and sent to the ${post.name.toLowerCase()} bank.`;
         break;
+      case 'hire-builder':
+        this.builders.push({ side: post.side, x: action.camp.x, direction: -action.camp.side,
+          stride: 0, walking: false, returning: false, working: false, workAt: this.tick });
+        this.message = `Builder hired at the camp and sent to the ${post.name.toLowerCase()} bank. Builders repair existing defenses by day.`;
+        break;
       case 'train':
         action.guard.rank = 1;
         this.message = `${post.name} veteran trained. Veterans shoot farther and deal double damage.`;
@@ -468,9 +490,10 @@ export class CreekWatch {
   startNight() {
     if (this.insideTower) return false;
     if (!this.posts.every((post) => post.guards.every((guard, index) =>
-      this.guardPosition(post, index) === this.guardX(post, index)))) {
+      this.guardPosition(post, index) === this.guardX(post, index)))
+      || !this.builders.every((builder, index) => builder.x === this.builderHome(builder, index))) {
       this.recallingGuards = true;
-      this.message = 'Guards are returning to their defenses. The portals will open when everyone is home.';
+      this.message = `${this.builders.length ? 'Guards and builders' : 'Guards'} are returning to their defenses. The portals will open when everyone is home.`;
       return false;
     }
     this.recallingGuards = false;
@@ -479,6 +502,10 @@ export class CreekWatch {
         guard.returning = false;
         guard.walking = false;
       }
+    }
+    for (const builder of this.builders) {
+      builder.returning = builder.walking = builder.working = false;
+      builder.workAt = this.tick;
     }
     this.phase = 'night';
     this.phaseTick = 0;
@@ -518,6 +545,7 @@ export class CreekWatch {
     this.huntedPigeons = 0;
     this.recallingGuards = false;
     for (const post of this.posts) for (const guard of post.guards) guard.returning = false;
+    for (const builder of this.builders) builder.returning = builder.working = false;
     this.coins += 3;
     this.stockCaches();
     this.message = `Dawn of day ${this.day}. You earned 3 copper. Repair and prepare for the next raid.`;
@@ -556,12 +584,14 @@ export class CreekWatch {
         this.message = 'Dusk in 10 seconds. The guards are securing their posts.';
       }
       this.patrolGuards();
+      this.stepBuilders();
       if (this.recallingGuards) this.startNight();
       return;
     }
     for (const post of this.posts) {
       post.guards.forEach((guard, index) => walkWatchGuard(guard, this.guardPosition(post, index), this.guardX(post, index), WATCH_GUARD_RETURN_SPEED));
     }
+    this.stepBuilders();
     while (this.queue[0]?.due <= this.phaseTick) {
       const { side } = this.queue.shift();
       const portal = WATCH_PORTALS[side === -1 ? 0 : 1];
@@ -758,6 +788,74 @@ export class CreekWatch {
     return index < 2 && wall.tier === 3 && wall.health > 0
       && this.guardPosition(post, index) === this.guardX(post, index)
       ? WATCH_WALL_TOWER_PLATFORM + watchGround(this.guardX(post, index)) - watchGround(wall.wallX) : 0;
+  }
+
+  builderHome(builder, index = this.builders.indexOf(builder)) {
+    const bank = builder.side === -1 ? 0 : 1;
+    const wall = this.forwardWalls[bank].health > 0 ? this.forwardWalls[bank]
+      : this.posts[bank].health > 0 ? this.posts[bank] : null;
+    const spacing = Math.max(0, index) % 4 * 8;
+    return wall ? wall.wallX - builder.side * (38 + spacing)
+      : watchTowerTarget(this, builder.side) + builder.side * (24 + spacing);
+  }
+
+  builderRepairJobs(side) {
+    const bank = side === -1 ? 0 : 1;
+    const jobs = [this.posts[bank], this.forwardWalls[bank]]
+      .filter((wall) => wall.tier > 0 && wall.health < this.maxWall(wall))
+      .map((wall) => ({ defense: wall, x: wall.wallX - side * 20, direction: side }));
+    if (this.signal < WATCH_HEALTH) jobs.push({ defense: this,
+      x: watchTowerTarget(this, side) + side * 15, direction: -side });
+    return jobs;
+  }
+
+  canBuilderVisit(builder, target, home) {
+    const travel = Math.ceil(Math.abs(target - builder.x) / WATCH_GUARD_SPEED);
+    const back = Math.ceil(Math.abs(target - home) / WATCH_GUARD_RETURN_SPEED);
+    const work = builder.working ? Math.max(0, builder.workAt - this.tick) : WATCH_BUILDER_REPAIR_TICKS;
+    return travel + work + back + WATCH_GUARD_RETURN_MARGIN < WATCH_DAY - this.phaseTick;
+  }
+
+  stepBuilders() {
+    const claimed = new Set();
+    const jobs = { '-1': this.builderRepairJobs(-1), '1': this.builderRepairJobs(1) };
+    this.builders.forEach((builder, index) => {
+      const home = this.builderHome(builder, index);
+      const returnTicks = Math.ceil(Math.abs(builder.x - home) / WATCH_GUARD_RETURN_SPEED);
+      const mustReturn = this.phase !== 'day' || this.recallingGuards
+        || WATCH_DAY - this.phaseTick <= returnTicks + WATCH_GUARD_RETURN_MARGIN;
+      let job;
+      let nearest = Infinity;
+      if (!mustReturn) {
+        for (const candidate of jobs[builder.side]) {
+          const distance = Math.abs(candidate.x - builder.x);
+          if (claimed.has(candidate.defense) || distance >= nearest || !this.canBuilderVisit(builder, candidate.x, home)) continue;
+          job = candidate;
+          nearest = distance;
+        }
+      }
+      const wasWorking = builder.working;
+      builder.working = false;
+      if (!job) {
+        builder.returning = builder.x !== home;
+        walkWatchGuard(builder, builder.x, home, WATCH_GUARD_RETURN_SPEED);
+        if (builder.x === home) builder.returning = false;
+        builder.workAt = this.tick;
+        return;
+      }
+      claimed.add(job.defense);
+      builder.returning = false;
+      walkWatchGuard(builder, builder.x, job.x, WATCH_GUARD_SPEED);
+      if (builder.walking || !wasWorking) builder.workAt = this.tick + WATCH_BUILDER_REPAIR_TICKS;
+      if (builder.x !== job.x) return;
+      builder.walking = false;
+      builder.working = true;
+      builder.direction = job.direction;
+      if (this.tick < builder.workAt) return;
+      if (job.defense === this) this.signal = Math.min(WATCH_HEALTH, this.signal + 1);
+      else job.defense.health = Math.min(this.maxWall(job.defense), job.defense.health + 1);
+      builder.workAt = this.tick + WATCH_BUILDER_REPAIR_TICKS;
+    });
   }
 
   patrolGuards() {

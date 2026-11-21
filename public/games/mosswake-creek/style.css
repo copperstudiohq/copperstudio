@@ -122,6 +122,8 @@ button, input[type="range"] { cursor: pointer; }
 .watch-action:disabled { opacity: .58; cursor: default; }
 .watch-tower { font-size: 14px; border-color: #ba8256; background: #593a2c; color: #ffe0ad; }
 .watch-tower:hover { background: #6c4732; }
+.watch-builder { border-color: #bc9457; background: #57412a; color: #ffe3ad; }
+.watch-builder:hover { background: #6a5031; }
 .watch-swing { border-color: #a67650; background: #48322a; color: #fce0b3; }
 .watch-swing:hover { background: #593c30; }
 .watch-panel .watch-message { min-height: 37px; margin-top: 11px; }
