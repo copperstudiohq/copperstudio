@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#191722">
+<title>Tri Flyer · Mosswake Creek</title>
+<style>
+  :root { color-scheme: dark; font: 16px/1.5 system-ui,sans-serif; background:#191722; color:#f4e8e0; }
+  * { box-sizing:border-box; } body { margin:0; padding:clamp(20px,3vw,32px); }
+  main { max-width:900px; margin:auto; } a { color:#efb785; text-underline-offset:4px; }
+  .eyebrow { color:#efb785; letter-spacing:.14em; font-size:.875rem; margin-top:20px; }
+  h1 { font-size:clamp(2rem,5vw,2.75rem); line-height:1.1; margin:10px 0; }
+  p { max-width:68ch; color:#d2c3d0; } .stage { border:1px solid #53415a; border-radius:16px; overflow:hidden; background:#231f30; margin:16px 0 12px; }
+  canvas { display:block; width:100%; image-rendering:pixelated; } .controls { display:flex; flex-wrap:wrap; gap:10px; }
+  button { font:inherit; min-height:44px; padding:10px 18px; color:#f4e8e0; background:#352a40; border:1px solid #765873; border-radius:8px; cursor:pointer; }
+  button[aria-pressed="true"] { background:#b96690; color:#160e19; border-color:#efa8cd; }
+  :focus-visible { outline:3px solid #ffd1a3; outline-offset:4px; } #pose { color:#efb785; }
+</style>
+<main>
+  <a href="./">Play Mosswake Creek</a>
+  <div class="eyebrow">CREEK WATCH · NIGHT 40 ONWARD</div>
+  <h1>Tri Flyer</h1>
+  <p>A small winged relative of Tri Opus. It crawls on four blue wing-arms and has a mouth where the other Tri have an eye. It takes flight and lands on soldiers to infect them.</p>
+  <div class="stage"><canvas id="model" width="192" height="80" role="img" aria-label="Enlarged crawling Tri Flyer model with four wing-arms">Your browser needs Canvas to show this model.</canvas></div>
+  <div class="controls" aria-label="Model controls">
+    <button type="button" data-pose="fly" aria-pressed="false">Flying</button>
+    <button type="button" data-pose="crawl" aria-pressed="true">Crawling</button>
+    <button type="button" data-pose="dive" aria-pressed="false">Landing</button>
+    <button type="button" id="turn">Turn around</button>
+    <button type="button" id="animate" aria-pressed="true">Pause animation</button>
+  </div>
+  <p id="pose" role="status">Crawling · hunched back and four walking wing-arms</p>
+</main>
+<script type="module">
+  import { drawTriFlyer } from './watch-art.js';
+  import { watchGround, WATCH_FLYER_HEALTH } from './watch.js';
+  const canvas = document.querySelector('#model'), ctx = canvas.getContext('2d');
+  const pose = document.querySelector('#pose'), animate = document.querySelector('#animate');
+  const flyer = { x:96, side:-1, direction:1, hp:WATCH_FLYER_HEALTH, mode:'crawl', altitude:0, stride:0 };
+  const labels = { fly:'Flying · four wing-arms spread', crawl:'Crawling · hunched back and four walking wing-arms', dive:'Landing · four clawed arms reach for a soldier' };
+  let running = !matchMedia('(prefers-reduced-motion: reduce)').matches, tick = 0, previous = 0;
+  function updateAnimationLabel() { animate.textContent = running ? 'Pause animation' : 'Play animation'; animate.setAttribute('aria-pressed', String(running)); }
+  function draw() {
+    ctx.fillStyle = '#231f30'; ctx.fillRect(0,0,192,80);
+    ctx.strokeStyle = '#49364d'; ctx.lineWidth = .3;
+    for (let x=0;x<192;x+=12) { ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,80);ctx.stroke(); }
+    for (let y=0;y<80;y+=12) { ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(192,y);ctx.stroke(); }
+    ctx.fillStyle='#6b4c62';ctx.fillRect(24,62,144,1);
+    ctx.save();ctx.translate(0,62-watchGround(flyer.x));drawTriFlyer(ctx,flyer,tick);ctx.restore();
+  }
+  document.querySelectorAll('[data-pose]').forEach(button => button.addEventListener('click', () => {
+    flyer.mode = button.dataset.pose; flyer.altitude = flyer.mode === 'crawl' ? 0 : flyer.mode === 'dive' ? 12 : 22;
+    document.querySelectorAll('[data-pose]').forEach(item => item.setAttribute('aria-pressed',String(item===button)));
+    pose.textContent = labels[flyer.mode]; canvas.setAttribute('aria-label',`Enlarged Tri Flyer model. ${labels[flyer.mode]}.`); draw();
+  }));
+  document.querySelector('#turn').addEventListener('click',()=>{flyer.direction *= -1;draw();});
+  animate.addEventListener('click',()=>{running=!running;updateAnimationLabel();});
+  function frame(time) { if (running && !document.hidden) { tick += Math.min(time-previous,100)*36/1000; flyer.stride=tick;draw(); } previous=time;requestAnimationFrame(frame); }
+  if (ctx) { updateAnimationLabel();draw();requestAnimationFrame(frame); }
+  else { document.querySelectorAll('button').forEach(button=>{button.disabled=true;});pose.textContent='This browser cannot display the model. Please open it in a browser with Canvas support.'; }
+</script>
+</html>

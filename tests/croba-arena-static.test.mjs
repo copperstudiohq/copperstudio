@@ -7,7 +7,7 @@ import { setupOctoDialogueSync } from '../public/games/tri-arena/octo-dialogue-s
 
 const publicRoot = fileURLToPath(new URL('../public/', import.meta.url));
 const gameRoot = game => resolve(publicRoot, 'games', game);
-const games = ['croba-planet', 'tri-arena', 'mosswake-creek'];
+const games = ['croba-planet', 'tri-arena', 'mosswake-creek', 'blackroot-vale'];
 
 async function filesIn(directory) {
   const files = [];
@@ -29,9 +29,9 @@ test('hosted game imports and static assets resolve inside the public export', a
     const missing = [];
     for (const file of await filesIn(base)) {
       const extension = extname(file);
-      if (!['.js', '.css', '.html'].includes(extension)) continue;
+      if (!['.js', '.mjs', '.css', '.html'].includes(extension)) continue;
       const text = await readFile(file, 'utf8');
-      const patterns = extension === '.js' ? [
+      const patterns = ['.js', '.mjs'].includes(extension) ? [
         /\b(?:import|export)\s+(?:[^'";]+?\s+from\s*)?['"]([^'"]+)['"]/g,
         /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
         /\bnew URL\(\s*['"]([^'"]+)['"]\s*,\s*import\.meta\.url/g,

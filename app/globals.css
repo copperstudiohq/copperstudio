@@ -79,6 +79,8 @@ h1 > span { font-family: 'DM Serif', Georgia, serif; font-weight: 400; font-styl
 .game-card.tabletop { --accent: #805a36; }
 .game-card.arena { --accent: #86516b; }
 .game-card.sandbox { --accent: #8c5a38; }
+.game-card.forest { --accent: #3f5b42; background: #e7ebe1; }
+.game-card.forest .art-label { background: #17251ee8; }
 .game-art { display: block; flex-shrink: 0; aspect-ratio: 1.68; position: relative; overflow: hidden; background: #0b333e; isolation: isolate; }
 .game-art::after { position: absolute; content: ''; inset: 0; background: linear-gradient(180deg, #061a2020, transparent 32%, transparent 58%, #061a2090); pointer-events: none; }
 .game-art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .55s cubic-bezier(.2,.65,.3,1); }
@@ -114,6 +116,7 @@ h1 > span { font-family: 'DM Serif', Georgia, serif; font-weight: 400; font-styl
 .game-featured { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; background: #edf0e4; }
 .game-featured .game-art { aspect-ratio: 384 / 198; margin: 28px 0 28px 28px; border-radius: 6px; }
 .game-featured .game-art img { image-rendering: pixelated; }
+.game-featured.forest .game-art img { image-rendering: auto; }
 .game-featured .game-info { padding: 30px 32px 8px; }
 .octo-section { padding-top: 72px; scroll-margin-top: 24px; }
 .octo-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }

@@ -1,4 +1,4 @@
-import { CloudRain, Gamepad2, Layers, Pickaxe, Snowflake, Swords } from "lucide-react";
+import { CloudRain, Gamepad2, Layers, Pickaxe, Snowflake, Swords, Trees } from "lucide-react";
 import QuartzWordmark from "@/components/quartz-wordmark";
 import VisitCounter from "@/components/visit-counter";
 import OctoNoseChat from "@/components/octo-nose-chat";
@@ -80,7 +80,7 @@ const games = [
     number: "05", shortName: "Mosswake Creek", name: "Rain & Copper: Mosswake Creek", label: "Build. Break. Make it rain.", genre: "2D sandbox & creek defense",
     description: [
       "Return to Mosswake’s birch-lined pond, with its copper-roofed hut, dock, and wandering ducks. Paint falling copper and sand, pour flowing water, build basalt dams, and chip the landscape apart pixel by pixel. Explore five connected areas, change the rain, and experiment with creatures, scenery, and the spreading Tri.",
-      "Choose day, night, or an automatic sky cycle, and place Tri Portals that wake after dark. For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Travel all five areas, collect copper, and hire guards at the recruiting camps. Guards fill both banks evenly, gather coins across the map by day, bring them back to you, and return before night. Train veterans, fortify the banks, and protect the tower through endless raids. Save 100 copper to enlarge the tower and step into its compact, windowless dining room, with wooden walls, a long red-clothed table and four chairs you can sit on. Save your watch in named slots in this browser; your Sandbox edits stay in the current tab.",
+      "Choose day, night, or an automatic sky cycle, and place Tri Portals that wake after dark. For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Travel all five areas, collect copper, and hire guards at the recruiting camps. Guards fill both banks evenly, gather coins across the map by day, bring them back to you, and return before night. Train veterans, fortify the banks, and protect the tower through endless raids. From night 40, Tri Flyers can land on guards and turn them into pink, hunched enemies; Ichor Sprayers approach from both sides. Save 100 copper to enlarge the tower and step into its compact, windowless dining room, with wooden walls, a long red-clothed table and four chairs you can sit on. Save your watch in named slots in this browser; your Sandbox edits stay in the current tab.",
     ],
     highlights: [
       { title: "Build and break", text: "Pour materials, shape the water, place scenery, and chip away individual pixels with a brush as small as one pixel." },
@@ -93,6 +93,24 @@ const games = [
     caption: "MOSSWAKE CREEK / GAMEPLAY",
     href: "/games/mosswake-creek/", color: "sandbox",
     features: ["Sandbox", "Pixel physics", "Creek Watch"], Icon: Pickaxe,
+  },
+  {
+    number: "06", shortName: "Blackroot Vale", name: "Blackroot Vale", label: "Follow the lights. Watch the road.", genre: "Dark-fantasy exploration",
+    description: [
+      "Lanterns glow through the windows of Thornwick, a moonlit village at the edge of an enormous evergreen forest. Step inside seven furnished houses, wander the road into Blackroot Forest, or cross the South Field’s cracked earth and dead scrub to study the ruined tower on the distant ridge. Explore this first-person world with keyboard or touch, moving between its quiet rooms and open landscapes at your own pace.",
+      "Quiet does not always mean safe. The Opsing Rider sometimes approaches from the tower; watch for his warning and shelter inside a house until he leaves. Three sword strikes send you to The Under Neath, where Blub — the son of a goblin and an orc — shares your cell. Open the gate, help him escape the spear-wielding guards, and find a way through the branching halls, tower and Ashen Battlefield back to Thornwick. Visit the four-eyed ruler’s throne room, discover his painted history, and catch up with Blub outside so he can follow your journey. His goblin voice plays from the game’s own audio, with subtitles that remain visible while muted.",
+    ],
+    highlights: [
+      { title: "Explore by lantern light", text: "Visit seven furnished village houses, a towering evergreen forest and the barren South Field. Landmark buttons help you find your way between hunts." },
+      { title: "Escape The Under Neath", text: "Shelter from the mounted Rider, or find your way out of the cells and branching halls while avoiding the tower guards’ spears." },
+      { title: "Find a companion", text: "Talk to Blub, open his cell and meet him outside. Once you reunite, he follows through doors and between landmarks." },
+    ],
+    image: "/games/blackroot-vale/art/village.webp",
+    alt: "A moonlit medieval village beside an enormous evergreen forest, with wet cobblestones, slate roofs and warm lantern-lit windows",
+    imageWidth: 1536, imageHeight: 1024,
+    caption: "BLACKROOT VALE / THORNWICK ARTWORK",
+    href: "/games/blackroot-vale/", color: "forest",
+    features: ["Explore", "Escape", "Companions"], Icon: Trees,
   },
 ] as const;
 
@@ -117,7 +135,7 @@ export default function Home() {
           <div className="hero-content">
             <h1 id="hero-title">Small games.<br /><span className="copper-text">Strange</span> worlds.</h1>
             <div className="hero-aside">
-              <p>Across the ice. Into the rain.<br /> Around the table. Into the arena.<br /> Or build your own little world.</p>
+              <p>Across the ice. Into the rain.<br /> Around the table. Into the arena.<br /> Through the forest.<br /> Or build your own little world.</p>
               <div className="hero-actions"><a className="primary-link" href="#worlds">Explore the games</a><a className="secondary-link" href="#octo-nose">Meet your guide</a></div>
             </div>
           </div>
@@ -125,13 +143,13 @@ export default function Home() {
           <span className="hero-crystal" aria-hidden="true"><img src="/purple-quartz-crystal.svg" width="120" height="144" alt="" /></span>
         </section>
         <section className="worlds shell" id="worlds" aria-labelledby="worlds-title">
-          <div className="worlds-heading"><div><span className="eyebrow">THE COLLECTION</span><h2 id="worlds-title">Find a world that feels like you.</h2></div><p>Five games. All in your browser.<br />Pick a place to begin.</p></div>
+          <div className="worlds-heading"><div><span className="eyebrow">THE COLLECTION</span><h2 id="worlds-title">Find a world that feels like you.</h2></div><p>Six games. All in your browser.<br />Pick a place to begin.</p></div>
           <nav className="game-jump-nav" aria-label="Jump to a game">{games.map((game) => <a key={game.number} href={"#game-" + game.number}>{game.shortName}</a>)}</nav>
           <div className="game-grid">
             {games.map(({ Icon, ...game }) => {
               const local = game.href.startsWith("/");
               return (
-                <article className={"game-card " + game.color + (game.color === "sandbox" ? " game-featured" : "")} id={"game-" + game.number} key={game.name} aria-labelledby={"game-title-" + game.number}>
+                <article className={"game-card " + game.color + (game.color === "sandbox" || game.color === "forest" ? " game-featured" : "")} id={"game-" + game.number} key={game.name} aria-labelledby={"game-title-" + game.number}>
                   <a className="game-art" href={game.href} target="_blank" rel="noopener noreferrer" aria-label={"Open " + game.name + " (opens in a new tab)"}>
                     <img src={game.image} alt={game.alt} width={game.imageWidth} height={game.imageHeight} loading={game.number === "01" ? "eager" : "lazy"} fetchPriority={game.number === "01" ? "high" : "auto"} />
                     <span className="art-label"><Icon size={16} aria-hidden="true" />{game.label}</span>
@@ -162,10 +180,10 @@ export default function Home() {
         <section className="play-guide shell" id="how-to-play" aria-labelledby="guide-title">
           <div className="guide-intro"><span className="eyebrow">BEFORE YOU WANDER</span><h2 id="guide-title">A small field guide.</h2><p>Pick a world. Open a new tab.<br />See where you end up.</p></div>
           <div className="guide-questions">
-            <details><summary>How do I get started?<span aria-hidden="true">+</span></summary><div className="answer">Choose a game above to open it in a new tab. All five games run in your browser. Croba Planet, Rain Arena of Copper and Mosswake Creek open directly from Copperstudio with no sign-in. The Rain &amp; Copper island and The Card Game keep their original sites and multiplayer, and may ask you to sign in with ChatGPT.</div></details>
-            <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>In Rain Arena of Copper, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and the mouse or a drag to look. Left-click to attack, using <kbd>A</kbd>/<kbd>D</kbd> for horizontal cuts or holding <kbd>V</kbd> to force vertical cuts. Right-click to kick, use <kbd>E</kbd> or <kbd>K</kbd> to block, <kbd>Shift</kbd> to dash, <kbd>Space</kbd> to jump, and <kbd>Esc</kbd> to pause.</p><p>In Mosswake Creek’s Sandbox, drag or tap to paint, use <kbd>1</kbd>–<kbd>9</kbd> for tools, <kbd>B</kbd> to break pixels, <kbd>E</kbd> to erase, and <kbd>A</kbd>/<kbd>D</kbd> to pan the map. <kbd>Space</kbd> pauses. In Creek Watch, use <kbd>A</kbd>/<kbd>D</kbd>, the arrow keys, or tap the ground to walk; <kbd>E</kbd> uses a nearby station. Press <kbd>F</kbd> or use Swing to attack with an equipped weapon. At the tower by day, use Upgrade tower for 100 copper, then Enter tower to visit the dining room. Near a chair, press <kbd>E</kbd> to sit or stand. Use Leave tower room to return outside.</p><p>All five games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
-            <details><summary>Where are my existing saves?<span aria-hidden="true">+</span></summary><div className="answer">Saves stay with the browser and website where you made them. To bring a Croba expedition here, open Saved Expeditions on the <a href="https://croba-planet-icebound.davidwebstar.chatgpt.site" target="_blank" rel="noopener noreferrer">original Croba Planet game</a>, export a JSON backup, then import it in Croba on Copperstudio. Arena records stay on the original site. Mosswake Creek’s Sandbox keeps edits in its open tab; Creek Watch has named save slots stored in this browser.</div></details>
-            <details><summary>Which game should I choose?<span aria-hidden="true">+</span></summary><div className="answer">Choose Croba Planet for alien wildlife, icy exploration, and deep ocean dives. Choose the Rain &amp; Copper island adventure for fishing, crafting, and strange creatures. Choose Rain &amp; Copper: The Card Game for secret hands, creature powers, and a solo or online duel across the table. Choose Rain Arena of Copper for sword combat, waves, upgrades, bosses and army battles. Choose Mosswake Creek for a pixel sandbox where you can build and break the world, plus an endless creek defense challenge.</div></details>
+            <details><summary>How do I get started?<span aria-hidden="true">+</span></summary><div className="answer">Choose a game above to open it in a new tab. All six games run in your browser. Croba Planet, Rain Arena of Copper, Mosswake Creek and Blackroot Vale open directly from Copperstudio with no sign-in. The Rain &amp; Copper island and The Card Game keep their original sites and multiplayer, and may ask you to sign in with ChatGPT.</div></details>
+            <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>In Rain Arena of Copper, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and the mouse or a drag to look. Left-click to attack, using <kbd>A</kbd>/<kbd>D</kbd> for horizontal cuts or holding <kbd>V</kbd> to force vertical cuts. Right-click to kick, use <kbd>E</kbd> or <kbd>K</kbd> to block, <kbd>Shift</kbd> to dash, <kbd>Space</kbd> to jump, and <kbd>Esc</kbd> to pause.</p><p>In Mosswake Creek’s Sandbox, drag or tap to paint, use <kbd>1</kbd>–<kbd>9</kbd> for tools, <kbd>B</kbd> to break pixels, <kbd>E</kbd> to erase, and <kbd>A</kbd>/<kbd>D</kbd> to pan the map. <kbd>Space</kbd> pauses. In Creek Watch, use <kbd>A</kbd>/<kbd>D</kbd>, the arrow keys, or tap the ground to walk; <kbd>E</kbd> uses a nearby station. Press <kbd>F</kbd> or use Swing to attack with an equipped weapon. At the tower by day, use Upgrade tower for 100 copper, then Enter tower to visit the dining room. Near a chair, press <kbd>E</kbd> to sit or stand. Use Leave tower room to return outside.</p><p>In Blackroot Vale, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and turn, drag to look, hold <kbd>Shift</kbd> to sprint, and press <kbd>E</kbd> near a door or Blub to interact. The Village, Forest and Field buttons jump between landmarks when a hunt is not active. Open Sound to adjust the volume or mute.</p><p>All six games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
+            <details><summary>Where are my existing saves?<span aria-hidden="true">+</span></summary><div className="answer">Saves stay with the browser and website where you made them. To bring a Croba expedition here, open Saved Expeditions on the <a href="https://croba-planet-icebound.davidwebstar.chatgpt.site" target="_blank" rel="noopener noreferrer">original Croba Planet game</a>, export a JSON backup, then import it in Croba on Copperstudio. Arena records stay on the original site. Mosswake Creek’s Sandbox keeps edits in its open tab; Creek Watch has named save slots stored in this browser. Blackroot Vale keeps exploration progress in its current tab and remembers sound settings on your device.</div></details>
+            <details><summary>Which game should I choose?<span aria-hidden="true">+</span></summary><div className="answer">Choose Croba Planet for alien wildlife, icy exploration, and deep ocean dives. Choose the Rain &amp; Copper island adventure for fishing, crafting, and strange creatures. Choose Rain &amp; Copper: The Card Game for secret hands, creature powers, and a solo or online duel across the table. Choose Rain Arena of Copper for sword combat, waves, upgrades, bosses and army battles. Choose Mosswake Creek for a pixel sandbox where you can build and break the world, plus an endless creek defense challenge. Choose Blackroot Vale for a moonlit village, a dark forest, an escape through guarded halls and a talkative goblin-orc companion.</div></details>
           </div>
         </section>
       </main>

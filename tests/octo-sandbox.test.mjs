@@ -24,12 +24,12 @@ test('Tri Arena army sandboxes remain separate from Mosswake Creek', () => {
   assert.match(answer('Tri Arena War Mode').reply, /Each side allows nine.*Let them fight/);
 });
 
-test('the catalogue, personality and ordinal selection include all five games', () => {
-  assert.match(OCTO_GREETING, /five games/);
+test('the catalogue, personality and ordinal selection include all six games', () => {
+  assert.match(OCTO_GREETING, /six games/);
   assert.ok(OCTO_PROMPTS.includes('Mosswake Creek hints'));
-  assert.match(answer('where do you live?').reply, /five games/);
+  assert.match(answer('where do you live?').reply, /six games/);
   const memory = createOctoChat();
-  assert.equal(answer('list all five games', memory).links.length, 5);
+  assert.equal(answer('list all six games', memory).links.length, 6);
   const fifth = answer('the fifth one', memory);
   assert.equal(fifth.links[0].href, sandboxUrl);
   assert.equal(memory.lastGame, 'sandbox');

@@ -1,0 +1,204 @@
+:root {
+  color-scheme: dark;
+  background: #111913;
+  color: #f1e7ce;
+  --ink: #121914;
+  --brass: #e2be7d;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --sans: system-ui, -apple-system, sans-serif;
+  font-family: var(--sans);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid #f2ce91; outline-offset: 3px; }
+h1, h2, p { margin: 0; }
+.world { isolation: isolate; position: relative; min-height: 265px; width: 100%; height: 100dvh; overflow: hidden; background: #14201c; }
+.world-art, .viewport, .shade { position: absolute; inset: 0; }
+.world-art { background: url('./art/village.webp') center 52% / cover; }
+.world[data-view="forest"] .world-art { background-image: url('./art/forest.webp'); }
+.world[data-view="dungeon"] .world-art, .world[data-view="tower"] .world-art, .world[data-view="throne"] .world-art { background: #101315; }
+.world[data-view="battlefield"] .world-art { background: #36251e; }
+.viewport { pointer-events: none; }
+.viewport canvas { display: block; width: 100%; height: 100%; pointer-events: auto; touch-action: none; cursor: grab; }
+.viewport canvas:active { cursor: grabbing; }
+.viewport canvas:focus-visible { outline: 1px solid #d6b47b8f; outline-offset: -3px; }
+.shade {
+  pointer-events: none;
+  background: linear-gradient(180deg, #0b110dbc, transparent 22%, transparent 55%, #0a100bc9 100%);
+}
+.hud-top, .hud-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  align-items: center;
+  padding: 24px clamp(18px, 3.1vw, 53px);
+  pointer-events: none;
+}
+.hud-top { top: 0; z-index: 2; }
+.hud-bottom { bottom: 0; align-items: flex-end; padding-bottom: clamp(22px, 4vh, 42px); }
+.brand { display: inline-flex; gap: 10px; white-space: nowrap; align-items: center; }
+.brand-icon { width: 35px; height: 35px; display: grid; place-items: center; color: var(--brass); border: 1px solid #d6b47b67; background: #161c16b8; border-radius: 50%; font-size: 21px; }
+.brand h1 { font: 600 clamp(21px, 3.2vw, 30px)/1 var(--serif); letter-spacing: -.055em; text-shadow: 0 2px 12px #000; }
+.brand i { color: var(--brass); font-weight: 500; }
+.hud-actions { display: flex; gap: 6px; align-items: center; pointer-events: auto; }
+.places {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  background: #101914e8;
+  border: 1px solid #9c885a73;
+  border-radius: 5px;
+  pointer-events: auto;
+}
+.places button { min-height: 34px; min-width: 68px; padding: 4px 9px; border: 1px solid transparent; background: transparent; border-radius: 3px; color: #ced1bf; font-size: 12px; font-weight: 650; }
+.places button:hover { color: var(--brass); }
+.places button[aria-pressed="true"] { color: #f5d9a5; border-color: #9d83506e; background: #3b3727; }
+.sound-settings { position: relative; }
+.sound-settings summary {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid #9c885a73;
+  border-radius: 5px;
+  background: #101914e8;
+  color: #ced1bf;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 650;
+}
+.sound-settings summary::-webkit-details-marker { display: none; }
+.sound-settings[open] summary, .sound-settings summary:hover { color: var(--brass); }
+.sound-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  gap: 10px;
+  width: 190px;
+  padding: 12px;
+  border: 1px solid #9c885a99;
+  border-radius: 5px;
+  background: #141c16;
+  box-shadow: 0 6px 24px #0008;
+  font: 600 14px/1.25 var(--sans);
+}
+.sound-level { display: flex; justify-content: space-between; gap: 8px; }
+.sound-level output { color: var(--brass); font-variant-numeric: tabular-nums; }
+.sound-panel input { margin: 0; accent-color: var(--brass); }
+.sound-mute { display: flex; align-items: center; gap: 8px; min-height: 26px; cursor: pointer; }
+.place { min-width: 0; text-shadow: 0 3px 16px #070b08, 0 1px 8px #070b08; }
+.place-kicker { display: flex; gap: 8px; align-items: center; margin: 0 0 6px 2px; color: var(--brass); letter-spacing: .16em; text-transform: uppercase; font-size: 10px; font-weight: 700; }
+.place-kicker > span:first-child { background: var(--brass); width: 5px; height: 5px; transform: rotate(45deg); }
+.place h2 { color: #fff0ce; font: 500 clamp(38px, 5.6vw, 83px)/.96 var(--serif); letter-spacing: -.065em; }
+.controls { color: #e0ddcb; font-size: 12px; text-align: right; text-shadow: 0 2px 8px #000; padding-bottom: 2px; white-space: nowrap; }
+.desktop-hints { display: flex; align-items: center; gap: 7px; }
+.desktop-hints span { width: 1px; height: 13px; margin: 0 2px; background: #a89b765c; }
+kbd { padding: 3px 5px; border: 1px solid #bda97758; border-radius: 4px; background: #101914a8; font-family: var(--sans); font-size: 10px; font-weight: 650; color: #eed19a; }
+.aim { display: none; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; transform: translate(-50%, -50%); border-radius: 50%; background: #efe2baad; box-shadow: 0 1px 3px #000; pointer-events: none; }
+.world.has-world .aim { display: block; }
+.hunt-notice, .dungeon-status {
+  position: absolute;
+  left: 50%;
+  top: 83px;
+  width: max-content;
+  max-width: calc(100% - 26px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 10px 16px;
+  border: 1px solid #bd7c56;
+  border-radius: 6px;
+  background: #2e1b19f2;
+  box-shadow: 0 6px 24px #0007;
+  color: #ffe1be;
+  text-align: center;
+}
+.hunt-notice p, .dungeon-status { font: 600 clamp(15px, 2.8vw, 20px)/1.18 var(--serif); }
+.hunt-notice[data-tone="danger"] { border-color: #e47f73; background: #431c1cf5; }
+.hunt-notice[data-tone="shelter"] { border-color: #8c9d75; background: #182419f5; color: #f2e7c8; }
+.health { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 7px; font-size: 11px; }
+.health progress { width: 66px; height: 8px; accent-color: #e18b70; }
+.places button:disabled { opacity: .55; cursor: default; }
+.dungeon-status { background: #1e1a17ed; border-color: #8d7354; }
+.dungeon-status[data-danger] { background: #431c1cf5; border-color: #e47f73; }
+.dungeon-status:empty, .world:not(.has-world) .dungeon-status { display: none; }
+.dungeon-status.prisoner-speech { top: max(124px, calc(50% - 110px)); max-width: min(36rem, calc(100% - 26px)); }
+.dungeon-fade { position: absolute; inset: 0; background: #100d0b; pointer-events: none; opacity: 0; z-index: 1; }
+.world[data-view="dungeon"] .dungeon-fade { animation: wake-in-cell 1s ease-out both; }
+@keyframes wake-in-cell { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .world[data-view="dungeon"] .dungeon-fade { animation: none; }
+}
+.world:not(.has-world) .desktop-hints, .world:not(.has-world) .touch-hints, .world:not(.has-world) .touch-pad,
+.world:not(.has-world) .places [data-view="field"] { display: none; }
+.door-action {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 33px);
+  transform: translateX(-50%);
+  min-height: 42px;
+  padding: 8px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #bda9779a;
+  border-radius: 4px;
+  background: #131a15eb;
+  color: #f5deb0;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.door-action:hover:enabled { background: #333022; }
+.door-action:disabled { opacity: .84; cursor: default; }
+.touch-pad, .touch-hints { display: none; }
+.no-script { position: absolute; bottom: 12px; right: 12px; }
+@media (max-width: 530px) {
+  .hud-top, .hud-bottom { padding-inline: 13px; }
+  .hud-top { padding-top: 15px; }
+  .hunt-notice, .dungeon-status { top: 61px; }
+  .hud-bottom { display: grid; gap: 7px; }
+  .place h2 { font-size: clamp(37px, 9.6vw, 52px); }
+  .brand { gap: 6px; }
+  .brand-icon { width: 29px; height: 29px; font-size: 17px; }
+  .places button { min-width: 46px; padding-inline: 6px; }
+  .controls { text-align: left; font-size: 11px; }
+}
+@media (max-width: 410px) {
+  .brand-icon { display: none; }
+}
+@media (max-width: 365px) {
+  .hud-top { gap: 8px; }
+  .brand h1 { font-size: 19px; }
+  .brand-icon { width: 24px; height: 24px; }
+  .places button { min-width: 40px; font-size: 11px; }
+  .sound-settings summary { padding-inline: 7px; }
+}
+@media (pointer: coarse) {
+  .touch-pad {
+    display: grid;
+    position: absolute;
+    right: clamp(14px, 4vw, 30px);
+    bottom: max(96px, 13vh);
+    grid-template-columns: repeat(3, 41px);
+    gap: 5px;
+    align-items: center;
+    justify-items: center;
+  }
+  .touch-pad button { width: 41px; height: 41px; background: #121e17d9; border: 1px solid #b09d668a; border-radius: 6px; touch-action: none; color: #f5d9a5; }
+  .touch-pad button:active { background: #5b5234; }
+  .face-up { grid-column: 2; }
+  .face-left { grid-column: 1; grid-row: 2; }
+  .face-down { grid-column: 2; grid-row: 2; }
+  .face-right { grid-column: 3; grid-row: 2; }
+  .touch-pad .sprint { grid-column: 3; grid-row: 1; font-size: 10px; }
+  .desktop-hints { display: none; }
+  .touch-hints { display: block; }
+  .door-action kbd { display: none; }
+}

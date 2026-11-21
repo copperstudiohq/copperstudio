@@ -13,6 +13,7 @@ test('Croba and the arena now play on Copperstudio while both original multiplay
     'https://wooden-room-red-carpet.davidwebstar.chatgpt.site',
     'https://copperstudio.nl/games/tri-arena/',
     'https://copperstudio.nl/games/mosswake-creek/',
+    'https://copperstudio.nl/games/blackroot-vale/',
   ]);
 });
 
@@ -28,13 +29,14 @@ test('current arena name and its old nickname resolve to the same public game', 
   assert.deepEqual(findMentionedGames('Rain Arena of Copper sandbox versus card game'), ['cards', 'arena']);
 });
 
-test('access questions distinguish three public games from two original hosted games', () => {
+test('access questions distinguish four public games from two original hosted games', () => {
   const summary = ask('Which games are hosted on Copperstudio?');
-  assert.match(summary.reply, /Three games.*without ChatGPT sign-in.*Croba Planet.*Rain Arena of Copper.*Mosswake Creek/);
+  assert.match(summary.reply, /Four games.*without ChatGPT sign-in.*Croba Planet.*Rain Arena of Copper.*Mosswake Creek.*Blackroot Vale/);
   assert.match(summary.reply, /island.*Card Game.*original hosted sites.*may ask.*sign in/);
-  assert.equal(summary.links.length, 5);
+  assert.equal(summary.links.length, 6);
   assert.match(ask('Does Croba Planet need a ChatGPT account?').reply, /no ChatGPT sign-in required/);
   assert.match(ask('Do I need a login for Tri Arena?').reply, /no ChatGPT sign-in required/);
+  assert.match(ask('Do I need a login for Blackroot Vale?').reply, /no ChatGPT sign-in required/);
   assert.match(ask('How do I log in to the Card Game?').reply, /original hosted site.*sign in with ChatGPT/);
   assert.match(ask('Does Rain & Copper need an account?').reply, /original hosted site.*Both players need access/);
 });

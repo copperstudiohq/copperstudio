@@ -1,6 +1,6 @@
 import { HEIGHT, POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
 import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow, sceneOval } from './art.js';
-import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_VENDORS, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
+import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_FLYER_HEALTH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_VENDORS, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
 import { drawVendorPortraitImage } from './vendor-portraits.js';
 
 function watchRect(ctx, color, x, y, width, height) {
@@ -618,6 +618,207 @@ function drawWatchOpus(ctx, opus, watch) {
   ctx.restore();
 }
 
+function drawInfectedGuard(ctx, enemy, watch) {
+  const x = Math.round(enemy.x), ground = watchGround(x);
+  const target = watchRaidWall(enemy, watch.posts, watch.forwardWalls)?.wallX ?? watchTowerTarget(watch, enemy.side);
+  const stride = Math.abs(enemy.x - target) > WATCH_OPUS_REACH ? Math.round(2 * Math.sin(enemy.stride / 3)) : 0;
+  const striking = watch.tick - enemy.struckAt < 9;
+  ctx.save();
+  ctx.translate(x, ground);
+  ctx.scale(-enemy.side, 1);
+  watchRect(ctx, '#281a377c', -10, -1, 23, 2);
+  // The old uniform and bent hat remain visible beneath the pink growth.
+  watchRect(ctx, '#45304b', -5 - stride, -7, 4, 7);
+  watchRect(ctx, '#9a547a', 2 + stride, -6, 4, 6);
+  watchRect(ctx, '#293044', -6 - stride, -1, 6, 2);
+  watchRect(ctx, '#293044', 2 + stride, -1, 6, 2);
+  sceneOval(ctx, '#60334f', -2, -12, 10, 9);
+  sceneOval(ctx, '#bd6495', -4, -14, 8, 8);
+  sceneOval(ctx, '#ed95b8', -6, -16, 5, 5);
+  watchRect(ctx, '#75465e', -6, -10, 13, 6);
+  watchRect(ctx, '#ba7c71', -5, -6, 11, 2);
+  watchRect(ctx, '#5f5273', -8, -12, 5, 7);
+  watchRect(ctx, '#f0a1c1', -7, -15, 3, 4);
+  watchRect(ctx, '#b96d95', -1, -12, 4, 7);
+  watchRect(ctx, '#6d80ac', 1, -7, 3, 6);
+  watchRect(ctx, '#adcae0', 2, -2, 4, 1);
+  sceneOval(ctx, '#dd83aa', 7, -13, 7, 5);
+  watchRect(ctx, '#67354e', 3, -18, 11, 3);
+  watchRect(ctx, enemy.rank ? '#e9b782' : '#b58065', 3, -19, 8, 2);
+  if (enemy.rank) watchRect(ctx, '#d8a37d', 0, -20, 4, 2);
+  watchRect(ctx, '#713b63', 9, -15, 5, 3);
+  watchRect(ctx, '#ffba76', 10, -15, 3, 2);
+  watchRect(ctx, '#392c44', 12, -15, 1, 2);
+  watchRect(ctx, '#713b63', 12, -10, 3, 1);
+  watchRect(ctx, '#d68bba', 8, -9, 3, 7);
+  watchRect(ctx, '#6d80ac', 10, -3, 3, 3);
+  if (striking) sceneGlow(ctx, '#f78cbd80', 13, -10, 9 + (watch.tick - enemy.struckAt) * 1.2);
+  ctx.restore();
+}
+
+function flyerLine(ctx, color, fromX, fromY, toX, toY) {
+  const steps = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY), 1);
+  for (let step = 0; step <= steps; step++) {
+    const progress = step / steps;
+    watchRect(ctx, color, fromX + (toX - fromX) * progress, fromY + (toY - fromY) * progress, 1, 1);
+  }
+}
+
+const FLYER_PIXEL_CONTEXTS = new WeakMap();
+
+function flyerPixelContext(target) {
+  let pixels = FLYER_PIXEL_CONTEXTS.get(target);
+  if (pixels) return pixels;
+  // Snap both edges before drawing: fractional canvas scaling blurs even when
+  // image smoothing is disabled. This tiny fill-only adapter is reused per view.
+  pixels = {
+    get fillStyle() { return target.fillStyle; },
+    set fillStyle(color) { target.fillStyle = color; },
+    fillRect(x, y, width, height) {
+      const left = Math.round(x * 0.65), top = Math.round(y * 0.65);
+      const right = Math.round((x + width) * 0.65), bottom = Math.round((y + height) * 0.65);
+      if (right > left && bottom > top) target.fillRect(left, top, right - left, bottom - top);
+    }
+  };
+  FLYER_PIXEL_CONTEXTS.set(target, pixels);
+  return pixels;
+}
+
+function drawFlyerWing(ctx, arm) {
+  const { shoulder, elbow, wrist, fingers, far } = arm;
+  // The wing is the arm: one shoulder, a bent elbow, a clawed hand and three
+  // long webbed fingers. On the ground the fingers fold behind the planted hand.
+  const armPoint = (t) => [
+    Math.round((1 - t) ** 2 * shoulder[0] + 2 * (1 - t) * t * elbow[0] + t * t * wrist[0]),
+    Math.round((1 - t) ** 2 * shoulder[1] + 2 * (1 - t) * t * elbow[1] + t * t * wrist[1])
+  ];
+  const points = [shoulder, armPoint(0.25), armPoint(0.5), armPoint(0.75), wrist, fingers[0],
+    [Math.round((fingers[0][0] + fingers[1][0]) / 2), Math.min(fingers[0][1], fingers[1][1]) - 4],
+    fingers[1], [Math.round((fingers[1][0] + fingers[2][0]) / 2), Math.min(fingers[1][1], fingers[2][1]) - 3],
+    fingers[2], [shoulder[0], shoulder[1] + 5]];
+  const top = Math.min(...points.map((point) => point[1]));
+  const bottom = Math.max(...points.map((point) => point[1]));
+  const tones = far ? ['#965f84', '#8e587e', '#855178', '#7d4b70', '#754569']
+    : ['#e29dbb', '#d991b3', '#cf85aa', '#c47aa1', '#b86f98', '#ad648f'];
+  for (let y = top; y < bottom; y++) {
+    const cuts = [];
+    for (let index = 0; index < points.length; index++) {
+      const a = points[index], b = points[(index + 1) % points.length];
+      if ((a[1] <= y + 0.5 && b[1] > y + 0.5) || (b[1] <= y + 0.5 && a[1] > y + 0.5)) {
+        cuts.push(a[0] + (y + 0.5 - a[1]) * (b[0] - a[0]) / (b[1] - a[1]));
+      }
+    }
+    cuts.sort((a, b) => a - b);
+    for (let index = 0; index + 1 < cuts.length; index += 2) {
+      const left = Math.ceil(cuts[index]), right = Math.floor(cuts[index + 1]);
+      const width = right - left + 1;
+      if (width < 1) continue;
+      watchRect(ctx, '#4c2c48', left, y, width, 1);
+      const shade = Math.min(tones.length - 1, Math.floor((y - top) * tones.length / Math.max(1, bottom - top)));
+      if (width > 2) watchRect(ctx, tones[shade], left + 1, y, width - 2, 1);
+    }
+  }
+  for (const finger of fingers) {
+    flyerLine(ctx, far ? '#705d89' : '#935f9d', wrist[0], wrist[1], finger[0], finger[1]);
+    if (!far) flyerLine(ctx, '#d597b7', wrist[0], wrist[1] - 1, finger[0], finger[1] - 1);
+  }
+  const length = Math.max(12, Math.abs(wrist[0] - shoulder[0]) + Math.abs(wrist[1] - shoulder[1]));
+  for (let step = 0; step <= length; step++) {
+    const t = step / length, [x, y] = armPoint(t), thickness = 2 + Math.round(3 * (1 - t));
+    watchRect(ctx, far ? '#253b66' : '#254e86', x - 1, y - 1, 3, thickness);
+    watchRect(ctx, far ? '#4577b7' : '#59aaf1', x, y, 2, Math.max(1, thickness - 2));
+    if (!far) watchRect(ctx, '#83c5f3', x, y, 1, 1);
+  }
+  watchRect(ctx, far ? '#4577b7' : '#59aaf1', wrist[0] - 2, wrist[1] - 2, 5, 3);
+  for (const offset of [-2, 0, 2]) {
+    watchRect(ctx, far ? '#b6a3ac' : '#fae2cb', wrist[0] + offset, wrist[1], 1, 2);
+  }
+}
+
+export function drawTriFlyer(ctx, flyer, tick) {
+  const x = Math.round(flyer.x), ground = watchGround(x), altitude = Math.round(flyer.altitude);
+  const crawling = flyer.mode === 'crawl';
+  const diving = flyer.mode === 'dive';
+  const beat = Math.sin(tick / 4 + flyer.side * 2);
+  const stride = crawling ? Math.round(4 * Math.sin(flyer.stride / 4)) : 0;
+  const target = ctx;
+  target.save();
+  try {
+    watchRect(target, altitude ? '#281a373d' : '#281a377c', x - 18, ground - 1, 37, 2);
+    target.translate(x, ground - altitude);
+    target.scale(flyer.direction, 1);
+    ctx = flyerPixelContext(target);
+    const armPose = (side, far) => {
+      const shoulder = [side < 0 ? -7 : 2, -13 - Number(far) * 3];
+      let elbow, wrist;
+      if (crawling || diving) {
+        const step = side * (far ? -stride : stride);
+        const reach = far ? 20 : 28;
+        elbow = [side * (far ? 14 : 18), -12 - Number(far) * 3];
+        wrist = [side * reach + step, far ? -3 : -1];
+        if (crawling && (far ? -step : step) > 1) wrist[1] -= 3;
+        if (diving) wrist[0] += side * 3;
+      } else {
+        elbow = [side * (far ? 20 : 25), -26 + Math.round(beat * (far ? -4 : 5))];
+        wrist = [side * (far ? 31 : 41), (far ? -39 : -19) + Math.round(beat * (far ? -7 : 10))];
+      }
+      const folded = crawling || diving;
+      const fingers = folded ? [
+        [wrist[0] - side * 5, wrist[1] - 3],
+        [wrist[0] - side * 11, wrist[1] - 5],
+        [shoulder[0] + side * 2, shoulder[1] + 7]
+      ] : [
+        [wrist[0] - side * 6, wrist[1] + 17],
+        [wrist[0] - side * 17, wrist[1] + 24],
+        [shoulder[0] + side * 4, shoulder[1] + 13]
+      ];
+      return { shoulder, elbow, wrist, fingers, far };
+    };
+    // Two far arms remain separated from the two nearer arms in every pose.
+    drawFlyerWing(ctx, armPose(-1, true));
+    drawFlyerWing(ctx, armPose(1, true));
+    // The familiar Opus torso leans into a small raised back, supported by arms.
+    watchRect(ctx, '#582641', -13, -19, 15, 9);
+    watchRect(ctx, '#a65379', -12, -21, 12, 10);
+    watchRect(ctx, '#b04d73', -10, -23, 8, 10);
+    watchRect(ctx, '#c76a91', -9, -22, 8, 7);
+    watchRect(ctx, '#d98aa9', -8, -22, 4, 2);
+    watchRect(ctx, '#e8a1bc', -7, -22, 2, 1);
+    watchRect(ctx, '#582641', -8, -15, 15, 7);
+    watchRect(ctx, '#a65379', -7, -14, 13, 5);
+    watchRect(ctx, '#c76a91', -6, -16, 12, 6);
+    watchRect(ctx, '#d98aa9', -6, -15, 5, 2);
+    watchRect(ctx, '#e8a1bc', -5, -15, 2, 1);
+    drawFlyerWing(ctx, armPose(-1, false));
+    drawFlyerWing(ctx, armPose(1, false));
+    // Canonical Opus head, including its rounded upper-left corner. The normal
+    // eye position holds a tooth-lined mouth instead; this creature has no eye.
+    watchRect(ctx, '#b04d73', 1, -21, 9, 12);
+    watchRect(ctx, '#b04d73', -1, -20, 12, 11);
+    watchRect(ctx, '#b04d73', -2, -18, 13, 9);
+    watchRect(ctx, '#cf769b', 2, -20, 7, 7);
+    watchRect(ctx, '#cf769b', 1, -19, 8, 6);
+    watchRect(ctx, '#db8caf', 5, -18, 8, 8);
+    watchRect(ctx, '#e8a1bc', 3, -20, 5, 1);
+    watchRect(ctx, '#b66287', 3, -12, 3, 1);
+    watchRect(ctx, '#ce7e9f', 8, -17, 5, 7);
+    watchRect(ctx, '#893958', 8, -17, 7, 8);
+    watchRect(ctx, '#2f2445', 9, -16, 5, diving ? 7 : 6);
+    watchRect(ctx, '#a94470', 10, -11, 3, 2);
+    watchRect(ctx, '#fae3dc', 9, -16, 1, 2);
+    watchRect(ctx, '#fae3dc', 12, -16, 1, 2);
+    watchRect(ctx, '#fae3dc', 10, -11, 1, 1);
+    watchRect(ctx, '#fae3dc', 13, -11, 1, 2);
+    watchRect(ctx, '#f1a1ba', 8, -9, 7, 1);
+    if (flyer.hp < WATCH_FLYER_HEALTH) {
+      watchRect(ctx, '#342039', -10, -41, 20, 3);
+      watchRect(ctx, '#f295bc', -9, -40, Math.ceil(18 * flyer.hp / WATCH_FLYER_HEALTH), 1);
+    }
+  } finally {
+    target.restore();
+  }
+}
+
 const SPRAYER_MOUTH = { x: 9, y: -31 };
 // Each row starts a section of the silhouette from the tilted crest to the foot.
 const SPRAYER_PROFILE = [
@@ -950,19 +1151,22 @@ export function drawCreekWatch(ctx, watch) {
     watchRect(ctx, '#f1b36a', coin.x - 1, y - 2, 3, 4);
     watchRect(ctx, '#ffe4a8', coin.x, y - 1, 1, 2);
   }
-  const { sprayer } = watch;
-  if (sprayer?.hp > 0 && onScreen(sprayer.x, 54)) drawIchorSprayer(ctx, sprayer, watch.tick);
-  if (sprayer?.spray && onScreen(sprayer.spray.from, 104)) drawWatchIchorSpray(ctx, sprayer, watch.tick);
+  for (const sprayer of watch.sprayers ?? (watch.sprayer ? [watch.sprayer] : [])) {
+    if (sprayer.hp > 0 && onScreen(sprayer.x, 54)) drawIchorSprayer(ctx, sprayer, watch.tick);
+    if (sprayer.spray && onScreen(sprayer.spray.from, 104)) drawWatchIchorSpray(ctx, sprayer, watch.tick);
+  }
   for (const raider of watch.raiders) {
     if (!onScreen(raider.x, 26)) continue;
-    drawWatchOpus(ctx, raider, watch);
+    if (raider.kind === 'infected') drawInfectedGuard(ctx, raider, watch);
+    else drawWatchOpus(ctx, raider, watch);
   }
+  for (const flyer of watch.flyers ?? []) if (flyer.hp > 0 && onScreen(flyer.x, 48)) drawTriFlyer(ctx, flyer, watch.tick);
   ctx.strokeStyle = '#f7d99dba';
   ctx.lineWidth = 1.2;
   for (const shot of watch.shots) {
     ctx.beginPath();
     ctx.moveTo(shot.from, watchGround(shot.from) - 12);
-    ctx.lineTo(shot.to, watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16));
+    ctx.lineTo(shot.to, watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16) - (shot.altitude ?? 0));
     ctx.stroke();
   }
   const { x, direction, step } = watch.player;

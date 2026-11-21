@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, hasWatchSprayer } from './watch.js';
+import { CreekWatch, WATCH_BOUNDS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -46,16 +46,20 @@ const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.
   && items.every((item) => item && isValid(item));
 const validWatchWall = ({ tier, health }) => [0, 1, 2].includes(tier)
   && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0);
+const watchSprayers = (state) => state.sprayers === undefined
+  ? state.sprayer == null ? [] : [state.sprayer] : state.sprayers;
+const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && value <= WATCH_FLYER_ALTITUDE;
 
 function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
-    shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
+    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = 1,
     interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
   const room = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM : WATCH_TOWER_ROOM;
   const chair = WATCH_TOWER_CHAIRS.find((seat) => seat.id === seatedChair);
+  const sprayers = watchSprayers(state);
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
@@ -70,7 +74,17 @@ function validWatchState(state) {
       || (seatedChair !== null && (!chair || !insideTower || towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT
         || interiorX !== chair.x || player?.direction !== chair.direction))) return false;
 
-  return (sprayer === null || (phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick)))
+  return !(state.sprayers !== undefined && Object.hasOwn(state, 'sprayer'))
+    && validWatchList(sprayers, 2, (sprayer) => phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick))
+    && new Set(sprayers.map(({ side }) => side)).size === sprayers.length
+    && validWatchList(flyers, WATCH_FLYERS_PER_SIDE * 2, (flyer) =>
+      phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && validFlyer(flyer, tick))
+    && validWatchList(flyerQueue, WATCH_FLYERS_PER_SIDE * 2, ({ side, due }) =>
+      phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && validWatchSide(side)
+      && validWatchCount(due) && due <= WATCH_NIGHT)
+    && flyerQueue.every(({ due }, index) => index === 0 || flyerQueue[index - 1].due <= due)
+    && [-1, 1].every((side) => flyers.filter((flyer) => flyer.side === side).length
+      + flyerQueue.filter((entry) => entry.side === side).length <= WATCH_FLYERS_PER_SIDE)
     && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
     && optionalWatchField(forwardWalls, (walls) => validWatchList(walls, 2, validWatchWall) && walls.length === 2)
     && validWatchList(gear, Object.keys(WATCH_MARKET_ITEMS).length,
@@ -85,11 +99,14 @@ function validWatchState(state) {
         && validWatchCount(carriedCoins)
         && (!walking || validWatchCount(stride))))
     && posts.length === 2
-    && validWatchList(raiders, 64, ({ side, x, stride, hp, attackAt, struckAt }) =>
+    && validWatchList(raiders, 128, ({ side, x, stride, hp, attackAt, struckAt, kind, rank }) =>
       validWatchSide(side) && validWatchX(x) && validWatchCount(stride)
-      && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt))
-    && validWatchList(shots, Infinity, ({ from, to, end, kind }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
-      && (kind === undefined || kind === 'pigeon' || kind === 'raid'))
+      && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt)
+      && (kind === undefined ? rank === undefined : kind === 'infected' && [0, 1].includes(rank)
+        && phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && struckAt <= tick))
+    && validWatchList(shots, Infinity, ({ from, to, end, kind, altitude }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
+      && (kind === undefined || kind === 'pigeon' || kind === 'raid')
+      && (altitude === undefined || kind === 'raid' && validFlyerAltitude(altitude)))
     && validWatchList(loot, Infinity, ({ x, amount, forPlayer = false }) =>
       validWatchX(x) && validWatchCount(amount) && amount > 0 && validWatchFlag(forPlayer))
     && loot.filter((piece) => !piece.forPlayer).length <= 128
@@ -99,20 +116,32 @@ function validWatchState(state) {
 
 function validSprayer(sprayer, tick) {
   const { side, x, hp, attackAt, sprayAt, burstsLeft, spray } = sprayer;
-  if (side !== -1 || !validWatchX(x) || !validWatchCount(hp) || hp > WATCH_SPRAYER_HEALTH
+  if (!validWatchSide(side) || !validWatchX(x) || !validWatchCount(hp) || hp > WATCH_SPRAYER_HEALTH
       || !validWatchCount(attackAt) || !validWatchCount(sprayAt)
       || !validWatchCount(burstsLeft) || burstsLeft > WATCH_SPRAYER_BURSTS) return false;
   return spray === null || (spray && validWatchX(spray.from) && Number.isFinite(spray.reach)
-    && spray.reach >= 0 && spray.reach <= WATCH_SPRAY_REACH && validWatchX(spray.from + spray.reach)
+    && spray.reach >= 0 && spray.reach <= WATCH_SPRAY_REACH && validWatchX(spray.from - side * spray.reach)
     && validWatchCount(spray.at) && spray.at <= tick && tick - spray.at < WATCH_SPRAY_FLIGHT + WATCH_SPRAY_SPLASH);
+}
+
+function validFlyer(flyer, tick) {
+  const { side, x, hp, mode, altitude, stride, direction, modeAt, attackAt, struckAt } = flyer;
+  return validWatchSide(side) && validWatchX(x) && validWatchCount(hp) && hp >= 1 && hp <= WATCH_FLYER_HEALTH
+    && ['crawl', 'fly', 'dive'].includes(mode) && validFlyerAltitude(altitude)
+    && (mode === 'crawl' ? altitude === 0 : altitude > 0)
+    && validWatchCount(stride) && validWatchSide(direction)
+    && validWatchCount(modeAt) && modeAt <= tick + 3 * TICKS_PER_SECOND
+    && validWatchCount(attackAt) && attackAt <= tick + 44
+    && validWatchStamp(struckAt) && struckAt <= tick;
 }
 
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
-    shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
+    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
-  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, sprayer,
+  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message,
+    sprayers: watchSprayers(watch), flyers, flyerQueue,
     gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };

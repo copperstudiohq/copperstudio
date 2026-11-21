@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111913">
+  <meta name="description" content="Explore the houses of Thornwick Village, the South Field, and the Blackroot Forest.">
+  <title>Blackroot Vale</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <main class="world" id="world" data-view="village">
+    <div class="world-art" aria-hidden="true"></div>
+    <div class="viewport" id="viewport"></div>
+    <div class="shade" aria-hidden="true"></div>
+    <div class="dungeon-fade" aria-hidden="true"></div>
+
+    <header class="hud-top">
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true">✧</span>
+        <h1>Blackroot <i>Vale</i></h1>
+      </div>
+      <div class="hud-actions">
+        <nav class="places" aria-label="Landmarks">
+          <button type="button" data-view="village" aria-pressed="true">Village</button>
+          <button type="button" data-view="forest" aria-pressed="false">Forest</button>
+          <button type="button" data-view="field" aria-pressed="false">Field</button>
+        </nav>
+        <details class="sound-settings" id="sound-settings">
+          <summary>Sound</summary>
+          <div class="sound-panel">
+            <div class="sound-level">
+              <label for="sound-volume">Volume</label>
+              <output id="sound-percent" for="sound-volume">100%</output>
+            </div>
+            <input type="range" id="sound-volume" min="0" max="100" step="5" value="100">
+            <label class="sound-mute"><input type="checkbox" id="sound-mute"> Mute sound</label>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <div class="aim" aria-hidden="true"></div>
+    <div id="hunt-notice" class="hunt-notice" hidden>
+      <p id="encounter-cue" role="status"></p>
+      <div class="health">
+        <label for="hunt-health">Health</label>
+        <progress id="hunt-health" max="3" value="3"></progress>
+        <span id="hunt-health-value" aria-hidden="true">3 / 3</span>
+      </div>
+    </div>
+    <p id="dungeon-status" class="dungeon-status" role="status"></p>
+    <p id="prisoner-speech" class="dungeon-status prisoner-speech" role="status"></p>
+    <button type="button" id="door-action" class="door-action" aria-keyshortcuts="E" hidden>
+      <kbd aria-hidden="true">E</kbd> <span id="door-action-label">Open door</span>
+    </button>
+    <div class="hud-bottom">
+      <section class="place" aria-label="Current location">
+        <p class="place-kicker"><span aria-hidden="true"></span> <span id="place-kicker">The southern edge</span></p>
+        <h2 id="place-name" aria-live="polite">Thornwick Village</h2>
+      </section>
+      <section class="controls" aria-label="Controls">
+        <p class="desktop-hints"><kbd>W A S D</kbd> Move <span></span> <kbd>Shift</kbd> Sprint <span></span> <kbd>Drag</kbd> Look <span></span> <kbd>E</kbd> Interact</p>
+        <p class="touch-hints">Hold arrows to move · Drag to look</p>
+        <p class="fallback-note" id="fallback-note" hidden>Illustrated view · 3D is unavailable on this device</p>
+      </section>
+    </div>
+
+    <div class="touch-pad" aria-label="Movement">
+      <button type="button" data-key="KeyW" class="face-up" aria-label="Walk forward">↑</button>
+      <button type="button" data-key="KeyA" class="face-left" aria-label="Walk left">←</button>
+      <button type="button" data-key="KeyS" class="face-down" aria-label="Walk backward">↓</button>
+      <button type="button" data-key="KeyD" class="face-right" aria-label="Walk right">→</button>
+      <button type="button" data-key="ShiftLeft" class="sprint" aria-label="Hold to sprint">Sprint</button>
+    </div>
+    <noscript><p class="no-script">Enable JavaScript to walk through Blackroot Vale.</p></noscript>
+  </main>
+</body>
+</html>

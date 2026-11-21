@@ -474,7 +474,8 @@ dialog dd { margin: 2px 0 0; }
       <div><dt>Bridge market</dt><dd>Build both forward walls for 5 copper each to open the market east of the tower. Approach a stall and press E to shop. Buying a weapon equips it. Face a Tri and press F or use Swing to attack.</dd></div>
       <div><dt>A room in the tower</dt><dd>During the day, stand beside the tower and choose Upgrade tower for 100 copper. You pay once. Then choose Enter tower to visit the dining room with its red tablecloth. Walk with A/D, the arrow keys, or tap the floor. Approach one of the four chairs and press E or Sit to take a seat. Press E or move to stand up. Use Leave tower room to return outside. The outside watch pauses while you are inside. Named saves keep the upgrade, room position and seated chair.</dd></div>
       <div><dt>Keep the light burning</dt><dd>At dusk, Tri Opus walk out of both portals and strike your defenses with pulses of light. Each dawn starts a new day until the tower falls.</dd></div>
-      <div><dt>Blood moons</dt><dd>Every tenth night has a blood moon. An Ichor Sprayer appears at the west portal on night 20 and every night from 30 onward, releasing new Tri Opus in bursts of ichor.</dd></div>
+      <div><dt>Blood moons</dt><dd>Every tenth night has a blood moon. Ichor Sprayers appear at both portals on night 20 and every night from 30 onward, releasing new Tri Opus in bursts of ichor.</dd></div>
+      <div><dt>Tri Flyers · night 40 onward</dt><dd>Small, hunched pink Tri crawl on four clawed wing-arms, then spread those same limbs to fly from both sides. Flying bats try to land on your soldiers and infect them. Infected soldiers turn pink and hunched, leave your guard roster, and attack your defenses like Tri Opus. Shoot the flyers before they land. Named saves preserve the new enemies and infection.</dd></div>
       <div><dt>Daytime patrols</dt><dd>Guards gather copper across the whole map, carry it to you, and drop it at your feet. The pile adds to your total when you pick it up; guards leave delivered piles for you. If delivery would leave too little time to get home before dusk, they keep the copper and bring it the next day. You can still walk over other coins to collect them yourself.</dd></div>
       <div><dt>Ring the dusk bell</dt><dd>Use the tower in the middle of the bridge to call the guards home early. They walk back, and the portals open once everyone is at their defenses. Repair the tower there during the day if it took damage.</dd></div>
       <div><dt>Save the watch</dt><dd>Open Save slots to create a named save or update one. Load a slot to return to the day or raid you saved.</dd></div>
@@ -2608,6 +2609,12 @@ const WATCH_RAIDER_LIMIT = 12;
 const WATCH_ENEMY_NAME = CREATURES.opus;
 const WATCH_OPUS_REACH = 12;
 const WATCH_SWING_TICKS = 10;
+const WATCH_FIRST_FLYER_NIGHT = 40;
+const WATCH_FLYER_HEALTH = 8;
+const WATCH_FLYER_ALTITUDE = 42;
+const WATCH_FLYERS_PER_SIDE = 2;
+const WATCH_FLYER_CRAWL_TICKS = 72;
+const WATCH_FLYER_FLIGHT_TICKS = 90;
 const WATCH_FIRST_SPRAYER_NIGHT = 20;
 const WATCH_RECURRING_SPRAYER_NIGHT = 30;
 const WATCH_SPRAYER_HEALTH = 24;
@@ -2736,7 +2743,9 @@ class CreekWatch {
     this.weapon = null;
     this.swingAt = WATCH_NO_ACTION;
     this.raiders = [];
-    this.sprayer = null;
+    this.sprayers = [];
+    this.flyers = [];
+    this.flyerQueue = [];
     this.shots = [];
     this.loot = [];
     this.huntedPigeons = 0;
@@ -2772,6 +2781,19 @@ class CreekWatch {
     return this.forwardWalls.every(({ tier }) => tier > 0);
   }
 
+  // Older integrations address the west Sprayer through the singular name.
+  get sprayer() { return this.sprayers[0] ?? null; }
+
+  set sprayer(value) {
+    if (value === null) this.sprayers = [];
+    else if (this.sprayers.length) this.sprayers[0] = value;
+    else this.sprayers = [value];
+  }
+
+  get enemies() {
+    return this.raiders.concat(this.flyers, this.sprayers.filter(({ hp }) => hp > 0));
+  }
+
   get canSwing() {
     const item = WATCH_MARKET_ITEMS[this.weapon];
     return this.status === 'running' && !this.insideTower && item?.damage > 0 && this.tick - this.swingAt >= item.cooldown;
@@ -2796,9 +2818,8 @@ class CreekWatch {
   campShelterProgress(camp) {
     if (this.phase !== 'night') return 0;
     let progress = 0;
-    const threats = this.sprayer?.hp > 0 ? this.raiders.concat(this.sprayer) : this.raiders;
-    for (const raider of threats) {
-      if (raider.side !== camp.side || raider.hp <= 0) continue;
+    for (const raider of this.enemies) {
+      if ((raider.side !== camp.side && !this.flyers.includes(raider)) || raider.hp <= 0) continue;
       // Positive distance means the raider is still on the portal side of the camp.
       const distance = (raider.x - camp.x) * camp.side;
       const remaining = distance >= 0 ? CAMP_APPROACH_RANGE - distance : CAMP_CLEARANCE_RANGE + distance;
@@ -2901,11 +2922,12 @@ class CreekWatch {
     this.swingAt = this.tick;
     const item = WATCH_MARKET_ITEMS[this.weapon];
     const { x, direction } = this.player;
-    const targets = this.raiders.filter((enemy) => enemy.hp > 0 && Math.abs(enemy.x - x) <= item.reach
+    const targets = this.raiders.concat(this.flyers).filter((enemy) => enemy.hp > 0
+      && (enemy.altitude ?? 0) <= 24 && Math.abs(enemy.x - x) <= item.reach
       && (enemy.x - x) * direction >= 0);
-    if (this.sprayer?.hp > 0) {
-      const distance = (this.sprayer.x - x) * direction;
-      if (distance >= 0 && distance <= item.reach + 23) targets.push(this.sprayer);
+    for (const sprayer of this.sprayers) {
+      const distance = (sprayer.x - x) * direction;
+      if (sprayer.hp > 0 && distance >= 0 && distance <= item.reach + 23) targets.push(sprayer);
     }
     targets.sort((a, b) => Math.abs(a.x - x) - Math.abs(b.x - x));
     for (const enemy of targets.slice(0, item.targets ?? 1)) this.damageEnemy(enemy, item.damage);
@@ -3012,23 +3034,34 @@ class CreekWatch {
     this.phase = 'night';
     this.phaseTick = 0;
     this.queue = [];
+    this.flyerQueue = [];
     const raidersPerPortal = Math.min(WATCH_RAIDER_LIMIT, this.day + 1);
     for (const { side } of WATCH_PORTALS) {
       const first = TRI_PORTAL_OPEN_TICKS + 4 + (side === 1 ? 22 : 0);
       for (let index = 0; index < raidersPerPortal; index++) {
         this.queue.push({ side, due: first + index * 46 });
       }
+      if (this.day >= WATCH_FIRST_FLYER_NIGHT) {
+        for (let index = 0; index < WATCH_FLYERS_PER_SIDE; index++) {
+          this.flyerQueue.push({ side, due: TRI_PORTAL_OPEN_TICKS + 110 + index * 220 + (side === 1 ? 18 : 0) });
+        }
+      }
     }
     this.queue.sort((a, b) => a.due - b.due);
+    this.flyerQueue.sort((a, b) => a.due - b.due);
     const event = this.bloodMoon ? 'Blood moon' : 'Night';
-    this.message = hasWatchSprayer(this.day) ? `${event} ${this.day}. An Ichor Sprayer is coming from the west.`
+    this.message = this.day >= WATCH_FIRST_FLYER_NIGHT
+      ? `${event} ${this.day}. Tri Flyers and Ichor Sprayers are coming from both portals. Keep the Flyers off your guards.`
+      : hasWatchSprayer(this.day) ? `${event} ${this.day}. Ichor Sprayers are coming from both portals.`
       : `${event} ${this.day}. ${WATCH_ENEMY_NAME} are coming through both portals.`;
     return true;
   }
 
   finishNight() {
     this.raiders.length = 0;
-    this.sprayer = null;
+    this.sprayers.length = 0;
+    this.flyers.length = 0;
+    this.flyerQueue.length = 0;
     this.queue.length = 0;
     this.phase = 'day';
     this.phaseTick = 0;
@@ -3083,8 +3116,13 @@ class CreekWatch {
       const portal = WATCH_PORTALS[side === -1 ? 0 : 1];
       this.spawnOpus(side, portal.x);
     }
+    while (this.flyerQueue[0]?.due <= this.phaseTick) {
+      const { side } = this.flyerQueue.shift();
+      this.spawnFlyer(side, WATCH_PORTALS[side === -1 ? 0 : 1].x);
+    }
     for (const raider of this.raiders) this.moveRaider(raider);
     this.stepIchorSprayer();
+    for (const flyer of this.flyers) if (flyer.hp > 0) this.moveFlyer(flyer);
     if (this.signal <= 0) {
       this.status = 'lost';
       this.message = 'The raid extinguished the signal. Start a new watch to try again.';
@@ -3093,8 +3131,8 @@ class CreekWatch {
     this.fireGuards();
     this.removeDefeatedOpus();
     if (this.phaseTick >= WATCH_NIGHT || (this.phaseTick > TICKS_PER_SECOND * 6
-        && this.queue.length === 0 && this.raiders.length === 0
-        && !(this.sprayer?.hp > 0 || this.sprayer?.spray))) this.finishNight();
+        && this.queue.length === 0 && this.flyerQueue.length === 0 && this.raiders.length === 0
+        && this.flyers.length === 0 && !this.sprayers.some((sprayer) => sprayer.hp > 0 || sprayer.spray))) this.finishNight();
   }
 
   spawnOpus(side, x) {
@@ -3103,6 +3141,7 @@ class CreekWatch {
   }
 
   moveRaider(raider) {
+    if (raider.hp <= 0) return;
     const post = watchRaidWall(raider, this.posts, this.forwardWalls);
     const target = post?.wallX ?? watchTowerTarget(this, raider.side);
     const distance = Math.abs(raider.x - target);
@@ -3117,15 +3156,99 @@ class CreekWatch {
     }
   }
 
+  spawnFlyer(side, x) {
+    if (this.day < WATCH_FIRST_FLYER_NIGHT || this.phase !== 'night'
+        || this.flyers.length >= WATCH_FLYERS_PER_SIDE * WATCH_PORTALS.length) return false;
+    this.flyers.push({ side, x, hp: WATCH_FLYER_HEALTH, mode: 'crawl', altitude: 0,
+      direction: -side, stride: 0, modeAt: this.tick + WATCH_FLYER_CRAWL_TICKS,
+      attackAt: 0, struckAt: WATCH_NO_ACTION });
+    return true;
+  }
+
+  nearestFlyerGuard(x) {
+    let target;
+    let nearest = Infinity;
+    for (const post of this.posts) {
+      post.guards.forEach((guard, index) => {
+        const position = this.guardPosition(post, index);
+        const distance = Math.abs(position - x);
+        if (distance >= nearest) return;
+        nearest = distance;
+        target = { post, guard, x: position };
+      });
+    }
+    return target;
+  }
+
+  moveFlyer(flyer) {
+    if (flyer.hp <= 0) return;
+    if (flyer.mode === 'crawl') {
+      const previousX = flyer.x;
+      this.moveRaider(flyer);
+      flyer.direction = Math.sign(flyer.x - previousX) || flyer.direction;
+      if (this.tick < flyer.modeAt) return;
+      flyer.mode = 'fly';
+      flyer.altitude = 1;
+      flyer.modeAt = this.tick + WATCH_FLYER_FLIGHT_TICKS;
+      return;
+    }
+
+    // Retarget live guard objects, so another bat cannot infect an old roster index.
+    const soldier = this.nearestFlyerGuard(flyer.x);
+    const wall = watchRaidWall(flyer, this.posts, this.forwardWalls);
+    const targetX = soldier?.x ?? wall?.wallX ?? watchTowerTarget(this, flyer.side);
+    const distance = targetX - flyer.x;
+    flyer.direction = Math.sign(distance) || flyer.direction;
+    flyer.x += Math.sign(distance) * Math.min(Math.abs(distance), 2.4);
+    flyer.stride++;
+    if (flyer.mode === 'fly') {
+      flyer.altitude = Math.min(WATCH_FLYER_ALTITUDE, flyer.altitude + 1.4);
+      if (this.tick >= flyer.modeAt && Math.abs(targetX - flyer.x) <= 8) {
+        flyer.mode = 'dive';
+        flyer.modeAt = this.tick;
+      }
+      return;
+    }
+
+    flyer.altitude = Math.max(0, flyer.altitude - 2);
+    const touching = soldier && Math.abs(soldier.x - flyer.x) <= 6 && flyer.altitude <= 4;
+    if (touching) this.infectGuard(soldier);
+    if (touching || flyer.altitude === 0) {
+      flyer.mode = 'crawl';
+      flyer.altitude = 0;
+      flyer.modeAt = this.tick + WATCH_FLYER_CRAWL_TICKS;
+    }
+  }
+
+  infectGuard({ post, guard, x }) {
+    const index = post.guards.indexOf(guard);
+    if (index < 0) return false;
+    // Preserve each remaining soldier's real position when the roster closes up.
+    post.guards.forEach((unit, position) => { unit.x = this.guardPosition(post, position); });
+    post.guards.splice(index, 1);
+    if (guard.carriedCoins > 0) {
+      const pile = this.loot.find((piece) => piece.forPlayer && piece.x === x);
+      if (pile) pile.amount += guard.carriedCoins;
+      else this.loot.push({ x, amount: guard.carriedCoins, forPlayer: true });
+      guard.carriedCoins = 0;
+    }
+    this.spawnOpus(post.side, x);
+    Object.assign(this.raiders.at(-1), { kind: 'infected', rank: guard.rank });
+    this.message = 'A Tri Flyer infected a guard. The hunched pink soldier has joined the Tri!';
+    return true;
+  }
+
   stepIchorSprayer() {
     if (!hasWatchSprayer(this.day) || this.phaseTick < WATCH_SPRAYER_DUE) return;
-    if (!this.sprayer) {
-      const { side, x } = WATCH_PORTALS[0];
-      this.sprayer = { side, x, hp: WATCH_SPRAYER_HEALTH, attackAt: 0,
-        sprayAt: this.tick + 3 * TICKS_PER_SECOND, burstsLeft: WATCH_SPRAYER_BURSTS, spray: null };
-      this.message = 'The Ichor Sprayer has emerged from the west portal.';
+    if (!this.sprayers.length) {
+      this.sprayers = WATCH_PORTALS.map(({ side, x }) => ({ side, x, hp: WATCH_SPRAYER_HEALTH, attackAt: 0,
+        sprayAt: this.tick + 3 * TICKS_PER_SECOND + (side === 1 ? 18 : 0), burstsLeft: WATCH_SPRAYER_BURSTS, spray: null }));
+      this.message = 'Ichor Sprayers have emerged from both portals.';
     }
-    const sprayer = this.sprayer;
+    for (const sprayer of this.sprayers) this.moveIchorSprayer(sprayer);
+  }
+
+  moveIchorSprayer(sprayer) {
     if (sprayer.spray) {
       const age = this.tick - sprayer.spray.at;
       if (age < WATCH_SPRAY_FLIGHT) return;
@@ -3268,16 +3391,17 @@ class CreekWatch {
     this.message = `A guard dropped ${amount} copper at your feet.`;
   }
 
-  shootWatchArrow(guard, from, to, cooldown, kind) {
+  shootWatchArrow(guard, from, to, cooldown, kind, altitude = 0) {
     guard.direction = Math.sign(to - from) || guard.direction;
     guard.shotAt = this.tick;
     guard.fireAt = this.tick + cooldown;
-    this.shots.push({ from, to, end: this.tick + 9, kind });
+    this.shots.push({ from, to, end: this.tick + 9, kind, ...(altitude > 0 ? { altitude } : {}) });
   }
 
   damageEnemy(enemy, damage) {
+    const alive = enemy.hp > 0;
     enemy.hp = Math.max(0, enemy.hp - damage);
-    if (enemy === this.sprayer && !enemy.hp) {
+    if (alive && this.sprayers.includes(enemy) && !enemy.hp) {
       if (this.loot.length < 60) this.loot.push({ x: enemy.x, amount: 6 });
       this.message = 'The Ichor Sprayer fell and dropped 6 copper.';
     }
@@ -3289,10 +3413,15 @@ class CreekWatch {
       if (this.loot.length < 60) this.loot.push({ x: raider.x, amount: 1 });
       return false;
     });
+    this.flyers = this.flyers.filter((flyer) => {
+      if (flyer.hp > 0) return true;
+      if (this.loot.length < 60) this.loot.push({ x: flyer.x, amount: 2 });
+      return false;
+    });
   }
 
   fireGuards() {
-    const enemies = this.sprayer?.hp > 0 ? this.raiders.concat(this.sprayer) : this.raiders;
+    const enemies = this.enemies;
     for (const post of this.posts) {
       post.guards.forEach((guard, index) => {
         if (guard.fireAt > this.tick) return;
@@ -3301,7 +3430,8 @@ class CreekWatch {
         let target;
         let closest = Infinity;
         for (const raider of enemies) {
-          if (raider.hp <= 0 || raider.side !== post.side || Math.abs(raider.x - from) > range) continue;
+          if (raider.hp <= 0 || (raider.side !== post.side && !this.flyers.includes(raider))
+              || Math.hypot(raider.x - from, raider.altitude ?? 0) > range) continue;
           const distance = Math.abs(raider.x - WATCH_SIGNAL);
           if (distance >= closest) continue;
           target = raider;
@@ -3309,7 +3439,7 @@ class CreekWatch {
         }
         if (!target) return;
         this.damageEnemy(target, damage);
-        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid');
+        this.shootWatchArrow(guard, from, target.x, cooldown, 'raid', target.altitude ?? 0);
       });
     }
   }
@@ -3361,16 +3491,20 @@ const validWatchList = (items, limit, isValid) => Array.isArray(items) && items.
   && items.every((item) => item && isValid(item));
 const validWatchWall = ({ tier, health }) => [0, 1, 2].includes(tier)
   && validWatchCount(health) && health <= (tier === 2 ? 11 : tier === 1 ? 6 : 0);
+const watchSprayers = (state) => state.sprayers === undefined
+  ? state.sprayer == null ? [] : [state.sprayer] : state.sprayers;
+const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && value <= WATCH_FLYER_ALTITUDE;
 
 function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
-    shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
+    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = 1,
     interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
   const room = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM : WATCH_TOWER_ROOM;
   const chair = WATCH_TOWER_CHAIRS.find((seat) => seat.id === seatedChair);
+  const sprayers = watchSprayers(state);
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
@@ -3385,7 +3519,17 @@ function validWatchState(state) {
       || (seatedChair !== null && (!chair || !insideTower || towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT
         || interiorX !== chair.x || player?.direction !== chair.direction))) return false;
 
-  return (sprayer === null || (phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick)))
+  return !(state.sprayers !== undefined && Object.hasOwn(state, 'sprayer'))
+    && validWatchList(sprayers, 2, (sprayer) => phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick))
+    && new Set(sprayers.map(({ side }) => side)).size === sprayers.length
+    && validWatchList(flyers, WATCH_FLYERS_PER_SIDE * 2, (flyer) =>
+      phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && validFlyer(flyer, tick))
+    && validWatchList(flyerQueue, WATCH_FLYERS_PER_SIDE * 2, ({ side, due }) =>
+      phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && validWatchSide(side)
+      && validWatchCount(due) && due <= WATCH_NIGHT)
+    && flyerQueue.every(({ due }, index) => index === 0 || flyerQueue[index - 1].due <= due)
+    && [-1, 1].every((side) => flyers.filter((flyer) => flyer.side === side).length
+      + flyerQueue.filter((entry) => entry.side === side).length <= WATCH_FLYERS_PER_SIDE)
     && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
     && optionalWatchField(forwardWalls, (walls) => validWatchList(walls, 2, validWatchWall) && walls.length === 2)
     && validWatchList(gear, Object.keys(WATCH_MARKET_ITEMS).length,
@@ -3400,11 +3544,14 @@ function validWatchState(state) {
         && validWatchCount(carriedCoins)
         && (!walking || validWatchCount(stride))))
     && posts.length === 2
-    && validWatchList(raiders, 64, ({ side, x, stride, hp, attackAt, struckAt }) =>
+    && validWatchList(raiders, 128, ({ side, x, stride, hp, attackAt, struckAt, kind, rank }) =>
       validWatchSide(side) && validWatchX(x) && validWatchCount(stride)
-      && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt))
-    && validWatchList(shots, Infinity, ({ from, to, end, kind }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
-      && (kind === undefined || kind === 'pigeon' || kind === 'raid'))
+      && validWatchCount(hp) && hp >= 1 && hp <= 5 && validWatchCount(attackAt) && validWatchStamp(struckAt)
+      && (kind === undefined ? rank === undefined : kind === 'infected' && [0, 1].includes(rank)
+        && phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && struckAt <= tick))
+    && validWatchList(shots, Infinity, ({ from, to, end, kind, altitude }) => validWatchX(from) && validWatchX(to) && validWatchCount(end)
+      && (kind === undefined || kind === 'pigeon' || kind === 'raid')
+      && (altitude === undefined || kind === 'raid' && validFlyerAltitude(altitude)))
     && validWatchList(loot, Infinity, ({ x, amount, forPlayer = false }) =>
       validWatchX(x) && validWatchCount(amount) && amount > 0 && validWatchFlag(forPlayer))
     && loot.filter((piece) => !piece.forPlayer).length <= 128
@@ -3414,20 +3561,32 @@ function validWatchState(state) {
 
 function validSprayer(sprayer, tick) {
   const { side, x, hp, attackAt, sprayAt, burstsLeft, spray } = sprayer;
-  if (side !== -1 || !validWatchX(x) || !validWatchCount(hp) || hp > WATCH_SPRAYER_HEALTH
+  if (!validWatchSide(side) || !validWatchX(x) || !validWatchCount(hp) || hp > WATCH_SPRAYER_HEALTH
       || !validWatchCount(attackAt) || !validWatchCount(sprayAt)
       || !validWatchCount(burstsLeft) || burstsLeft > WATCH_SPRAYER_BURSTS) return false;
   return spray === null || (spray && validWatchX(spray.from) && Number.isFinite(spray.reach)
-    && spray.reach >= 0 && spray.reach <= WATCH_SPRAY_REACH && validWatchX(spray.from + spray.reach)
+    && spray.reach >= 0 && spray.reach <= WATCH_SPRAY_REACH && validWatchX(spray.from - side * spray.reach)
     && validWatchCount(spray.at) && spray.at <= tick && tick - spray.at < WATCH_SPRAY_FLIGHT + WATCH_SPRAY_SPLASH);
+}
+
+function validFlyer(flyer, tick) {
+  const { side, x, hp, mode, altitude, stride, direction, modeAt, attackAt, struckAt } = flyer;
+  return validWatchSide(side) && validWatchX(x) && validWatchCount(hp) && hp >= 1 && hp <= WATCH_FLYER_HEALTH
+    && ['crawl', 'fly', 'dive'].includes(mode) && validFlyerAltitude(altitude)
+    && (mode === 'crawl' ? altitude === 0 : altitude > 0)
+    && validWatchCount(stride) && validWatchSide(direction)
+    && validWatchCount(modeAt) && modeAt <= tick + 3 * TICKS_PER_SECOND
+    && validWatchCount(attackAt) && attackAt <= tick + 44
+    && validWatchStamp(struckAt) && struckAt <= tick;
 }
 
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
-    shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
+    shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
     insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
-  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, sprayer,
+  return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message,
+    sprayers: watchSprayers(watch), flyers, flyerQueue,
     gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
@@ -4141,6 +4300,207 @@ function drawWatchOpus(ctx, opus, watch) {
   ctx.restore();
 }
 
+function drawInfectedGuard(ctx, enemy, watch) {
+  const x = Math.round(enemy.x), ground = watchGround(x);
+  const target = watchRaidWall(enemy, watch.posts, watch.forwardWalls)?.wallX ?? watchTowerTarget(watch, enemy.side);
+  const stride = Math.abs(enemy.x - target) > WATCH_OPUS_REACH ? Math.round(2 * Math.sin(enemy.stride / 3)) : 0;
+  const striking = watch.tick - enemy.struckAt < 9;
+  ctx.save();
+  ctx.translate(x, ground);
+  ctx.scale(-enemy.side, 1);
+  watchRect(ctx, '#281a377c', -10, -1, 23, 2);
+  // The old uniform and bent hat remain visible beneath the pink growth.
+  watchRect(ctx, '#45304b', -5 - stride, -7, 4, 7);
+  watchRect(ctx, '#9a547a', 2 + stride, -6, 4, 6);
+  watchRect(ctx, '#293044', -6 - stride, -1, 6, 2);
+  watchRect(ctx, '#293044', 2 + stride, -1, 6, 2);
+  sceneOval(ctx, '#60334f', -2, -12, 10, 9);
+  sceneOval(ctx, '#bd6495', -4, -14, 8, 8);
+  sceneOval(ctx, '#ed95b8', -6, -16, 5, 5);
+  watchRect(ctx, '#75465e', -6, -10, 13, 6);
+  watchRect(ctx, '#ba7c71', -5, -6, 11, 2);
+  watchRect(ctx, '#5f5273', -8, -12, 5, 7);
+  watchRect(ctx, '#f0a1c1', -7, -15, 3, 4);
+  watchRect(ctx, '#b96d95', -1, -12, 4, 7);
+  watchRect(ctx, '#6d80ac', 1, -7, 3, 6);
+  watchRect(ctx, '#adcae0', 2, -2, 4, 1);
+  sceneOval(ctx, '#dd83aa', 7, -13, 7, 5);
+  watchRect(ctx, '#67354e', 3, -18, 11, 3);
+  watchRect(ctx, enemy.rank ? '#e9b782' : '#b58065', 3, -19, 8, 2);
+  if (enemy.rank) watchRect(ctx, '#d8a37d', 0, -20, 4, 2);
+  watchRect(ctx, '#713b63', 9, -15, 5, 3);
+  watchRect(ctx, '#ffba76', 10, -15, 3, 2);
+  watchRect(ctx, '#392c44', 12, -15, 1, 2);
+  watchRect(ctx, '#713b63', 12, -10, 3, 1);
+  watchRect(ctx, '#d68bba', 8, -9, 3, 7);
+  watchRect(ctx, '#6d80ac', 10, -3, 3, 3);
+  if (striking) sceneGlow(ctx, '#f78cbd80', 13, -10, 9 + (watch.tick - enemy.struckAt) * 1.2);
+  ctx.restore();
+}
+
+function flyerLine(ctx, color, fromX, fromY, toX, toY) {
+  const steps = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY), 1);
+  for (let step = 0; step <= steps; step++) {
+    const progress = step / steps;
+    watchRect(ctx, color, fromX + (toX - fromX) * progress, fromY + (toY - fromY) * progress, 1, 1);
+  }
+}
+
+const FLYER_PIXEL_CONTEXTS = new WeakMap();
+
+function flyerPixelContext(target) {
+  let pixels = FLYER_PIXEL_CONTEXTS.get(target);
+  if (pixels) return pixels;
+  // Snap both edges before drawing: fractional canvas scaling blurs even when
+  // image smoothing is disabled. This tiny fill-only adapter is reused per view.
+  pixels = {
+    get fillStyle() { return target.fillStyle; },
+    set fillStyle(color) { target.fillStyle = color; },
+    fillRect(x, y, width, height) {
+      const left = Math.round(x * 0.65), top = Math.round(y * 0.65);
+      const right = Math.round((x + width) * 0.65), bottom = Math.round((y + height) * 0.65);
+      if (right > left && bottom > top) target.fillRect(left, top, right - left, bottom - top);
+    }
+  };
+  FLYER_PIXEL_CONTEXTS.set(target, pixels);
+  return pixels;
+}
+
+function drawFlyerWing(ctx, arm) {
+  const { shoulder, elbow, wrist, fingers, far } = arm;
+  // The wing is the arm: one shoulder, a bent elbow, a clawed hand and three
+  // long webbed fingers. On the ground the fingers fold behind the planted hand.
+  const armPoint = (t) => [
+    Math.round((1 - t) ** 2 * shoulder[0] + 2 * (1 - t) * t * elbow[0] + t * t * wrist[0]),
+    Math.round((1 - t) ** 2 * shoulder[1] + 2 * (1 - t) * t * elbow[1] + t * t * wrist[1])
+  ];
+  const points = [shoulder, armPoint(0.25), armPoint(0.5), armPoint(0.75), wrist, fingers[0],
+    [Math.round((fingers[0][0] + fingers[1][0]) / 2), Math.min(fingers[0][1], fingers[1][1]) - 4],
+    fingers[1], [Math.round((fingers[1][0] + fingers[2][0]) / 2), Math.min(fingers[1][1], fingers[2][1]) - 3],
+    fingers[2], [shoulder[0], shoulder[1] + 5]];
+  const top = Math.min(...points.map((point) => point[1]));
+  const bottom = Math.max(...points.map((point) => point[1]));
+  const tones = far ? ['#965f84', '#8e587e', '#855178', '#7d4b70', '#754569']
+    : ['#e29dbb', '#d991b3', '#cf85aa', '#c47aa1', '#b86f98', '#ad648f'];
+  for (let y = top; y < bottom; y++) {
+    const cuts = [];
+    for (let index = 0; index < points.length; index++) {
+      const a = points[index], b = points[(index + 1) % points.length];
+      if ((a[1] <= y + 0.5 && b[1] > y + 0.5) || (b[1] <= y + 0.5 && a[1] > y + 0.5)) {
+        cuts.push(a[0] + (y + 0.5 - a[1]) * (b[0] - a[0]) / (b[1] - a[1]));
+      }
+    }
+    cuts.sort((a, b) => a - b);
+    for (let index = 0; index + 1 < cuts.length; index += 2) {
+      const left = Math.ceil(cuts[index]), right = Math.floor(cuts[index + 1]);
+      const width = right - left + 1;
+      if (width < 1) continue;
+      watchRect(ctx, '#4c2c48', left, y, width, 1);
+      const shade = Math.min(tones.length - 1, Math.floor((y - top) * tones.length / Math.max(1, bottom - top)));
+      if (width > 2) watchRect(ctx, tones[shade], left + 1, y, width - 2, 1);
+    }
+  }
+  for (const finger of fingers) {
+    flyerLine(ctx, far ? '#705d89' : '#935f9d', wrist[0], wrist[1], finger[0], finger[1]);
+    if (!far) flyerLine(ctx, '#d597b7', wrist[0], wrist[1] - 1, finger[0], finger[1] - 1);
+  }
+  const length = Math.max(12, Math.abs(wrist[0] - shoulder[0]) + Math.abs(wrist[1] - shoulder[1]));
+  for (let step = 0; step <= length; step++) {
+    const t = step / length, [x, y] = armPoint(t), thickness = 2 + Math.round(3 * (1 - t));
+    watchRect(ctx, far ? '#253b66' : '#254e86', x - 1, y - 1, 3, thickness);
+    watchRect(ctx, far ? '#4577b7' : '#59aaf1', x, y, 2, Math.max(1, thickness - 2));
+    if (!far) watchRect(ctx, '#83c5f3', x, y, 1, 1);
+  }
+  watchRect(ctx, far ? '#4577b7' : '#59aaf1', wrist[0] - 2, wrist[1] - 2, 5, 3);
+  for (const offset of [-2, 0, 2]) {
+    watchRect(ctx, far ? '#b6a3ac' : '#fae2cb', wrist[0] + offset, wrist[1], 1, 2);
+  }
+}
+
+function drawTriFlyer(ctx, flyer, tick) {
+  const x = Math.round(flyer.x), ground = watchGround(x), altitude = Math.round(flyer.altitude);
+  const crawling = flyer.mode === 'crawl';
+  const diving = flyer.mode === 'dive';
+  const beat = Math.sin(tick / 4 + flyer.side * 2);
+  const stride = crawling ? Math.round(4 * Math.sin(flyer.stride / 4)) : 0;
+  const target = ctx;
+  target.save();
+  try {
+    watchRect(target, altitude ? '#281a373d' : '#281a377c', x - 18, ground - 1, 37, 2);
+    target.translate(x, ground - altitude);
+    target.scale(flyer.direction, 1);
+    ctx = flyerPixelContext(target);
+    const armPose = (side, far) => {
+      const shoulder = [side < 0 ? -7 : 2, -13 - Number(far) * 3];
+      let elbow, wrist;
+      if (crawling || diving) {
+        const step = side * (far ? -stride : stride);
+        const reach = far ? 20 : 28;
+        elbow = [side * (far ? 14 : 18), -12 - Number(far) * 3];
+        wrist = [side * reach + step, far ? -3 : -1];
+        if (crawling && (far ? -step : step) > 1) wrist[1] -= 3;
+        if (diving) wrist[0] += side * 3;
+      } else {
+        elbow = [side * (far ? 20 : 25), -26 + Math.round(beat * (far ? -4 : 5))];
+        wrist = [side * (far ? 31 : 41), (far ? -39 : -19) + Math.round(beat * (far ? -7 : 10))];
+      }
+      const folded = crawling || diving;
+      const fingers = folded ? [
+        [wrist[0] - side * 5, wrist[1] - 3],
+        [wrist[0] - side * 11, wrist[1] - 5],
+        [shoulder[0] + side * 2, shoulder[1] + 7]
+      ] : [
+        [wrist[0] - side * 6, wrist[1] + 17],
+        [wrist[0] - side * 17, wrist[1] + 24],
+        [shoulder[0] + side * 4, shoulder[1] + 13]
+      ];
+      return { shoulder, elbow, wrist, fingers, far };
+    };
+    // Two far arms remain separated from the two nearer arms in every pose.
+    drawFlyerWing(ctx, armPose(-1, true));
+    drawFlyerWing(ctx, armPose(1, true));
+    // The familiar Opus torso leans into a small raised back, supported by arms.
+    watchRect(ctx, '#582641', -13, -19, 15, 9);
+    watchRect(ctx, '#a65379', -12, -21, 12, 10);
+    watchRect(ctx, '#b04d73', -10, -23, 8, 10);
+    watchRect(ctx, '#c76a91', -9, -22, 8, 7);
+    watchRect(ctx, '#d98aa9', -8, -22, 4, 2);
+    watchRect(ctx, '#e8a1bc', -7, -22, 2, 1);
+    watchRect(ctx, '#582641', -8, -15, 15, 7);
+    watchRect(ctx, '#a65379', -7, -14, 13, 5);
+    watchRect(ctx, '#c76a91', -6, -16, 12, 6);
+    watchRect(ctx, '#d98aa9', -6, -15, 5, 2);
+    watchRect(ctx, '#e8a1bc', -5, -15, 2, 1);
+    drawFlyerWing(ctx, armPose(-1, false));
+    drawFlyerWing(ctx, armPose(1, false));
+    // Canonical Opus head, including its rounded upper-left corner. The normal
+    // eye position holds a tooth-lined mouth instead; this creature has no eye.
+    watchRect(ctx, '#b04d73', 1, -21, 9, 12);
+    watchRect(ctx, '#b04d73', -1, -20, 12, 11);
+    watchRect(ctx, '#b04d73', -2, -18, 13, 9);
+    watchRect(ctx, '#cf769b', 2, -20, 7, 7);
+    watchRect(ctx, '#cf769b', 1, -19, 8, 6);
+    watchRect(ctx, '#db8caf', 5, -18, 8, 8);
+    watchRect(ctx, '#e8a1bc', 3, -20, 5, 1);
+    watchRect(ctx, '#b66287', 3, -12, 3, 1);
+    watchRect(ctx, '#ce7e9f', 8, -17, 5, 7);
+    watchRect(ctx, '#893958', 8, -17, 7, 8);
+    watchRect(ctx, '#2f2445', 9, -16, 5, diving ? 7 : 6);
+    watchRect(ctx, '#a94470', 10, -11, 3, 2);
+    watchRect(ctx, '#fae3dc', 9, -16, 1, 2);
+    watchRect(ctx, '#fae3dc', 12, -16, 1, 2);
+    watchRect(ctx, '#fae3dc', 10, -11, 1, 1);
+    watchRect(ctx, '#fae3dc', 13, -11, 1, 2);
+    watchRect(ctx, '#f1a1ba', 8, -9, 7, 1);
+    if (flyer.hp < WATCH_FLYER_HEALTH) {
+      watchRect(ctx, '#342039', -10, -41, 20, 3);
+      watchRect(ctx, '#f295bc', -9, -40, Math.ceil(18 * flyer.hp / WATCH_FLYER_HEALTH), 1);
+    }
+  } finally {
+    target.restore();
+  }
+}
+
 const SPRAYER_MOUTH = { x: 9, y: -31 };
 // Each row starts a section of the silhouette from the tilted crest to the foot.
 const SPRAYER_PROFILE = [
@@ -4473,19 +4833,22 @@ function drawCreekWatch(ctx, watch) {
     watchRect(ctx, '#f1b36a', coin.x - 1, y - 2, 3, 4);
     watchRect(ctx, '#ffe4a8', coin.x, y - 1, 1, 2);
   }
-  const { sprayer } = watch;
-  if (sprayer?.hp > 0 && onScreen(sprayer.x, 54)) drawIchorSprayer(ctx, sprayer, watch.tick);
-  if (sprayer?.spray && onScreen(sprayer.spray.from, 104)) drawWatchIchorSpray(ctx, sprayer, watch.tick);
+  for (const sprayer of watch.sprayers ?? (watch.sprayer ? [watch.sprayer] : [])) {
+    if (sprayer.hp > 0 && onScreen(sprayer.x, 54)) drawIchorSprayer(ctx, sprayer, watch.tick);
+    if (sprayer.spray && onScreen(sprayer.spray.from, 104)) drawWatchIchorSpray(ctx, sprayer, watch.tick);
+  }
   for (const raider of watch.raiders) {
     if (!onScreen(raider.x, 26)) continue;
-    drawWatchOpus(ctx, raider, watch);
+    if (raider.kind === 'infected') drawInfectedGuard(ctx, raider, watch);
+    else drawWatchOpus(ctx, raider, watch);
   }
+  for (const flyer of watch.flyers ?? []) if (flyer.hp > 0 && onScreen(flyer.x, 48)) drawTriFlyer(ctx, flyer, watch.tick);
   ctx.strokeStyle = '#f7d99dba';
   ctx.lineWidth = 1.2;
   for (const shot of watch.shots) {
     ctx.beginPath();
     ctx.moveTo(shot.from, watchGround(shot.from) - 12);
-    ctx.lineTo(shot.to, watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16));
+    ctx.lineTo(shot.to, watchGround(shot.to) - (shot.kind === 'pigeon' ? 6 : 16) - (shot.altitude ?? 0));
     ctx.stroke();
   }
   const { x, direction, step } = watch.player;
@@ -4869,10 +5232,13 @@ function drawWatchMode() {
     ? watch.seatedChair ? 'Resting at the table. Press E or move to stand up.'
       : 'Walk to a chair and press E to sit. The outside watch pauses while you rest.'
     : 'Keep the light burning as long as you can.');
+  const flyers = (watch.flyers ?? []).filter(({ hp }) => hp > 0).length;
+  const infected = watch.raiders.filter(({ kind, hp }) => kind === 'infected' && hp > 0).length;
+  const airborneThreats = flyers || infected ? ` ${flyers} Tri Flyers and ${infected} infected soldiers.` : '';
   world.setAttribute('aria-label', watch.insideTower
     ? watch.seatedChair ? 'Seated at the tower dining table. Press E or move to stand up.'
       : 'Tower dining room. Walk with A and D or tap the floor. Press E near a chair to sit; Leave tower room exits.'
-    : 'Creek Watch playfield');
+    : `Creek Watch playfield.${airborneThreats}`);
   watchMapRoute.hidden = watch.insideTower;
   watchMapDestinations.hidden = watch.insideTower;
   const position = `${(watch.player.x / WATCH_BOUNDS.right * 100).toFixed(2)}%`;

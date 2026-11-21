@@ -379,10 +379,13 @@ function drawWatchMode() {
     ? watch.seatedChair ? 'Resting at the table. Press E or move to stand up.'
       : 'Walk to a chair and press E to sit. The outside watch pauses while you rest.'
     : 'Keep the light burning as long as you can.');
+  const flyers = (watch.flyers ?? []).filter(({ hp }) => hp > 0).length;
+  const infected = watch.raiders.filter(({ kind, hp }) => kind === 'infected' && hp > 0).length;
+  const airborneThreats = flyers || infected ? ` ${flyers} Tri Flyers and ${infected} infected soldiers.` : '';
   world.setAttribute('aria-label', watch.insideTower
     ? watch.seatedChair ? 'Seated at the tower dining table. Press E or move to stand up.'
       : 'Tower dining room. Walk with A and D or tap the floor. Press E near a chair to sit; Leave tower room exits.'
-    : 'Creek Watch playfield');
+    : `Creek Watch playfield.${airborneThreats}`);
   watchMapRoute.hidden = watch.insideTower;
   watchMapDestinations.hidden = watch.insideTower;
   const position = `${(watch.player.x / WATCH_BOUNDS.right * 100).toFixed(2)}%`;
