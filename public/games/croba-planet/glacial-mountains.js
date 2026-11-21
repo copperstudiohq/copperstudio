@@ -20,9 +20,17 @@ export function createMountainRangeGeometry(borders,kind) {
     const frostColor=new THREE.Color(kind==='iceberg'?0xe7f4f7:0xf1b38c);
     const center=new THREE.Vector3(wall.x/SCALE,(low+high)/2,wall.y/SCALE);
     const alongX=wall.rx>=wall.ry,seed=wall.seed??0,start=positions.length/3;
-    const coordinates=(t,across,y)=>alongX
-      ? [(wall.x+(t*2-1)*wall.rx)/SCALE,y,(wall.y+across*wall.ry)/SCALE]
-      : [(wall.x+across*wall.rx)/SCALE,y,(wall.y+(t*2-1)*wall.ry)/SCALE];
+    const tangent=wall.start?new THREE.Vector2(wall.end.x-wall.start.x,wall.end.y-wall.start.y).normalize():new THREE.Vector2(alongX?1:0,alongX?0:1);
+    const outwardAxis=wall.outward??{x:alongX?0:1,y:alongX?1:0};
+    const coordinates=(t,across,y)=>{
+      if(wall.start){
+        const x=wall.start.x+(wall.end.x-wall.start.x)*t,z=wall.start.y+(wall.end.y-wall.start.y)*t;
+        const outerX=wall.outerStart.x+(wall.outerEnd.x-wall.outerStart.x)*t,outerZ=wall.outerStart.y+(wall.outerEnd.y-wall.outerStart.y)*t;
+        return[(x+(outerX-x)*(across+1)/2)/SCALE,y,(z+(outerZ-z)*(across+1)/2)/SCALE];
+      }
+      return alongX?[(wall.x+(t*2-1)*wall.rx)/SCALE,y,(wall.y+across*wall.ry)/SCALE]
+        :[(wall.x+across*wall.rx)/SCALE,y,(wall.y+(t*2-1)*wall.ry)/SCALE];
+    };
     const colorAt=(point,facet)=>{
       const above=Math.max(0,point[1])/Math.max(1,high);
       const frost=Math.max(0,Math.min(1,(above-.44)/.48));
@@ -71,10 +79,10 @@ export function createMountainRangeGeometry(borders,kind) {
         const notch=THREE.MathUtils.clamp(WATER_LEVEL/SCALE-.035,low+(crest-low)*.10,crest-(crest-low)*.42);
         const levels=[low,notch,crest-(crest-notch)*(.28+weather*.06),crest];
         const recess=interior*[0,.045+weather*.085,.02+joint*.065,.10+weather*.12+joint*.025][layer];
-        return coordinates(t,side*(1-recess),levels[layer]);
+        return coordinates(t,wall.start&&side===-1&&layer<3?-1:side*(1-recess),levels[layer]);
       })));
       for(let side=0;side<2;side++){
-        const layers=sides[side],outward=new THREE.Vector3(alongX?0:side*2-1,0,alongX?side*2-1:0);
+        const layers=sides[side],outward=new THREE.Vector3(outwardAxis.x*(side*2-1),0,outwardAxis.y*(side*2-1));
         for(let layer=0;layer<3;layer++)for(let i=0;i<10;i++){
           iceTriangle(layers[layer][i],layers[layer+1][i],layers[layer][i+1],outward);
           iceTriangle(layers[layer][i+1],layers[layer+1][i],layers[layer+1][i+1],outward);
@@ -90,7 +98,7 @@ export function createMountainRangeGeometry(borders,kind) {
         iceTriangle(sides[0][0][i+1],sides[1][0][i+1],sides[1][0][i],down);
       }
       for(const end of [0,10]){
-        const sign=end===0?-1:1,outward=new THREE.Vector3(alongX?sign:0,0,alongX?0:sign);
+        const sign=end===0?-1:1,outward=new THREE.Vector3(tangent.x*sign,0,tangent.y*sign);
         for(let layer=0;layer<3;layer++){
           iceTriangle(sides[0][layer][end],sides[1][layer][end],sides[0][layer+1][end],outward);
           iceTriangle(sides[0][layer+1][end],sides[1][layer][end],sides[1][layer+1][end],outward);
@@ -102,12 +110,12 @@ export function createMountainRangeGeometry(borders,kind) {
     for(const side of [-1,1]){
       const layers=[0,.42,.76,1].map(fraction=>RIDGE.map((_,i)=>{
         const t=i/(RIDGE.length-1);
-        const shoulder=high*(.40+.13*(.5+.5*Math.sin(seed*.13+i*2.1+side)));
+        const shoulder=wall.start?high*.82:high*(.40+.13*(.5+.5*Math.sin(seed*.13+i*2.1+side)));
         // Alternate fractured recesses and projecting shelves. The bottom and
         // end caps remain on their original footprint, enclosing the map.
         const interior=Math.sin(t*Math.PI)**2;
         const chipped=.5+.5*Math.sin(i*2.7+seed*.37+side);
-        const recess=fraction===0?0:interior*(fraction===.76?.035+chipped*.055:.08+chipped*.25);
+        const recess=wall.start&&side===-1?0:fraction===0?0:interior*(fraction===.76?.035+chipped*.055:.08+chipped*.25);
         const split=fraction===0||fraction===1?0:interior*Math.sin(i*2.3+seed+side)*.065;
         return coordinates(t,side*(1-recess),low+(shoulder-low)*(fraction+split));
       }));

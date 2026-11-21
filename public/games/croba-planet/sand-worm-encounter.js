@@ -16,7 +16,7 @@ export function sandWormMouthPoint(worm,forward=52,up=0){
 
 /** A fatal strike becomes a short, mutually exclusive swallowing sequence. */
 export function beginSandWormEncounter(world,worm){
-  if(!finite(world?.player)||typeof worm?.id!=='string'||!worm?.segments?.length||!worm.segments.every(finite)
+  if(!finite(world?.player)||typeof worm?.id!=='string'||worm.lifecycleInactive||worm.lifecycleScale<.99||!worm?.segments?.length||!worm.segments.every(finite)
     ||![worm.heading,worm.headRadius,worm.segments[0].ground].every(Number.isFinite)||worm.headRadius<=0||world.sandWormEncounter
     ||world.squidEncounter||world.centipedeEncounter||world.treeStalkerEncounter)return false;
   const head=worm.segments[0],start={x:world.player.x,y:world.player.y,z:world.player.z+EYE_HEIGHT};

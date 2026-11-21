@@ -50,7 +50,7 @@ export function updateFrostHounds(world,dt,options={}) {
   if(!Number.isFinite(dt)||dt<=0)return false;
   const delta=Math.min(dt,.05),player=world.player;
   let bitten=false;
-  const active=(world[options.populationKey??"frostHounds"]??[]).filter(h=>!h.squidHeldBy&&!(h.squidRespawnIn>0));
+  const active=(world[options.populationKey??"frostHounds"]??[]).filter(h=>!h.lifecycleInactive&&!h.squidHeldBy&&!(h.squidRespawnIn>0));
   const prey={x:player.x,y:player.y,z:player.z+EYE_HEIGHT*.5},sightings=new Map();
   for(const hound of active){
     hound.phase+=delta;hound.stateTime+=delta;hound.biteCooldown=Math.max(0,hound.biteCooldown-delta);
@@ -62,6 +62,7 @@ export function updateFrostHounds(world,dt,options={}) {
       if(!(options.waterClear??frostHoundWaterClear)(world,hound.x+(prey.x-hound.x)*t,hound.y+(prey.y-hound.y)*t,hound.z+(prey.z-hound.z)*t)){sees=false;break;}
     }
     sightings.set(hound.id,sees);
+    if(sees&&hound.lifecycleCourting)hound.lifecycleCourting=false; // A real hunt interrupts courtship; the canonical pair clears next tick.
   }
   const plans=prepareFrostHoundPacks(world,active,sightings,prey,delta,options.packStateKey);
   for(const hound of active){
@@ -70,7 +71,9 @@ export function updateFrostHounds(world,dt,options={}) {
     else hound.memory=Math.max(0,(hound.memory??0)-delta);
     const setState=state=>{if(hound.state!==state){hound.state=state;hound.stateTime=0;}};
     let target,speed;
-    if(hound.state==='retreating'&&hound.stateTime<1.2){
+    if(hound.lifecycleCourting&&hound.lifecycleTarget){
+      setState('courting');target=hound.lifecycleTarget;speed=26;
+    }else if(hound.state==='retreating'&&hound.stateTime<1.2){
       target={x:hound.x+Math.cos(hound.heading)*100,y:hound.y+Math.sin(hound.heading)*100,z:hound.homeZ};speed=90;
     }else if(sees||plan.active&&plan.state.memory>3.8){
       if(hound.state!=='pursuing'&&hound.state!=='noticing')setState('noticing');
@@ -82,14 +85,14 @@ export function updateFrostHounds(world,dt,options={}) {
       target=plan.patrol;speed=26;
     }
     const prior={x:hound.x,y:hound.y,z:hound.z,heading:hound.heading};
-    move(world,hound,frostPackSteering(hound,target,plan.neighbors),speed,delta,plan.neighbors,options);
+    move(world,hound,hound.lifecycleCourting?target:frostPackSteering(hound,target,plan.neighbors),speed*(hound.lifecycleSpeedScale??1),delta,plan.neighbors,options);
     const travelled=Math.hypot(hound.x-prior.x,hound.y-prior.y);
     const pitch=travelled>.001?-Math.atan2(hound.z-prior.z,travelled):0;
     const turn=Math.atan2(Math.sin(hound.heading-prior.heading),Math.cos(hound.heading-prior.heading))/delta;
     hound.swimPitch=(hound.swimPitch??0)+(Math.max(-.18,Math.min(.18,pitch))-(hound.swimPitch??0))*delta*3;
     hound.swimBank=(hound.swimBank??0)+(Math.max(-.12,Math.min(.12,-turn*.06))-(hound.swimBank??0))*delta*4;
     hound.jet=hound.state==='pursuing'?hound.speed/175:Math.min(.25,hound.speed/120);
-    if(sees&&plan.attacker&&plan.state.biteCooldown<=1e-8&&range<51&&hound.state==='pursuing'&&hound.biteCooldown<=0&&!bitten){
+    if(!hound.lifecycleCourting&&sees&&plan.attacker&&plan.state.biteCooldown<=1e-8&&range<51&&hound.state==='pursuing'&&hound.biteCooldown<=0&&!bitten){
       player.health=Math.max(0,player.health-FROST_HOUND_BITE_DAMAGE);hound.biteCooldown=2.2;plan.state.biteCooldown=FROST_PACK_BITE_INTERVAL;
       hound.heading+=Math.PI*.65;setState('retreating');bitten=true;
     }

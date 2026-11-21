@@ -5,6 +5,8 @@ import { createCreatureSurfaceMaps, applyCreatureSurface } from './creature-mate
 import { updateInstancedWindBounds } from './render-visibility.js';
 import { RedFishTendrilRenderer } from './red-fish-tendril-renderer.js';
 import { applyRedFishSkin, redFishAppearance } from './red-fish-skin.js';
+import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
+import {getLifecycleScale} from './lifecycle-scale.js';
 
 const finite = p => p && [p.x, p.y, p.z].every(Number.isFinite);
 
@@ -46,7 +48,7 @@ function swimmingMaterial(maps, clock, strength) {
  */
 export class RedFishRenderer {
   constructor(world, quality = {}) {
-    const fish = world.redFish ?? [];
+    const fish = getWildlifeRenderPopulation(world,'red-fish');
     this.validate(fish); this.capacity = fish.length; this.disposed = false;
     this.group = new THREE.Group(); this.group.name = 'red-crescent-fish';
     this.clock = { value: 0 }; this.strength = { value: 1 };
@@ -93,26 +95,26 @@ export class RedFishRenderer {
 
   update(world, time, reducedMotion = false, camera, quality = {}) {
     if (this.disposed) return;
-    const fish = world.redFish ?? []; this.validate(fish);
+    const fish = getWildlifeRenderPopulation(world,'red-fish'); this.validate(fish);
     if (fish.length > this.capacity) throw new RangeError('Red fish population exceeds its prepared render capacity.');
     this.clock.value = Number.isFinite(time) ? time : 0; this.strength.value = reducedMotion ? 0 : 1;
     const mobile = Boolean(quality.mobile), far = capRenderDistance(quality,mobile ? 38 : 70);
-    const candidates = fish.filter(animal => !(animal.squidRespawnIn > 0)).map(animal => ({ animal,
+    const candidates = fish.filter(animal => !animal.lifecycleInactive&&!(animal.squidRespawnIn > 0)).map(animal => ({ animal,
       distance: finite(camera) ? Math.max(0, Math.hypot(animal.x / 25 - camera.x,
-        animal.z / 25 - camera.y, animal.y / 25 - camera.z) - animal.lengthMeters * .64) : 0 }))
+        animal.z / 25 - camera.y, animal.y / 25 - camera.z) - animal.lengthMeters*getLifecycleScale(animal)*.64) : 0 }))
       .filter(value => value.distance < far).sort((a, b) => a.distance - b.distance);
     this.selected.length = 0;
     this.tendrils.begin();
     let small = 0, large = 0, maximumLength = 0;
     for (const { animal } of candidates) {
-      const big = animal.lengthMeters > 1;
+      const length=animal.lengthMeters*getLifecycleScale(animal),big=length>1;
       if (camera && (big ? large >= (mobile ? 2 : 6) : small >= (mobile ? 20 : 48))) continue;
       big ? large++ : small++; this.selected.push(animal.id);
       this.tendrils.fish(animal, reducedMotion);
-      maximumLength = Math.max(maximumLength, animal.lengthMeters);
+      maximumLength = Math.max(maximumLength,length);
       this.pose.position.set(animal.x / 25, animal.z / 25, animal.y / 25);
       this.pose.rotation.set(animal.pitch ?? 0, -animal.heading - Math.PI / 2, 0, 'YXZ');
-      this.pose.scale.setScalar(animal.lengthMeters); this.pose.updateMatrix();
+      this.pose.scale.setScalar(length); this.pose.updateMatrix();
       const index = this.selected.length - 1;
       for (const mesh of Object.values(this.meshes)) mesh.setMatrixAt(index, this.pose.matrix);
       for (const geometry of [this.geometry.body, this.geometry.fins]) geometry.attributes.fishAppearance.setX(index, redFishAppearance(animal));

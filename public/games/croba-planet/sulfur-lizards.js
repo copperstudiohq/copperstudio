@@ -2,6 +2,7 @@ import {SULFURIC_LAND,getSulfuricGround} from './sulfuric-biome.js';
 import {SULFURIC_POOLS,SULFURIC_VENTS} from './sulfuric-biome-data.js';
 import {getSulfuricGeyserState} from './sulfuric-geysers.js';
 import {EYE_HEIGHT} from './terrain.js';
+import {getLifecycleScale} from './lifecycle-scale.js';
 
 /** @typedef {{id:string,x:number,y:number,z:number,homeX:number,homeY:number,heading:number,phase:number,speed:number,moveBlend:number,pitch:number,bank:number,patrol:number,restTime:number,state:string,headRadius:number,lengthMeters:number,bodyLengthMeters:number,squidHeldBy?:string,squidRespawnIn?:number}} SulfurLizard */
 const HOMES=Object.freeze([[6240,-12310],[6600,-12550],[4980,-13480],[5400,-13650],[4840,-13920],[6580,-14180],
@@ -13,7 +14,7 @@ const MODEL_BODY_LENGTH=1.817;
 
 /** The shared authored anatomy is 2.8 metres long; both sizes use the same joints. */
 export function getSulfurLizardScale(animal){
-  return (Number.isFinite(animal.lengthMeters)&&animal.lengthMeters>0?animal.lengthMeters:1)/2.8;
+  return (Number.isFinite(animal.lengthMeters)&&animal.lengthMeters>0?animal.lengthMeters:1)/2.8*getLifecycleScale(animal);
 }
 
 export function initializeSulfurLizards(world){
@@ -34,13 +35,14 @@ function clear(world,animal,x,y){
   for(const other of world.sulfurLizards)if(other!==animal&&!other.squidHeldBy&&!(other.squidRespawnIn>0)&&Math.hypot(x-other.x,y-other.y)<animal.headRadius+other.headRadius+2)return false;
   return true;
 }
+export function getSulfurLizardGround(world,animal,x,y){return clear(world,animal,x,y)?getSulfuricGround(x,y):null;}
 
 /** A fat trunk capsule encloses the head and belly without blocking its tail. */
-export function resolveSulfurLizardBodies(world){
+export function resolveSulfurLizardBodies(world,population=world.sulfurLizards??[]){
   const p=world.player;if(!p||![p.x,p.y,p.z].every(Number.isFinite)||world.squidEncounter||world.treeStalkerEncounter)return;
-  for(const animal of world.sulfurLizards??[]){
+  for(const animal of population){
     const scale=getSulfurLizardScale(animal),radius=12*scale+5;
-    if(animal.squidHeldBy||animal.squidRespawnIn>0||p.z>=animal.z+20*scale||p.z+EYE_HEIGHT<animal.z)continue;
+    if(animal.lifecycleInactive||animal.squidHeldBy||animal.squidRespawnIn>0||p.z>=animal.z+20*scale||p.z+EYE_HEIGHT<animal.z)continue;
     const fx=Math.cos(animal.heading),fy=Math.sin(animal.heading),along=clamp((p.x-animal.x)*fx+(p.y-animal.y)*fy,-12*scale,16*scale);
     const x=animal.x+fx*along,y=animal.y+fy*along,dx=p.x-x,dy=p.y-y,d=Math.hypot(dx,dy);
     if(d<radius){p.x=x+(d?dx/d:-fy)*(radius+.01);p.y=y+(d?dy/d:fx)*(radius+.01);}
@@ -56,7 +58,7 @@ export function updateSulfurLizards(world,dt){
     clock.accumulator=Math.max(0,clock.accumulator-STEP);clock.time+=STEP;
     SULFURIC_POOLS.forEach((_,i)=>getSulfuricGeyserState(clock.time,i,clock.ponds[i]));
     for(const [i,a]of world.sulfurLizards.entries()){
-      if(a.squidHeldBy||a.squidRespawnIn>0)continue;
+      if(a.lifecycleInactive||a.squidHeldBy||a.squidRespawnIn>0)continue;
       const scale=getSulfurLizardScale(a);
       a.phase+=STEP*(1.2+a.speed*.45);a.restTime=Math.max(0,a.restTime-STEP);
       const player=world.player,nearPlayer=player&&Math.hypot(a.x-player.x,a.y-player.y,a.z-player.z)<90;
@@ -64,14 +66,15 @@ export function updateSulfurLizards(world,dt){
       for(let j=0;j<SULFURIC_POOLS.length;j++){
         const [x,y,r]=SULFURIC_POOLS[j];if((clock.ponds[j].active||clock.ponds[j].warning)&&Math.hypot(a.x-x,a.y-y)<r+95)away={x,y};
       }
-      const angle=a.patrol*2.1+i*.77,target=away?{x:a.x+(a.x-away.x)*4,y:a.y+(a.y-away.y)*4}
+      if(away&&a.lifecycleCourting)a.lifecycleCourting=false;
+      const angle=a.patrol*2.1+i*.77,target=a.lifecycleCourting&&a.lifecycleTarget?a.lifecycleTarget:away?{x:a.x+(a.x-away.x)*4,y:a.y+(a.y-away.y)*4}
         :{x:a.homeX+Math.cos(angle)*125,y:a.homeY+Math.sin(angle)*115};
       if(!away&&Math.hypot(target.x-a.x,target.y-a.y)<20){a.patrol++;a.restTime=2.5+(i%4);}
       a.state=away?'retreating':a.restTime>0?'basking':'wandering';
       const desired=Math.atan2(target.y-a.y,target.x-a.x),turn=Math.atan2(Math.sin(desired-a.heading),Math.cos(desired-a.heading));
       a.heading+=clamp(turn,-STEP*1.6,STEP*1.6);a.speed=0;
-      if(away||a.restTime===0)for(const offset of [0,.6,-.6,1.2,-1.2]){
-        const heading=a.heading+offset,speed=(away?32:14)*Math.sqrt(scale),x=a.x+Math.cos(heading)*speed*STEP,y=a.y+Math.sin(heading)*speed*STEP;
+      if(a.lifecycleCourting||away||a.restTime===0)for(const offset of [0,.6,-.6,1.2,-1.2]){
+        const heading=a.heading+offset,speed=(away&&!a.lifecycleCourting?32:14)*Math.sqrt(scale)*(a.lifecycleSpeedScale??1),x=a.x+Math.cos(heading)*speed*STEP,y=a.y+Math.sin(heading)*speed*STEP;
         if(!clear(world,a,x,y))continue;Object.assign(a,{x,y,z:getSulfuricGround(x,y),heading,speed});break;
       }
       if(!a.speed&&a.restTime===0){a.patrol++;a.heading+=STEP*.8;}

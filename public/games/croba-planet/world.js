@@ -18,6 +18,7 @@ import {updatePenguins,resolvePenguinBodies} from './alien-penguins.js';
 import {initializePenguinNests,clearPenguinDefense} from './penguin-nests.js';
 import {initializePenguinBrood} from './penguin-lifecycle.js';
 import {initializeHogwongHunters} from './hogwong-hunting.js';
+import {initializeWildlifeLifecycle,updateWildlifeLifecycle,getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 import { updateHogwongs,resolveHogwongBodies } from './tundra-hogwongs.js';
 import { updateVoidFish } from './void-fish.js';
 import { updateFrostHounds } from './frost-hounds.js';
@@ -91,7 +92,8 @@ export function createWorld() {
   initializeSandWorms(world);
   initializeCaveWorms(world);
   for(const hunter of world.centipedes)groundCentipedeStart(hunter,world.platforms);
-  return initializeHogwongHunters(world);
+  initializeHogwongHunters(world);
+  return initializeWildlifeLifecycle(world);
 }
 
 /** @param {World} world @param {number} x @param {number} y @returns {Platform | undefined} */
@@ -300,8 +302,8 @@ function outsideIce(world, x, y, z) {
 function resolveCrabBodies(world) {
   const player = world.player;
   const head = player.z + EYE_HEIGHT + PLAYER_RADIUS;
-  for (const crab of world.crabs) {
-    if (crab.squidHeldBy || crab.squidRespawnIn > 0) continue;
+  for (const crab of getWildlifeRenderPopulation(world,'crab')) {
+    if (crab.lifecycleInactive || crab.squidHeldBy || crab.squidRespawnIn > 0) continue;
     const collider = getCrabCollider(crab);
     if (head <= collider.bottom || player.z >= collider.top)
       continue;
@@ -513,6 +515,7 @@ export function updateWorld(world, input, dt, options = {}) {
   const delta = Math.min(dt, 0.05);
   const player = world.player;
   world.elapsed += delta;
+  updateWildlifeLifecycle(world,delta);
   updateLanternJellyfish(world, delta);
   updateCrabMovement(world, delta);
   updateRedFish(world, delta);
@@ -604,14 +607,14 @@ export function updateWorld(world, input, dt, options = {}) {
 
     resolveWreckCollision(world);
     resolveCrabBodies(world);
-    resolveHogwongBodies(world);
+    resolveHogwongBodies(world,getWildlifeRenderPopulation(world,'hogwong'));
     resolvePenguinBodies(world);
-    resolveWoodlonBodies(world);
+    resolveWoodlonBodies(world,getWildlifeRenderPopulation(world,'woodlon'));
     resolveLargeGlacierWreckCollision(world,beforeMovement);
     resolveBasinMerchCollision(world);
     resolveCrobanMangoCollision(world);
     resolveSulfuricRocks(player,PLAYER_RADIUS);
-    resolveSulfurLizardBodies(world);
+    resolveSulfurLizardBodies(world,getWildlifeRenderPopulation(world,'sulfur-lizard'));
     resolveSandWormBodies(world);
     Object.assign(player, resolveSquidMovement(world, beforeMovement, player));
     Object.assign(player,resolveWorldRockMovement(beforeMovement,player,EYE_HEIGHT,PLAYER_RADIUS,activeWorldRocks(world).rocks));
@@ -659,7 +662,8 @@ export function updateWorld(world, input, dt, options = {}) {
   }
   updateSulfurLizards(world,delta);
   const wormBitten=updateSandWorms(world,delta);
-  if(wormBitten&&player.health<=0&&beginSandWormEncounter(world,world.sandWorms[0])){updateBestiary(world);return;}
+  const bitingWorm=wormBitten&&world.sandWorms.find(worm=>worm.id===world.lastSandWormBiterId);
+  if(bitingWorm&&player.health<=0&&beginSandWormEncounter(world,bitingWorm)){updateBestiary(world);return;}
   if(wormBitten)announce(world,'Crobonic Artic Sulfur Worm strike! Dodge sideways and leave the mineral ground to escape.');
   updateFauna(world, delta);
   if (world.centipedeEncounter) {
@@ -683,7 +687,7 @@ export function updateWorld(world, input, dt, options = {}) {
     return;
   }
   updateHogwongs(world,delta);
-  updateWoodlons(world,delta);
+  updateWoodlons(world,delta,getWildlifeRenderPopulation(world,'woodlon'));
   updatePenguins(world,delta);
   const penguinBitten=world.penguinBitten===true;
   if(penguinBitten)announce(world,'Crobon Birds are defending their eggs! Leave the nest colony to escape.');
@@ -774,5 +778,6 @@ export function interact(world) {
 /** Reset in place so the renderer can retain its world reference. @param {World} world @returns {World} */
 export function resetWorld(world) {
   Object.assign(world, createWorld());
+  initializeWildlifeLifecycle(world);
   return world;
 }

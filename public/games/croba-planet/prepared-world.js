@@ -1,4 +1,5 @@
 import {PREPARED_WOODLONS} from './basin-life-data.js';
+import {PREPARED_PERIMETER_BORDERS} from './world-perimeter-data.js';
 import {SHELL_FIELD_ANCHORS} from './shell-field-placements.js';
 import {PREPARED_DENSE_GRASS} from './dense-grass-data.js';
 import {PREPARED_BASIN_BIRDS,PREPARED_BASIN_CAVES} from './basin-expansion-data.js';
@@ -29770,6 +29771,7 @@ const PREPARED_WORLD = {
 /** Each expedition receives independent mutable simulation and discovery state. */
 export function loadPreparedWorld({includeShellField=true}={}) {
   const world = structuredClone(PREPARED_WORLD);
+  world.borders=structuredClone(PREPARED_PERIMETER_BORDERS);
   for(const ice of world.platforms){
     const impact=CRASH_IMPACT_DATA[ice.id];
     if(impact)ice.relief={...structuredClone(impact.baseRelief),mesh:structuredClone(impact.mesh)};

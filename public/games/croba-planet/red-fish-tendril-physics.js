@@ -1,6 +1,7 @@
 import { findIsopodSurfaceContact } from './isopod-surface.js';
 import { getSeabedHeight } from './seabed.js';
 import { wreckBodyPenetration } from './wreck-collision.js';
+import {getLifecycleScale} from './lifecycle-scale.js';
 
 export const RED_FISH_TENDRIL_SEGMENTS = 6;
 export const RED_FISH_TENDRIL_ROOTS = Object.freeze([
@@ -31,7 +32,7 @@ const REST = RED_FISH_TENDRIL_ROOTS.map((root, chain) => {
 
 /** Radius of the tapered render tube, in simulation units. */
 export function redFishTendrilRadius(fish, index) {
-  return (.011 * (1 - index / RED_FISH_TENDRIL_SEGMENTS) ** .7 + .0018) * SCALE * fish.lengthMeters;
+  return (.011 * (1 - index / RED_FISH_TENDRIL_SEGMENTS) ** .7 + .0018) * SCALE * fish.lengthMeters*getLifecycleScale(fish);
 }
 
 /** Write one rest node in SIM axes (Z up), matching the renderer's YXZ frame:
@@ -45,7 +46,7 @@ export function redFishTendrilRestPoint(fish, chain, index, target = point()) {
     throw new RangeError('Red Fish tendril nodes need a chain from 0–3 and a joint from 0–6.');
   const [x, y, z] = REST[chain][index], pitch = fish.pitch ?? 0;
   const cp = Math.cos(pitch), sp = Math.sin(pitch), ch = Math.cos(fish.heading), sh = Math.sin(fish.heading);
-  const back = sp * y + cp * z, up = cp * y - sp * z, scale = SCALE * fish.lengthMeters;
+  const back = sp * y + cp * z, up = cp * y - sp * z, scale = SCALE * fish.lengthMeters*getLifecycleScale(fish);
   target.x = fish.x + (-sh * x - ch * back) * scale;
   target.y = fish.y + (ch * x - sh * back) * scale;
   target.z = fish.z + up * scale;
@@ -65,7 +66,7 @@ function reset(fish, state) {
       node.px = node.x; node.py = node.y; node.pz = node.z;
     }
   }
-  state.step = STEP; state.scale = fish.lengthMeters; state.active = true;
+  state.step = STEP; state.scale = fish.lengthMeters*getLifecycleScale(fish); state.active = true;
   state.x = fish.x; state.y = fish.y; state.z = fish.z;
 }
 
@@ -168,8 +169,8 @@ export function updateRedFishTendrils(world, fish, dt) {
   let state = STATES.get(fish);
   const poseValid = finite(fish) && Number.isFinite(fish.heading) && Number.isFinite(fish.pitch ?? 0)
     && Number.isFinite(fish.lengthMeters * SCALE) && fish.lengthMeters > 0;
-  if (!poseValid || fish.squidHeldBy || fish.squidRespawnIn > 0
-    || Array.isArray(world.redFish) && !world.redFish.includes(fish)
+  if (!poseValid || fish.lifecycleInactive || fish.squidHeldBy || fish.squidRespawnIn > 0
+    || Array.isArray(world.redFish) && !world.redFish.includes(fish)&&!fish.lifecycleRenderOnly
     || finite(world.player) && distance(world.player, fish) > 2000 + .64 * SCALE * fish.lengthMeters) {
     if (state) state.active = false;
     return;
@@ -180,9 +181,9 @@ export function updateRedFishTendrils(world, fish, dt) {
       probe: point(), gradient: point(), body: { radius: 0, height: 0, bottom: 0 }, scale: 0, active: false };
     STATES.set(fish, state);
   }
-  const scale = SCALE * fish.lengthMeters, length = LINK * scale;
+  const effectiveLength=fish.lengthMeters*getLifecycleScale(fish),scale = SCALE * effectiveLength, length = LINK * scale;
   const stale = Number.isFinite(world.elapsed) && Number.isFinite(state.elapsed) && world.elapsed - state.elapsed > .2;
-  if (!state.active || state.scale !== fish.lengthMeters || stale || invalidChain(fish, length)
+  if (!state.active || Math.abs(state.scale-effectiveLength)>Math.max(.001,effectiveLength*.02) || stale || invalidChain(fish, length)
     || Math.hypot(fish.x - state.x, fish.y - state.y, fish.z - state.z) > .64 * scale * 2) reset(fish, state);
   const delta = Math.min(.05, dt), steps = Math.ceil(delta / STEP), h = delta / steps;
   const damping = Math.exp(-7 * h), acceleration = .025 * scale;
@@ -237,6 +238,6 @@ export function updateRedFishTendrils(world, fish, dt) {
     }
     state.step = h;
   }
-  state.active = true; state.scale = fish.lengthMeters;
+  state.active = true; state.scale = effectiveLength;
   state.x = fish.x; state.y = fish.y; state.z = fish.z; state.elapsed = world.elapsed;
 }

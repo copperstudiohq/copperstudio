@@ -170,7 +170,8 @@ function initialize(crab) {
   const state = { ...pose, rng: (crab.seed ?? 1) >>> 0, homeX: crab.x, homeY: crab.y,
     heading, desiredHeading: heading, mode: 'forage', left: 0, cooldown: 0, speed: CRAB_MOVEMENT.forageMin, targetSpeed: 0,
     sidewaysSign: 1, walkPhase: 0, moving: false, actualSpeed: 0, velocity: { x: 0, y: 0 }, feet: [], unavailable: false,
-    lastX: crab.x, lastY: crab.y, lastZ: crab.z, stride: CRAB_MOVEMENT.strideMin, avoidFor: 0, avoidHeading: heading };
+    lastX: crab.x, lastY: crab.y, lastZ: crab.z, modelScale:getCrabScale(crab),lifecycleRevision:crab.lifecycleRevision,
+    stride: CRAB_MOVEMENT.strideMin, avoidFor: 0, avoidHeading: heading };
   state.left = between(state, 5, 10); state.targetSpeed = between(state, CRAB_MOVEMENT.forageMin, CRAB_MOVEMENT.forageMax);
   state.supported = true;
   state.feet = CRAB_LEG_REST.map((leg) => {
@@ -181,7 +182,13 @@ function initialize(crab) {
   states.set(crab, state); return state;
 }
 
-function stateFor(crab) { return states.get(crab) ?? initialize(crab); }
+function stateFor(crab) {
+ const state=states.get(crab),scale=getCrabScale(crab);
+ // Young retain stable descriptor identities between births. Replant after a
+ // recycled birth or meaningful growth before old small feet can strand them.
+ if(!state||state.lifecycleRevision!==crab.lifecycleRevision||Math.abs(state.modelScale-scale)>Math.max(.005,scale*.02))return initialize(crab);
+ return state;
+}
 
 function chooseForage(crab, state) {
   const home = Math.hypot(crab.x - state.homeX, crab.y - state.homeY);
@@ -268,13 +275,17 @@ export function updateCrabMovement(world, dt) {
   for (const crab of world.crabs ?? []) {
     if (!finite(crab)) continue;
     let state = stateFor(crab);
-    if (crab.squidHeldBy || crab.squidRespawnIn > 0) { state.unavailable = true; state.speed = 0; state.moving = false; continue; }
+    if (crab.lifecycleInactive || crab.squidHeldBy || crab.squidRespawnIn > 0) { state.unavailable = true; state.speed = 0; state.moving = false; continue; }
     if (state.unavailable || Math.hypot(crab.x - state.lastX, crab.y - state.lastY, crab.z - state.lastZ) > 5) state = initialize(crab);
     state.left -= delta; state.cooldown = Math.max(0, state.cooldown - delta); state.avoidFor = Math.max(0, state.avoidFor - delta);
     const player = world.player, headZ = crab.z + (CRAB_SIZE.bodyHeight * .8 * getCrabScale(crab) + state.bodyOffsetMeters) * SCALE;
     const near = finite(player) ? Math.hypot(player.x - crab.x, player.y - crab.y,
       player.z + EYE_HEIGHT - headZ) / SCALE : Infinity;
-    if (near < CRAB_MOVEMENT.dartRadius && state.cooldown === 0) {
+    if(crab.lifecycleCourting&&crab.lifecycleTarget){
+      const target=crab.lifecycleTarget;state.mode='courting';state.sidewaysSign=1;
+      state.desiredHeading=Math.atan2(target.y-crab.y,target.x-crab.x);
+      state.targetSpeed=Math.hypot(target.x-crab.x,target.y-crab.y)>35?.1:0;
+    } else if (near < CRAB_MOVEMENT.dartRadius && state.cooldown === 0) {
       const away = Math.atan2(crab.y - player.y, crab.x - player.x);
       state.sidewaysSign = Math.abs(wrap(away - state.heading)) <= Math.abs(wrap(away + Math.PI - state.heading)) ? 1 : -1;
       state.desiredHeading = state.sidewaysSign > 0 ? away : away + Math.PI;
@@ -291,7 +302,7 @@ export function updateCrabMovement(world, dt) {
     const turn = clamp(wrap(state.desiredHeading - oldHeading), -delta * turnRate, delta * turnRate);
     state.heading += turn;
     const accel = state.mode === 'dart' ? .75 : .12;
-    state.speed += clamp(state.targetSpeed - state.speed, -delta * .5, delta * accel);
+    state.speed += clamp(state.targetSpeed*(crab.lifecycleSpeedScale??1) - state.speed, -delta * .5, delta * accel);
     if (state.speed < 1e-8 && Math.abs(turn) < 1e-8) {
       state.velocity = { x: 0, y: 0 }; state.actualSpeed = 0;
       if (state.moving || state.feet.some((foot) => foot.swing)) updateFeet(crab, state, 0, 0, delta);

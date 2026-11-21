@@ -9,13 +9,14 @@ const body={radius:10,height:36};
 /** Local steering can back away and escape an existing overlap. Landing birds
  * reserve their destination instead of blocking the shore with their airborne pose. */
 export function steerPenguin(world,bird,target,speed,dt,ground,limitHome){
+ speed*=bird.lifecycleSpeedScale??1;
  const nav=bird.navigation??={stalled:0,sideTime:0,sideGoal:null};
  nav.sideTime=Math.max(0,nav.sideTime-dt);
  const goal=nav.sideTime>0?nav.sideGoal:target,dx=goal.x-bird.x,dy=goal.y-bird.y,length=Math.hypot(dx,dy)||1;
  const heading=Math.atan2(dy,dx),step=Math.min(speed*dt,length);
  const obstacles=[];
  for(const other of world.penguins??[]){
-  if(other===bird||other.squidHeldBy||other.squidRespawnIn>0)continue;
+  if(other===bird||other.lifecycleInactive||other.squidHeldBy||other.squidRespawnIn>0)continue;
   const landing=other.state==='landing';
   if(!landing&&(PENGUIN_WATER_STATES.has(other.state)||Math.abs(other.z-bird.z)>18))continue;
   const p=landing?other.diveRoute.shore:other;

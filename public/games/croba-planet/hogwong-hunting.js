@@ -49,7 +49,7 @@ export function hogwongHuntPathClear(world,from,to,ground,platformId){
 }
 
 function eligible(world,bird,hog){
- if(!finite(bird)||bird.squidHeldBy||bird.squidRespawnIn>0||waterStates.has(bird.state)||Number.isFinite(bird.feetSurfaceZ))return false;
+ if(!finite(bird)||bird.lifecycleInactive||bird.squidHeldBy||bird.squidRespawnIn>0||waterStates.has(bird.state)||Number.isFinite(bird.feetSurfaceZ))return false;
  if(bird.offspringId&&(!Number.isFinite(bird.growth)||bird.growth<1))return false;
  if(Math.abs(bird.z-hog.z)>24||Math.hypot(bird.x-hog.x,bird.y-hog.y)>HOGWONG_HUNT_RANGE)return false;
  const ice=highestIceAt(world.platforms??[],bird.x,bird.y),home=highestIceAt(world.platforms??[],hog.x,hog.y);

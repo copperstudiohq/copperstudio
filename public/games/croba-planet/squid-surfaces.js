@@ -1,6 +1,8 @@
 import { BLUE_OCEAN_START_X, BLUE_OCEAN_FLOOR, WORLD_BOUNDS } from "./terrain.js";
 import { getSeabedHeight, SEABED_GRID } from "./seabed.js";
 import { getForestCollision } from "./forest-terrain.js";
+import {NEW_PERIMETER_BOUNDS} from './world-perimeter.js';
+import {SULFURIC_PASSAGE,SULFURIC_ARCH,sulfuricPassageWidth} from './sulfuric-biome.js';
 
 /** @typedef {{x:number,y:number,z:number}} Point3 */
 /** @typedef {{linkIndex:number,along:number,point:Point3,surfacePoint:Point3,normal:Point3,kind:'seabed'|'stone'|'forest',penetration?:number,correctedPoint?:Point3}} SurfaceContact */
@@ -9,6 +11,12 @@ const dot = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
 const add = (a, b, scale) => ({ x: a.x + b.x * scale, y: a.y + b.y * scale, z: a.z + b.z * scale });
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+const stoneCache=new WeakMap();
+const legacyBorders=Object.freeze([
+  {kind:'stone',x:WORLD_BOUNDS.maxX+90,y:0,rx:90,ry:WORLD_BOUNDS.maxY,baseZ:BLUE_OCEAN_FLOOR,height:360},
+  {kind:'stone',x:(BLUE_OCEAN_START_X+WORLD_BOUNDS.maxX)/2,y:WORLD_BOUNDS.minY-90,rx:(WORLD_BOUNDS.maxX-BLUE_OCEAN_START_X)/2,ry:90,baseZ:BLUE_OCEAN_FLOOR,height:360},
+  {kind:'stone',x:(BLUE_OCEAN_START_X+WORLD_BOUNDS.maxX)/2,y:WORLD_BOUNDS.maxY+90,rx:(WORLD_BOUNDS.maxX-BLUE_OCEAN_START_X)/2,ry:90,baseZ:BLUE_OCEAN_FLOOR,height:360},
+]);
 
 /** Closest point on a finite terrain triangle, including its edges and vertices. */
 function closestTriangle(p, a, b, c) {
@@ -53,29 +61,50 @@ function terrainCell(column, row, cache) {
 
 function stoneFaces(world) {
   const { maxX, minY, maxY } = WORLD_BOUNDS;
-  const borders = Array.isArray(world?.borders) ? world.borders : [
-    { kind: "stone", x: maxX + 90, y: 0, rx: 90, ry: maxY, baseZ: BLUE_OCEAN_FLOOR, height: 360 },
-    { kind: "stone", x: (BLUE_OCEAN_START_X + maxX) / 2, y: minY - 90,
-      rx: (maxX - BLUE_OCEAN_START_X) / 2, ry: 90, baseZ: BLUE_OCEAN_FLOOR, height: 360 },
-    { kind: "stone", x: (BLUE_OCEAN_START_X + maxX) / 2, y: maxY + 90,
-      rx: (maxX - BLUE_OCEAN_START_X) / 2, ry: 90, baseZ: BLUE_OCEAN_FLOOR, height: 360 },
-  ];
+  const borders = Array.isArray(world?.borders) ? world.borders : legacyBorders;
+  const cached=stoneCache.get(borders);if(cached)return cached;
   const faces = [];
+  const push=(a,b,low,high,normal)=>{
+    const dx=b.x-a.x,dy=b.y-a.y,length2=dx*dx+dy*dy;if(length2<1e-8)return;
+    const minX=Math.min(a.x,b.x),maxX=Math.max(a.x,b.x),minY=Math.min(a.y,b.y),maxY=Math.max(a.y,b.y);
+    faces.push({a,b,dx,dy,length2,minX,maxX,minY,maxY,low,high,normal,
+      arch:Math.abs(a.y-SULFURIC_PASSAGE.frontY)<.001&&Math.abs(b.y-SULFURIC_PASSAGE.frontY)<.001&&minX<SULFURIC_PASSAGE.x+SULFURIC_PASSAGE.halfWidth&&maxX>SULFURIC_PASSAGE.x-SULFURIC_PASSAGE.halfWidth});
+  };
   for (const border of borders) {
-    if (border?.kind !== "stone" || ![border.x, border.y, border.rx, border.ry].every(Number.isFinite)) continue;
+    if (border?.kind !== "stone") continue;
     const low = Number.isFinite(border.baseZ) ? border.baseZ : BLUE_OCEAN_FLOOR;
     const high = Number.isFinite(border.height) ? border.height : 360;
+    if([border.start?.x,border.start?.y,border.end?.x,border.end?.y].every(Number.isFinite)){
+      const a=border.start,b=border.end,dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);if(length<1e-4)continue;
+      const outward=border.outward,normal=outward&&[outward.x,outward.y].every(Number.isFinite)?{x:-outward.x,y:-outward.y,z:0}:{x:-dy/length,y:dx/length,z:0};
+      const size=Math.hypot(normal.x,normal.y);if(size<1e-8)continue;normal.x/=size;normal.y/=size;
+      push(a,b,low,high,normal);continue;
+    }
+    if(![border.x,border.y,border.rx,border.ry].every(Number.isFinite))continue;
     if (Math.abs(border.x - border.rx - maxX) < 0.001)
-      faces.push({ axis: "x", at: maxX, start: border.y - border.ry, end: border.y + border.ry,
-        low, high, normal: { x: -1, y: 0, z: 0 } });
+      push({x:maxX,y:border.y-border.ry},{x:maxX,y:border.y+border.ry},low,high,{x:-1,y:0,z:0});
     if (Math.abs(border.y + border.ry - minY) < 0.001)
-      faces.push({ axis: "y", at: minY, start: Math.max(BLUE_OCEAN_START_X, border.x - border.rx), end: border.x + border.rx,
-        low, high, normal: { x: 0, y: 1, z: 0 } });
+      push({x:Math.max(BLUE_OCEAN_START_X,border.x-border.rx),y:minY},{x:border.x+border.rx,y:minY},low,high,{x:0,y:1,z:0});
     if (Math.abs(border.y - border.ry - maxY) < 0.001)
-      faces.push({ axis: "y", at: maxY, start: Math.max(BLUE_OCEAN_START_X, border.x - border.rx), end: border.x + border.rx,
-        low, high, normal: { x: 0, y: -1, z: 0 } });
+      push({x:Math.max(BLUE_OCEAN_START_X,border.x-border.rx),y:maxY},{x:border.x+border.rx,y:maxY},low,high,{x:0,y:-1,z:0});
   }
+  stoneCache.set(borders,faces);
   return faces;
+}
+
+/** The reserved doorway removes a real polygon from the cliff plane. A capsule
+ * inside it can touch its finite rim, but never the missing central face. */
+function archSurface(point,surface,wall){
+  if(!wall.arch||surface.z<SULFURIC_PASSAGE.floor||surface.z>SULFURIC_PASSAGE.ceiling
+    ||Math.abs(surface.x-SULFURIC_PASSAGE.x)>=sulfuricPassageWidth(surface.z))return false;
+  let best=Infinity,x=surface.x,z=surface.z;
+  for(let i=0;i<SULFURIC_ARCH.length;i++){
+    const a=SULFURIC_ARCH[i],b=SULFURIC_ARCH[(i+1)%SULFURIC_ARCH.length],dx=b[0]-a[0],dz=b[1]-a[1];
+    const t=clamp(((point.x-SULFURIC_PASSAGE.x-a[0])*dx+(point.z-a[1])*dz)/(dx*dx+dz*dz),0,1);
+    const px=SULFURIC_PASSAGE.x+a[0]+dx*t,pz=a[1]+dz*t;if(px<wall.minX-.001||px>wall.maxX+.001)continue;
+    const d=(point.x-px)**2+(point.z-pz)**2;if(d<best){best=d;x=px;z=pz;}
+  }
+  surface.x=x;surface.z=z;return true;
 }
 
 function candidate(point, surfacePoint, normal, radius, kind, inside) {
@@ -105,25 +134,33 @@ export function findSquidSurfaceContact(world, arm, options = {}) {
   const { radius = 45, taper = 0.84, tolerance = 1 } = options;
   if (!world || !Array.isArray(arm) || arm.length !== 9 || !arm.every(finite)
     || ![radius, taper, tolerance].every(Number.isFinite) || radius <= 0 || taper <= 0 || taper > 1 || tolerance < 0) return null;
-  const walls = stoneFaces(world), cache = new Map();
+  const padding=radius+tolerance+6.25,bounds={minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity};
+  for(const point of arm){bounds.minX=Math.min(bounds.minX,point.x);bounds.maxX=Math.max(bounds.maxX,point.x);bounds.minY=Math.min(bounds.minY,point.y);bounds.maxY=Math.max(bounds.maxY,point.y);}
+  // Broad phase once per arm, rather than scanning hundreds of cliff faces for
+  // every one of the bounded 256 capsule samples.
+  const walls = stoneFaces(world).filter(wall=>wall.maxX>=bounds.minX-padding&&wall.minX<=bounds.maxX+padding&&wall.maxY>=bounds.minY-padding&&wall.minY<=bounds.maxY+padding), cache = new Map();
   let queries = 0;
   const evaluate = (linkIndex, along) => {
     if (queries++ >= 256) return null;
     const a = arm[linkIndex], b = arm[linkIndex + 1], point = add(a, sub(b, a), along);
-    if (point.x < BLUE_OCEAN_START_X || point.x > WORLD_BOUNDS.maxX + radius
-      || point.y < WORLD_BOUNDS.minY - radius || point.y > WORLD_BOUNDS.maxY + radius) return null;
+    if (point.x < BLUE_OCEAN_START_X || point.x > NEW_PERIMETER_BOUNDS.maxX + radius
+      || point.y < NEW_PERIMETER_BOUNDS.minY - radius || point.y > NEW_PERIMETER_BOUNDS.maxY + radius) return null;
     const localRadius = radius * taper ** linkIndex * (1 - (1 - taper) * along);
     let best = null;
     const accept = (entry) => { if (!best || entry.gap < best.gap) best = entry; };
     const forest = getForestCollision(world, point, localRadius + tolerance + 6.25);
     if (forest) accept(candidate(point, forest.point, forest.normal, localRadius, "forest", forest.inside));
     for (const wall of walls) {
-      const horizontal = wall.axis === "x" ? point.y : point.x;
-      if (horizontal < wall.start || horizontal > wall.end || point.z < wall.low || point.z > wall.high) continue;
-      const surface = { ...point, [wall.axis]: wall.at };
-      const signed = dot(sub(point, surface), wall.normal);
-      if (signed <= localRadius + tolerance + 6.25)
-        accept(candidate(point, surface, wall.normal, localRadius, "stone", signed < 0));
+      const extent=localRadius+tolerance+6.25;
+      if(point.x<wall.minX-extent||point.x>wall.maxX+extent||point.y<wall.minY-extent||point.y>wall.maxY+extent||point.z<wall.low-extent||point.z>wall.high+extent)continue;
+      const along=((point.x-wall.a.x)*wall.dx+(point.y-wall.a.y)*wall.dy)/wall.length2,t=clamp(along,0,1);
+      const surface={x:wall.a.x+wall.dx*t,y:wall.a.y+wall.dy*t,z:clamp(point.z,wall.low,wall.high)},opening=archSurface(point,surface,wall);
+      const signed=(point.x-wall.a.x)*wall.normal.x+(point.y-wall.a.y)*wall.normal.y;
+      const inside=!opening&&signed<0&&along>=0&&along<=1&&point.z>=wall.low&&point.z<=wall.high;
+      const delta=sub(point,surface),distance=Math.hypot(delta.x,delta.y,delta.z);if(!inside&&distance>extent)continue;
+      const edge=opening||along<0||along>1||point.z<wall.low||point.z>wall.high;
+      const normal=!inside&&edge&&distance>1e-8?{x:delta.x/distance,y:delta.y/distance,z:delta.z/distance}:wall.normal;
+      accept(candidate(point,surface,normal,localRadius,"stone",inside));
     }
     const { minX, minY, step, columns, rows } = SEABED_GRID;
     const extent = localRadius + tolerance + 6.25;

@@ -1,4 +1,6 @@
 import {WorldBarnacleRenderer} from './world-barnacle-renderer.js';
+import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
+import {WildlifeBroodRenderer} from './wildlife-brood-renderer.js';
 import {CaveSandWormRenderer} from './cave-sand-worm-renderer.js';
 import {SaltCaveRenderer} from './salt-cave-renderer.js';
 import {getSaltCave,SALT_CAVE_STATIONS,SALT_CAVE_SHAFT,SALT_CAVE_HALLS} from './salt-cave.js';
@@ -56,6 +58,8 @@ import { LanternJellyfishRenderer } from './lantern-jellyfish.js';
 import {getIceSurface,getIceSurfaceHeight} from './ice-surface.js';
 import {createCrashWreck} from './crash-wreck.js';
 import { createMountainRangeGeometry } from './glacial-mountains.js';
+import {MAIN_PERIMETER,SULFUR_PERIMETER} from './world-perimeter.js';
+import {createPerimeterGround} from './world-perimeter-ground.js';
 import { ConceptSky } from './concept-sky.js';
 import {createBasinWallGeometry} from './icy-basin.js';
 import * as THREE from "./vendor/three.module.js";
@@ -198,7 +202,7 @@ export function seabedGeometry() {
   return projectSurfaceUVs(geometry);
 }
 
-/** Border faces share the simulation's rectangular footprint, with irregular crests. */
+/** Border faces follow the same authored polygon edges used by movement. */
 export function borderGeometry(borders, kind) {
   const range=createMountainRangeGeometry(borders,kind);
   const geometry=projectSurfaceUVs(kind==='stone'?carveSaltCliffEntrance(carveSulfuricPassage(range)):range);
@@ -652,6 +656,13 @@ export class Scene {
     const cliffSurface={map:this.shellFieldMap,normalMap:this.shellFieldNormalMap};
     this.saltCave=new SaltCaveRenderer(this.materials,cliffSurface);this.scene.add(this.saltCave.group);
     this.sulfuric=new SulfuricBiomeRenderer(this.materials,cliffSurface);this.scene.add(this.sulfuric.group);
+    for(const region of['main','sulfur']){
+      const geometry=createPerimeterGround(region),material=(region==='main'?this.materials?.sand:this.materials?.rock)?.clone()??matte(0xffffff);
+      material.vertexColors=true;material.color.setHex(0xffffff);
+      if(region==='sulfur')material.map=null;
+      const collar=new THREE.Mesh(geometry,material);collar.name=`perimeter-${region}-ground`;collar.receiveShadow=true;this.scene.add(collar);
+      if(region==='main'&&this.causticsMaterial){const caustics=new THREE.Mesh(geometry.clone(),this.causticsMaterial);caustics.name='perimeter-main-caustics';caustics.position.y=.012;caustics.renderOrder=1;this.scene.add(caustics);}
+    }
     this.flora = new FloraRenderer(world, this.materials);
     this.scene.add(this.flora.group);
     this.tundra = new IcebergTundraRenderer(world, this.quality);
@@ -694,7 +705,7 @@ export class Scene {
     const staticMeshes=[];
     terrain.traverse(object=>{if(object.isMesh&&!object.isInstancedMesh)staticMeshes.push(object);});
     submerged.traverse(object=>{if(object.isMesh&&!object.isInstancedMesh)staticMeshes.push(object);});
-    for(const name of['exact-baked-forest-ground','sulfuric-authored-ground','icy-basin-pressure-ridges','underwater-boulder-sand']){
+    for(const name of['exact-baked-forest-ground','sulfuric-authored-ground','icy-basin-pressure-ridges','underwater-boulder-sand','perimeter-main-ground','perimeter-sulfur-ground','perimeter-main-caustics']){
       const mesh=this.scene.getObjectByName(name);if(mesh)staticMeshes.push(mesh);
     }
     for(const room of this.basinCaves?.rooms??[])if(room.shell)staticMeshes.push(room.shell);
@@ -731,6 +742,7 @@ export class Scene {
     this.penguinEggs = new PenguinEggRenderer(world, quality);
     this.penguinIslandNests = new PenguinIslandNestRenderer(world, this.materials);
     this.hogwongs = new HogwongRenderer(world, quality);
+    this.wildlifeBroods=new WildlifeBroodRenderer();
     this.woodlons = new WoodlonRenderer(world, this.materials);
     this.voidFish = new FrostHoundRenderer(world, quality, { populationKey: "voidFish", black: true });
     this.frostHounds = new FrostHoundRenderer(world, quality);
@@ -742,14 +754,14 @@ export class Scene {
     this.jellyfish = new LanternJellyfishRenderer(world);
     this.fauna = new FaunaRenderer(world, this.materials, quality);
     this.squids = new SquidRenderer(world, this.materials);
-    this.crabColony = new CrabColony(world.crabs ?? [], this.materials, quality);
+    this.crabColony = new CrabColony(getWildlifeRenderPopulation(world,'crab'), this.materials, quality);
     this.crabColony.group.traverse((object) => {
       if (object.isMesh && object.name !== "soft-contact-shadow") {
         object.castShadow = true; object.receiveShadow = true;
       }
     });
     for (const name of ["woodlons", "treeStalkers", "penguins", "penguinEggs", "penguinIslandNests", "hogwongs", "voidFish",
-      "frostHounds", "redFish", "tuskjawSharks", "sulfurLizards", "sandWorms", "caveWorms", "jellyfish", "fauna", "squids", "crabColony"]) this.scene.add(this[name].group);
+      "frostHounds", "redFish", "tuskjawSharks", "sulfurLizards", "sandWorms", "caveWorms", "jellyfish", "fauna", "squids", "crabColony", "wildlifeBroods"]) this.scene.add(this[name].group);
   }
 
   /** Device budgets cull distant creatures but never disable their animation.
@@ -757,7 +769,8 @@ export class Scene {
    * screen size, touch controls or the mobile visibility budget. */
   updateCreatures(world, animation, dt) {
     const reducedMotion = this.reducedMotion === true, camera = this.camera.position, quality = this.quality;
-    this.crabColony?.update(animation, dt, reducedMotion, camera, quality, this.crabVisibility);
+    this.crabColony?.update(animation, dt, reducedMotion, camera, quality, this.crabVisibility,getWildlifeRenderPopulation(world,'crab'));
+    this.wildlifeBroods?.update(world,animation,reducedMotion,camera,quality);
     for (const name of ["woodlons", "fauna", "squids", "jellyfish", "treeStalkers", "frostHounds", "voidFish", "redFish", "tuskjawSharks", "sulfurLizards", "sandWorms", "caveWorms", "hogwongs",
       "penguins", "penguinEggs", "penguinIslandNests"]) this[name]?.update(world, animation, reducedMotion, camera, quality);
   }
@@ -1564,13 +1577,19 @@ export class Scene {
       y: height * 0.53 + (y - centerY) * scale,
     });
     context.clearRect(0, 0, width, height);
-    const northwest = point(WORLD_BOUNDS.minX, WORLD_BOUNDS.minY);
-    const southeast = point(WORLD_BOUNDS.maxX, WORLD_BOUNDS.maxY);
+    const northwest = point(SULFURIC_MAP_BOUNDS.minX, SULFURIC_MAP_BOUNDS.minY);
+    const southeast = point(SULFURIC_MAP_BOUNDS.maxX, SULFURIC_MAP_BOUNDS.maxY);
     const boundary = point(BLUE_OCEAN_START_X, 0).x;
-    context.fillStyle = "#99bfc315";
-    context.fillRect(northwest.x, northwest.y, boundary - northwest.x, southeast.y - northwest.y);
-    context.fillStyle = "#102e6399";
-    context.fillRect(boundary, northwest.y, southeast.x - boundary, southeast.y - northwest.y);
+    const fillPolygon=(polygon,color)=>{context.beginPath();polygon.forEach((v,i)=>{const p=point(v.x,v.y);i?context.lineTo(p.x,p.y):context.moveTo(p.x,p.y);});context.closePath();context.fillStyle=color;context.fill();};
+    const half=(east)=>{
+      const result=[];
+      for(let i=0;i<MAIN_PERIMETER.length;i++){
+        const a=MAIN_PERIMETER[i],b=MAIN_PERIMETER[(i+1)%MAIN_PERIMETER.length],ain=east?a.x>=BLUE_OCEAN_START_X:a.x<=BLUE_OCEAN_START_X,bin=east?b.x>=BLUE_OCEAN_START_X:b.x<=BLUE_OCEAN_START_X;
+        if(ain)result.push(a);if(ain!==bin){const t=(BLUE_OCEAN_START_X-a.x)/(b.x-a.x);result.push({x:BLUE_OCEAN_START_X,y:a.y+(b.y-a.y)*t});}
+      }
+      return result;
+    };
+    fillPolygon(half(false),'#99bfc315');fillPolygon(half(true),'#102e6399');
     context.beginPath();SHELL_FIELD.boundary.forEach((vertex,index)=>{
       const p=point(vertex.x,vertex.y);index?context.lineTo(p.x,p.y):context.moveTo(p.x,p.y);
     });
@@ -1579,8 +1598,7 @@ export class Scene {
     const shellLabel=point(4550,-9850);context.save();context.translate(shellLabel.x,shellLabel.y);
     context.font='7px sans-serif';context.textAlign='center';context.fillStyle='#f2d9c8';
     context.fillText('SHELL FIELD',0,0);context.restore();
-    const sulfurNW=point(SULFURIC_LAND.minX,SULFURIC_LAND.minY),sulfurSE=point(SULFURIC_LAND.maxX,SULFURIC_LAND.maxY);
-    context.fillStyle='#cab74b99';context.fillRect(sulfurNW.x,sulfurNW.y,sulfurSE.x-sulfurNW.x,sulfurSE.y-sulfurNW.y);
+    fillPolygon(SULFUR_PERIMETER,'#cab74b99');
     const sulfurLabel=point((SULFURIC_LAND.minX+SULFURIC_LAND.maxX)/2,(SULFURIC_LAND.minY+SULFURIC_LAND.maxY)/2);context.font='7px sans-serif';context.textAlign='center';context.fillStyle='#f6df75';context.fillText('SULFURIC LAND',sulfurLabel.x,sulfurLabel.y);
     context.strokeStyle = "#9ec3c610";
     context.lineWidth = 1;
@@ -1613,6 +1631,7 @@ export class Scene {
       context.stroke();
     }
     for (const border of world.borders ?? []) {
+      if(border.start){fillPolygon([border.start,border.end,border.outerEnd,border.outerStart],border.kind==='iceberg'?'#b7dae58c':'#e79857c0');continue;}
       const p = point(border.x - border.rx, border.y - border.ry);
       context.fillStyle = border.kind === "iceberg" ? "#b7dae58c" : "#e79857c0";
       context.fillRect(p.x, p.y, border.rx * 2 * scale, border.ry * 2 * scale);
@@ -1655,7 +1674,7 @@ export class Scene {
       context.strokeRect(p.x - 2.5, p.y - 2.5, 5, 5);
     }
     for (const crab of world.crabs ?? []) {
-      if (crab.squidRespawnIn > 0) continue;
+      if (crab.lifecycleInactive || crab.squidRespawnIn > 0) continue;
       const p = point(crab.x, crab.y);
       context.beginPath();
       context.arc(p.x, p.y, 2, 0, TAU);
@@ -1749,7 +1768,7 @@ export class Scene {
     if (this.disposed) return;
     this.disposed = true;
     this.staticRenderDistance?.dispose();this.instanceRenderDistance?.dispose();
-    for (const name of ["heldItems", "salvage", "playerBases", "driftIce", "worldRocks", "worldBarnacles", "saltCave", "caveWorms", "sandWorms", "sulfurLizards", "sulfuric", "crobanMango", "basinMerchCargo", "largeGlacierWreck", "copperCargo", "basinDetails", "woodlons", "basinCaves", "penguinIslandNests", "penguinEggs", "penguins", "hogwongs", "tundra", "redFish", "tuskjawSharks", "voidFish", "frostHounds", "arcticGardens", "jellyfish", "conceptSky", "forest", "treeStalkers", "seaweed", "plants", "underwaterFx", "crabColony", "fauna", "squids", "flora", "blizzard"]) {
+    for (const name of ["heldItems", "salvage", "playerBases", "driftIce", "worldRocks", "worldBarnacles", "saltCave", "caveWorms", "sandWorms", "sulfurLizards", "sulfuric", "crobanMango", "basinMerchCargo", "largeGlacierWreck", "copperCargo", "basinDetails", "woodlons", "basinCaves", "penguinIslandNests", "penguinEggs", "penguins", "hogwongs", "wildlifeBroods", "tundra", "redFish", "tuskjawSharks", "voidFish", "frostHounds", "arcticGardens", "jellyfish", "conceptSky", "forest", "treeStalkers", "seaweed", "plants", "underwaterFx", "crabColony", "fauna", "squids", "flora", "blizzard"]) {
       const owner = this[name], group = owner?.group;
       owner?.dispose(); group?.removeFromParent(); this[name] = null;
     }

@@ -1,4 +1,5 @@
 import {ADDITIONAL_TREE_STALKERS} from './wildlife-expansion-data.js';
+import {EXTRA_TREE_STALKER_SITES} from './tree-stalker-sites.js';
 import { selector, sequence, condition, action, RUNNING } from "./behavior-tree.js";
 import { EYE_HEIGHT, WATER_LEVEL } from "./terrain.js";
 import { getForestHeight, resolveForestMovement } from "./forest-terrain.js";
@@ -25,14 +26,17 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
  * eyeTarget:StalkerPoint|null,steerSide:number}} TreeStalker
  */
 
-/** Four authored forest residents, cloned with the rest of the prepared world. */
+/** Six authored forest residents, cloned with the rest of the prepared world. */
 export const PREPARED_TREE_STALKERS = Object.freeze([Object.freeze({
   id: "forest-tree-stalker-0", x: 5900, y: 2600, z: 255.19400708764547,
   homeX: 5900, homeY: 2600, homeZ: 255.19400708764547,
   heading: -Math.PI / 2, state: "camouflaged", movePhase: 0, speed: 0, heightMeters: TREE_STALKER_HEIGHT,
   memoryLeft: 0, attackCooldown: 0, sightCheckIn: 0, lastVisible: false,
   lastSeen: null, eyeTarget: null, steerSide: 1,
-}), ...ADDITIONAL_TREE_STALKERS.map(stalker=>Object.freeze(stalker))]);
+}), ...ADDITIONAL_TREE_STALKERS.map(stalker=>Object.freeze(stalker)),...EXTRA_TREE_STALKER_SITES.map(site=>Object.freeze({
+  ...site,homeX:site.x,homeY:site.y,homeZ:site.z,state:'camouflaged',movePhase:0,speed:0,heightMeters:TREE_STALKER_HEIGHT,
+  memoryLeft:0,attackCooldown:0,sightCheckIn:0,lastVisible:false,lastSeen:null,eyeTarget:null,
+}))]);
 
 /** @returns {TreeStalker[]} */
 export function createTreeStalkers() { return structuredClone(PREPARED_TREE_STALKERS); }

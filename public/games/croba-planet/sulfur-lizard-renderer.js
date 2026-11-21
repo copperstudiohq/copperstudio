@@ -4,6 +4,7 @@ import {buildSulfurLizardAnatomy,SULFUR_LIZARD_FEET} from './sulfur-lizard-anato
 import {createCreatureSurfaceMaps,applyCreatureSurface} from './creature-materials.js';
 import {getSulfuricGround} from './sulfuric-biome.js';
 import {getSulfurLizardScale} from './sulfur-lizards.js';
+import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 
 function animate(material){
   const previous=material.onBeforeCompile.bind(material),key=material.customProgramCacheKey.bind(material);
@@ -42,7 +43,7 @@ export class SulfurLizardRenderer{
   constructor(world){
     this.group=new THREE.Group();this.group.name='sulfur-maw-lizards';this.disposed=false;
     this.geometry=buildSulfurLizardAnatomy();this.maps=createCreatureSurfaceMaps('frost-hide',128);
-    const population=world.sulfurLizards??[],capacity=Math.max(1,population.length);
+    const population=getWildlifeRenderPopulation(world,'sulfur-lizard'),capacity=Math.max(1,population.length);
     for(const animal of population)if(typeof animal.id!=='string'||![animal.x,animal.y,animal.z].every(Number.isFinite))throw new TypeError('Sulfur Maw Lizards need an id and finite prepared pose.');
     this.motion=new THREE.InstancedBufferAttribute(new Float32Array(capacity*2),2).setUsage(THREE.DynamicDrawUsage);
     this.feet=new THREE.InstancedBufferAttribute(new Float32Array(capacity*4),4).setUsage(THREE.DynamicDrawUsage);
@@ -59,8 +60,8 @@ export class SulfurLizardRenderer{
   }
   update(world,_time,reducedMotion=false,camera,quality={}){
     if(this.disposed)return;let count=0;
-    for(const animal of world.sulfurLizards??[]){
-      if(animal.squidRespawnIn>0||camera&&Math.hypot(animal.x/25-camera.x,animal.z/25-camera.y,animal.y/25-camera.z)>capRenderDistance(quality,quality.mobile?60:75))continue;
+    for(const animal of getWildlifeRenderPopulation(world,'sulfur-lizard')){
+      if(animal.lifecycleInactive||animal.squidRespawnIn>0||camera&&Math.hypot(animal.x/25-camera.x,animal.z/25-camera.y,animal.y/25-camera.z)>capRenderDistance(quality,quality.mobile?60:75))continue;
       if(count>=this.motion.count)break;
       this.transform.position.set(animal.x/25,animal.z/25,animal.y/25);
       const scale=getSulfurLizardScale(animal);

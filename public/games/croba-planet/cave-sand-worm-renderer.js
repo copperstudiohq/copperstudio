@@ -2,7 +2,7 @@ import {capRenderDistance} from './render-distance.js';
 import * as THREE from './vendor/three.module.js';
 import {PlantMesh} from './plant-mesh.js';
 import {buildSandWormAnatomy,SAND_WORM_PLATE_HINGE_RADIUS,SAND_WORM_MOUTH_Z} from './sand-worm-anatomy.js';
-import {CAVE_WORM_SEGMENTS} from './cave-sand-worms.js';
+import {CAVE_WORM_SEGMENTS,CAVE_WORM_CAPACITY} from './cave-sand-worms.js';
 import {createCreatureSurfaceMaps,applyCreatureSurface} from './creature-materials.js';
 const X=new THREE.Vector3(1,0,0),Z=new THREE.Vector3(0,0,1);
 /** Short plated ring with recessed dark joints, sized for small aquatic worms. */
@@ -22,7 +22,7 @@ export class CaveSandWormRenderer{
   this.geometry=buildSandWormAnatomy();this.geometry.segment.dispose();this.geometry.segment=miniRing();
   this.maps=maps??createCreatureSurfaceMaps('scarred-armor',128);this.ownsMaps=!maps;
   this.material=applyCreatureSurface(new THREE.MeshStandardMaterial({color:0xd1c39b,vertexColors:true,roughness:.64}),this.maps,.3);this.material.userData.waterMedium='sulfuric';
-  this.meshes={};const count=world.caveWorms?.length??0;
+  this.meshes={};const count=CAVE_WORM_CAPACITY;
   for(const [name,geometry]of Object.entries(this.geometry)){
    const mesh=new THREE.InstancedMesh(geometry,this.material,Math.max(1,count*(name==='segment'?CAVE_WORM_SEGMENTS-1:name==='plate'?4:1)));mesh.count=0;mesh.name=`mini-cave-worm-${name}`;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.meshes[name]=mesh;this.group.add(mesh);
   }
@@ -30,9 +30,9 @@ export class CaveSandWormRenderer{
  }
  update(world,_animation,_reducedMotion,camera,quality={}){
   if(this.disposed)return;
-  this.group.visible=Math.abs(camera.x*25-5200)<2700&&camera.z*25< -10800&&camera.z*25> -14600;if(!this.group.visible)return;
-  const visible=(world.caveWorms??[]).filter(w=>Math.hypot(camera.x-w.x/25,camera.y-w.z/25,camera.z-w.y/25)<capRenderDistance(quality,38));
-  const key=visible.map(w=>w.id).join(',');if(this.lastTime===world.elapsed&&this.visibility===key)return;this.lastTime=world.elapsed;this.visibility=key;
+  const visible=(world.caveWorms??[]).filter(w=>!w.lifecycleInactive&&w.lifecycleHabitat!=='sulfuric-land'&&(!camera||Math.hypot(camera.x-w.x/25,camera.y-w.z/25,camera.z-w.y/25)<capRenderDistance(quality,38))).slice(0,CAVE_WORM_CAPACITY);
+  this.group.visible=visible.length>0;
+  const key=visible.map(w=>`${w.id}:${w.lifecycleAgeSeconds}:${w.lifecycleScale}:${w.lifecycleRevision??0}`).join(',');if(this.lastTime===world.elapsed&&this.visibility===key)return;this.lastTime=world.elapsed;this.visibility=key;
   let rings=0,heads=0,plates=0;
   const place=(mesh,index)=>{this.pose.updateMatrix();mesh.setMatrixAt(index,this.pose.matrix);};
   for(const worm of visible){

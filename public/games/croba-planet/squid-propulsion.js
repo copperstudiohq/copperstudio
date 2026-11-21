@@ -37,14 +37,13 @@ function waterGeometry() {
   return geometry;
 }
 
-/** Juvenile steering fins and all-age rear nozzles/water jets share five small
- * draws. Poses read simulation state, so redraws never advance time. */
+/** Rear nozzles and water jets read simulation state; redraws never advance
+ * time. The archived side-fin batch stays empty and submits no draw. */
 export class SquidPropulsion {
   /** @param {object[]} squids @param {Record<string, THREE.Material>} materials */
   constructor(squids, materials) {
     this.group = new THREE.Group(); this.group.name = 'squid-fins-and-water-jets';
     this.ids = squids.map(squid => squid.id);
-    this.adultIds = new Set(squids.filter(squid => squid.lengthMeters >= 20).map(squid => squid.id));
     this.transform = new THREE.Object3D(); this.rotation = new THREE.Quaternion();
     this.center = new THREE.Vector3();
     this.geometries = {
@@ -66,6 +65,7 @@ export class SquidPropulsion {
       mesh.name = `squid-${name}`; mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.receiveShadow = name !== 'water'; this.group.add(mesh); this.batches[name] = mesh;
     }
+    this.batches.fin.visible = false;
     this.disposed = false;
   }
 
@@ -87,7 +87,7 @@ export class SquidPropulsion {
     this.ids.forEach((id, index) => {
       const squid = squids.find(entry => entry.id === id), show = squid && !(squid.squidRespawnIn > 0) && visible(id);
       any ||= Boolean(show); this.rotation.copy(getSquidOrientation(squid ?? {}));
-      const { time, moving, pulse, underwater } = getSquidPropulsionState(squid);
+      const { moving, pulse, underwater } = getSquidPropulsionState(squid);
       for (let side = 0; side < 2; side++) {
         const slot = index * 2 + side;
         if (!show) {
@@ -98,12 +98,7 @@ export class SquidPropulsion {
         this.pose(this.batches.funnel, slot, squid, anchor, [1, 1, 1], [Math.PI / 2, 0, 0]);
         this.pose(this.batches.rim, slot, squid, [anchor[0], anchor[1], -1.15], [1, 1, 1], [0, Math.PI, 0]);
         this.pose(this.batches.bore, slot, squid, [anchor[0], anchor[1], -1.145], [.112, .112, .018], [0, 0, 0]);
-        if (this.adultIds.has(id)) this.batches.fin.setMatrixAt(slot, ZERO);
-        else {
-          const flap = reducedMotion ? 0 : Math.sin(time * Math.PI * 2 * .7) * (.12 + .09 * pulse);
-          this.pose(this.batches.fin, slot, squid, [side ? -.90 : .90, .05, -.25], [1, 1, 1], [0, 0, side ? Math.PI : 0]);
-          this.transform.rotateY(flap); this.transform.updateMatrix(); this.batches.fin.setMatrixAt(slot, this.transform.matrix);
-        }
+        this.batches.fin.setMatrixAt(slot, ZERO);
         if (underwater && moving && (reducedMotion || pulse > .04)) {
           const length = reducedMotion ? .9 : .45 + pulse * 1.3;
           this.pose(this.batches.water, slot, squid, [anchor[0], anchor[1], -1.16 - length / 2],

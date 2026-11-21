@@ -16,7 +16,7 @@ export const MAX_CROBON_OFFSPRING=8;
 /** @typedef {{incubation:Record<string,number>,offspring:PenguinOffspring[]}} PenguinBrood */
 const offspringIds=Array.from({length:MAX_CROBON_OFFSPRING},(_,index)=>`crobon-hatchling-${index}`);
 const eggIds=PENGUIN_EGG_IDS;
-const available=bird=>bird&&!bird.squidHeldBy&&!(bird.squidRespawnIn>0);
+const available=bird=>bird&&!bird.lifecycleInactive&&!bird.squidHeldBy&&!(bird.squidRespawnIn>0);
 const active=(world,bird)=>available(bird)&&Math.hypot(world.player.x-bird.x,world.player.y-bird.y)<=2000;
 const wrap=value=>Math.atan2(Math.sin(value),Math.cos(value));
 const clamp=(value,max=1)=>Math.max(0,Math.min(max,value));

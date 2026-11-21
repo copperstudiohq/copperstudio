@@ -11,7 +11,8 @@ export const CRAB_SIZE = Object.freeze({
 /** Preserve seeded variation while retiring the old giant-crab scale range. */
 export function getCrabScale(crab) {
   const scale = Number.isFinite(crab?.scale) && crab.scale > 0 ? crab.scale : 1;
-  return Math.max(.92, Math.min(1.04, scale)) * CRAB_GROWTH;
+  const growth=Number.isFinite(crab?.lifecycleScale)?Math.max(.1,Math.min(1,crab.lifecycleScale)):1;
+  return Math.max(.92, Math.min(1.04, scale)) * CRAB_GROWTH * growth;
 }
 
 /** Shared simulation cylinder for the solid carapace and carried shell.

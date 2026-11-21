@@ -1,7 +1,8 @@
 import {capRenderDistance} from './render-distance.js';
 import * as THREE from './vendor/three.module.js';
 import {buildSandWormAnatomy,SAND_WORM_PLATE_HINGE_RADIUS,SAND_WORM_MOUTH_Z} from './sand-worm-anatomy.js';
-import {SAND_WORM_SEGMENTS,SAND_WORM_SPACING_METERS,SAND_WORM_LENGTH_METERS,SAND_WORM_WIDTH_METERS} from './sand-worm.js';
+import {SAND_WORM_SEGMENTS,SAND_WORM_SPACING_METERS,SAND_WORM_LENGTH_METERS,SAND_WORM_WIDTH_METERS,SAND_WORM_RENDER_CAPACITY,sampleJuvenileSandWorm} from './sand-worm.js';
+import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 import {getSulfuricGround} from './sulfuric-biome.js';
 import {createCreatureSurfaceMaps,applyCreatureSurface} from './creature-materials.js';
 import {createBackgroundSmokeTexture} from './background-smoke-texture.js';
@@ -35,7 +36,7 @@ export class SandWormRenderer{
     const segmentBox=this.geometry.segment.boundingBox,headBox=this.geometry.head.boundingBox;
     this.segmentRadius=new THREE.Vector2(Math.max(Math.abs(segmentBox.min.x),segmentBox.max.x),Math.max(Math.abs(segmentBox.min.y),segmentBox.max.y));
     this.headScale=SAND_WORM_WIDTH_METERS/(headBox.max.x-headBox.min.x);
-    const population=Math.max(1,world.sandWorms?.length??0);this.meshes={};
+    const population=SAND_WORM_RENDER_CAPACITY;this.meshes={};this.youngPoses=new WeakMap();
     for(const [name,geometry]of Object.entries(this.geometry)){
       const capacity=population*(name==='segment'?SAND_WORM_SEGMENTS-1:name==='plate'?4:1);
       const mesh=new THREE.InstancedMesh(geometry,this.armor,capacity);mesh.count=0;mesh.name=`sand-worm-${name}`;
@@ -48,15 +49,15 @@ export class SandWormRenderer{
     this.mounds=new THREE.InstancedMesh(this.moundGeometry,this.moundMaterial,population*4);this.mounds.count=0;this.group.add(this.mounds);
     this.dustTexture=createBackgroundSmokeTexture(64);this.dustGeometry=new THREE.PlaneGeometry(1,1);
     this.dustMotion={value:1};this.time={value:0};
-    this.dustGeometry.setAttribute('wormDust',new THREE.InstancedBufferAttribute(new Float32Array(population*16*2),2).setUsage(THREE.DynamicDrawUsage));
+    this.dustGeometry.setAttribute('wormDust',new THREE.InstancedBufferAttribute(new Float32Array(population*16*3),3).setUsage(THREE.DynamicDrawUsage));
     this.dustMaterial=new THREE.MeshBasicMaterial({color:0xcab96f,map:this.dustTexture,transparent:true,opacity:.46,depthWrite:false,side:THREE.DoubleSide});this.dustMaterial.forceSinglePass=true;
     this.dustMaterial.onBeforeCompile=shader=>{
       shader.uniforms.wormTime=this.time;shader.uniforms.wormDustMotion=this.dustMotion;
-      shader.vertexShader=`uniform float wormTime,wormDustMotion;attribute vec2 wormDust;varying float dustFade;\n${shader.vertexShader}`
+      shader.vertexShader=`uniform float wormTime,wormDustMotion;attribute vec3 wormDust;varying float dustFade;\n${shader.vertexShader}`
         .replace('#include <project_vertex>',`float lift=fract(wormTime*.55*wormDustMotion+wormDust.x);
           vec4 puff=instanceMatrix*vec4(0.,0.,0.,1.);
-          puff.x+=sin(wormDust.x*57.)*lift*6.;puff.z+=cos(wormDust.x*57.)*lift*6.;puff.y+=lift*5.;
-          vec4 mvPosition=modelViewMatrix*puff;mvPosition.xy+=position.xy*(2.5+lift*7.);
+          puff.x+=sin(wormDust.x*57.)*lift*6.*wormDust.z;puff.z+=cos(wormDust.x*57.)*lift*6.*wormDust.z;puff.y+=lift*5.*wormDust.z;
+          vec4 mvPosition=modelViewMatrix*puff;mvPosition.xy+=position.xy*(2.5+lift*7.)*wormDust.z;
           dustFade=sin(lift*3.14159)*wormDust.y;
           gl_Position=projectionMatrix*mvPosition;`);
       shader.fragmentShader=`varying float dustFade;\n${shader.fragmentShader}`.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.a*=dustFade;');
@@ -77,8 +78,17 @@ export class SandWormRenderer{
   update(world,_time,reducedMotion=false,camera,quality={}){
     if(this.disposed)return;let body=0,heads=0,plates=0,mounds=0,dust=0;
     this.time.value=Number.isFinite(world.elapsed)?world.elapsed:0;this.dustMotion.value=reducedMotion?0:1;
-    for(const worm of world.sandWorms??[]){
-      if(worm.squidRespawnIn>0||worm.squidHeldBy||!worm.segments?.length||camera&&Math.hypot(worm.x/25-camera.x,worm.z/25-camera.y,worm.y/25-camera.z)>capRenderDistance(quality,quality.mobile?130:170)+SAND_WORM_LENGTH_METERS)continue;
+    for(const animal of getWildlifeRenderPopulation(world,'sand-worm')){
+      const scale=Math.max(.02,Math.min(1,Number.isFinite(animal.lifecycleScale)?animal.lifecycleScale:1));
+      if(animal.lifecycleRenderOnly&&animal.lifecycleHabitat&&animal.lifecycleHabitat!=='sulfuric-land')continue;
+      if(animal.lifecycleInactive||animal.squidRespawnIn>0||animal.squidHeldBy||camera&&Math.hypot(animal.x/25-camera.x,animal.z/25-camera.y,animal.y/25-camera.z)>capRenderDistance(quality,quality.mobile?130:170)+SAND_WORM_LENGTH_METERS*scale)continue;
+      let worm=animal;
+      if(animal.lifecycleRenderOnly){
+        let target=this.youngPoses.get(animal);if(!target){target={};this.youngPoses.set(animal,target);}
+        worm=sampleJuvenileSandWorm(animal,this.time.value,target);
+      }
+      if(!worm.segments?.length)continue;
+      const headScale=this.headScale*scale;
       for(let i=0;i<worm.segments.length;i++){
         const s=worm.segments[i],front=worm.segments[Math.max(0,i-1)],back=worm.segments[Math.min(worm.segments.length-1,i+1)];
         // Fully buried sections need no GPU work; partially exposed sections use
@@ -87,14 +97,14 @@ export class SandWormRenderer{
         this.direction.set(front.x-back.x,front.z-back.z,front.y-back.y).normalize();
         this.transform.position.set(s.x/25,s.z/25,s.y/25);
         this.transform.rotation.set(-Math.atan2(this.direction.y,Math.hypot(this.direction.x,this.direction.z)),Math.atan2(this.direction.x,this.direction.z),0,'YXZ');
-        this.transform.scale.set(s.radius/25/this.segmentRadius.x,s.radius/25/this.segmentRadius.y,SAND_WORM_SPACING_METERS*1.10);
+        this.transform.scale.set(s.radius/25/this.segmentRadius.x,s.radius/25/this.segmentRadius.y,SAND_WORM_SPACING_METERS*1.10*scale);
         if(i){this.place(this.meshes.segment,body++);continue;}
-        this.transform.scale.setScalar(this.headScale);this.place(this.meshes.head,heads++);this.headRotation.copy(this.transform.quaternion);
+        this.transform.scale.setScalar(headScale);this.place(this.meshes.head,heads++);this.headRotation.copy(this.transform.quaternion);
         for(let j=0;j<4;j++){
           this.petalRotation.setFromAxisAngle(Z,j*Math.PI/2);this.openRotation.setFromAxisAngle(X,-worm.mouthOpen*1.15);
-          this.pivot.set(0,SAND_WORM_PLATE_HINGE_RADIUS,SAND_WORM_MOUTH_Z).multiplyScalar(this.headScale).applyQuaternion(this.petalRotation).applyQuaternion(this.headRotation);
+          this.pivot.set(0,SAND_WORM_PLATE_HINGE_RADIUS,SAND_WORM_MOUTH_Z).multiplyScalar(headScale).applyQuaternion(this.petalRotation).applyQuaternion(this.headRotation);
           this.transform.position.set(s.x/25,s.z/25,s.y/25).add(this.pivot);
-          this.transform.quaternion.copy(this.headRotation).multiply(this.petalRotation).multiply(this.openRotation);this.transform.scale.setScalar(this.headScale);
+          this.transform.quaternion.copy(this.headRotation).multiply(this.petalRotation).multiply(this.openRotation);this.transform.scale.setScalar(headScale);
           this.place(this.meshes.plate,plates++);
         }
       }
@@ -102,10 +112,10 @@ export class SandWormRenderer{
       for(let j=0;j<4;j++){
         const s=worm.segments[Math.floor(j*(worm.segments.length-1)/4)],exposed=s.z>s.ground+s.radius;
         this.transform.position.set(s.x/25,s.ground/25-.02,s.y/25);this.transform.rotation.set(0,worm.time*.2+j,0);
-        this.transform.scale.setScalar(exposed?.01:.8+.2*Math.sin(worm.time*3+j));this.transform.updateMatrix();this.mounds.setMatrixAt(mounds++,this.transform.matrix);
+        this.transform.scale.setScalar((exposed?.01:.8+.2*Math.sin(worm.time*3+j))*scale);this.transform.updateMatrix();this.mounds.setMatrixAt(mounds++,this.transform.matrix);
         for(let k=0;k<4;k++){
           this.transform.position.set(s.x/25,s.ground/25+.1,s.y/25);this.transform.scale.setScalar(1);this.transform.updateMatrix();this.dust.setMatrixAt(dust,this.transform.matrix);
-          this.dustGeometry.attributes.wormDust.setXY(dust,(j*4+k)/16,strength*(exposed?.15:1));dust++;
+          this.dustGeometry.attributes.wormDust.setXYZ(dust,(j*4+k)/16,strength*(exposed?.15:1),scale);dust++;
         }
       }
     }

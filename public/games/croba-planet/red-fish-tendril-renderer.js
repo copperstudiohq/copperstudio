@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import { RED_FISH_TENDRIL_SEGMENTS, RED_FISH_TENDRIL_ROOTS, redFishTendrilRestPoint, redFishTendrilRadius } from './red-fish-tendril-physics.js';
 import { redFishAppearance } from './red-fish-skin.js';
+import {getLifecycleScale} from './lifecycle-scale.js';
 
 const finite = point => point && [point.x, point.y, point.z].every(Number.isFinite);
 
@@ -44,7 +45,7 @@ export class RedFishTendrilRenderer {
 
   fish(fish, reducedMotion = false) {
     if (this.count >= this.capacity) throw new RangeError('Red fish tendril batch exceeds its prepared population.');
-    const scale = fish.lengthMeters, stride = this.sides + 1, rings = this.points.length;
+    const scale = fish.lengthMeters*getLifecycleScale(fish), stride = this.sides + 1, rings = this.points.length;
     for (let chain = 0; chain < RED_FISH_TENDRIL_ROOTS.length; chain++) {
       redFishTendrilRestPoint(fish, chain, 0, this.rest);
       const nodes = fish.tendrilNodes?.[chain], root = nodes?.[0];

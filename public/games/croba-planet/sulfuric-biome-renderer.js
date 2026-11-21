@@ -1,6 +1,5 @@
 import {carveSaltGeyserShaft} from './salt-cave-geometry.js';
 import * as THREE from './vendor/three.module.js';
-import {PlantMesh} from './plant-mesh.js';
 import {SULFURIC_LAND as LAND,SULFURIC_PASSAGE,getSulfuricGround,createSulfuricTerrainData} from './sulfuric-biome.js';
 import {SULFURIC_VENTS} from './sulfuric-biome-data.js';
 import {createSulfuricTunnelGeometry} from './sulfuric-passage-geometry.js';
@@ -31,16 +30,8 @@ export class SulfuricBiomeRenderer{
     const uv=new Float32Array(data.positions.length/3*2);for(let i=0;i<data.positions.length/3;i++){uv[i*2]=data.positions[i*3]/4;uv[i*2+1]=data.positions[i*3+2]/4;}
     terrain.setAttribute('uv',new THREE.BufferAttribute(uv,2));terrain.computeVertexNormals();terrain.computeBoundingSphere();
     const ground=new THREE.Mesh(ownGeometry(carveSaltGeyserShaft(terrain)),stone);ground.name='sulfuric-authored-ground';this.group.add(ground);
-    const rim=new PlantMesh();
-    const edges=[[[LAND.minX,LAND.minY],[LAND.maxX,LAND.minY]],[[LAND.minX,LAND.minY],[LAND.minX,LAND.maxY]],
-      [[LAND.maxX,LAND.minY],[LAND.maxX,LAND.maxY]],[[LAND.minX,LAND.maxY],[5950,LAND.maxY]],[[6250,LAND.maxY],[LAND.maxX,LAND.maxY]]];
-    for(const [a,b]of edges){
-      const count=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/75);
-      rim.grid(2,count,(u,v)=>{const x=a[0]+(b[0]-a[0])*v,y=a[1]+(b[1]-a[1])*v,z=getSulfuricGround(x,y);
-        return new THREE.Vector3(x/25,(z+u*(175+55*Math.sin(v*count*2.1)))/25,y/25);},0x77734a);
-    }
-    const rimMaterial=ownMaterial(stone.clone());rimMaterial.side=THREE.DoubleSide;
-    this.group.add(new THREE.Mesh(ownGeometry(rim.geometry({normalizeHeight:false})),rimMaterial));
+    // The shared irregular perimeter supplies the real rim. The former
+    // rectangular ridge must not remain as a wall inside the expanded land.
     const tunnelMaterial=ownMaterial(new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.94,map:materials?.rock?.map??null,normalMap:materials?.rock?.normalMap??null,normalScale:new THREE.Vector2(.65,.65),side:THREE.DoubleSide}));
     tunnelMaterial.forceSinglePass=true;
     const tunnelGeometry=ownGeometry(createSulfuricTunnelGeometry());matchEntranceRock(tunnelMaterial,tunnelGeometry,materials?.rock,cliffSurface);

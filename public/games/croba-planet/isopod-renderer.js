@@ -7,6 +7,7 @@ import {addIsopodSegmentPivots,applyIsopodBending,bendIsopodPoint,getIsopodBodyB
 import {getIsopodOrientation,getIsopodSpinePose,isopodSpineLocalToWorld} from './isopod-frame.js';
 import {IsopodSpinePalette} from './isopod-spine-renderer.js';
 import {getIsopodLegWorldPath} from './isopod-feet.js';
+import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 
 /** Merge the fixed eye socket into the existing gold edging draw. */
 function mergeSocket(armor,socket,center){
@@ -46,7 +47,7 @@ export class GoldRockBugRenderer{
    pupil:new THREE.MeshPhysicalMaterial({color:0x050a0d,roughness:.16,clearcoat:1,clearcoatRoughness:.1}),
    glint:new THREE.MeshStandardMaterial({color:0xfff2c4,roughness:.15,emissive:0x493410,emissiveIntensity:.2})};
   if(surfaceMaps.iris)applyCreatureSurface(this.materials.iris,surfaceMaps.iris,.06);
-  this.capacity=world.isopods?.length??0;this.meshes={};this.visiblePodIds=[];
+  this.capacity=getWildlifeRenderPopulation(world,'isopod').length;this.meshes={};this.visiblePodIds=[];
   this.spines=new IsopodSpinePalette(this.capacity);
   this.bends=new THREE.InstancedBufferAttribute(new Float32Array(this.capacity),1).setUsage(THREE.DynamicDrawUsage);
   for(const name of ['shell','gold','underside']){
@@ -62,7 +63,7 @@ export class GoldRockBugRenderer{
    mesh.name=`gold-rock-bug-${name}`;mesh.count=0;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
    this.group.add(mesh);this.meshes[name]=mesh;
   }
-  this.paths=new Map();for(const pod of world.isopods??[])this.paths.set(pod.id,getIsopodAppendagePaths(0,pod.seed));
+  this.paths=new Map();for(const pod of getWildlifeRenderPopulation(world,'isopod'))this.paths.set(pod.id,getIsopodAppendagePaths(0,pod.seed));
   this.base=new THREE.Object3D();this.local=new THREE.Object3D();this.matrix=new THREE.Matrix4();
   this.start=new THREE.Vector3();this.end=new THREE.Vector3();this.direction=new THREE.Vector3();this.up=new THREE.Vector3(0,1,0);
   this.bentStart=[0,0,0];this.bentEnd=[0,0,0];
@@ -88,9 +89,9 @@ export class GoldRockBugRenderer{
  }
  update(world,time,reducedMotion=false,camera,quality={}){
   if(this.disposed)return;let count=0;this.visiblePodIds.length=0;
-  for(const pod of world.isopods??[]){
+  for(const pod of getWildlifeRenderPopulation(world,'isopod')){
    if(count>=this.capacity)break;
-   if(pod.squidRespawnIn>0||camera&&Math.hypot(pod.x/25-camera.x,pod.z/25-camera.y,pod.y/25-camera.z)>capRenderDistance(quality,quality.mobile?65:80))continue;
+   if(pod.lifecycleInactive||pod.squidRespawnIn>0||camera&&Math.hypot(pod.x/25-camera.x,pod.z/25-camera.y,pod.y/25-camera.z)>capRenderDistance(quality,quality.mobile?65:80))continue;
    if(![pod.x,pod.y,pod.z,pod.heading,pod.size].every(Number.isFinite)||pod.size<=0)continue;
    this.base.position.set(pod.x/25,pod.z/25,pod.y/25);this.base.quaternion.fromArray(getIsopodOrientation(pod,this.surfaceQuaternion));this.base.scale.setScalar(pod.size);this.base.updateMatrix();
    for(const name of ['shell','gold','underside'])this.meshes[name].setMatrixAt(count,this.base.matrix);

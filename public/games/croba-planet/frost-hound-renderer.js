@@ -3,6 +3,8 @@ import * as THREE from './vendor/three.module.js';
 import { PlantMesh } from './plant-mesh.js';
 import { createCreatureSurfaceMaps, applyCreatureSurface } from './creature-materials.js';
 import { applySealSwimming, deformSealSwimmingPoint, sealSwimmingParameters, SEAL_SWIMMING_BOUNDS } from './seal-swimming.js';
+import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
+import {getLifecycleScale} from './lifecycle-scale.js';
 
 const v=(x,y,z)=>new THREE.Vector3(x,y,z);
 function sealSection(z){
@@ -111,6 +113,7 @@ export class FrostHoundRenderer {
   constructor(world,quality={},options={}) {
     this.group=new THREE.Group();this.group.name=options.populationKey??'frost-hounds';this.disposed=false;
     this.populationKey=options.populationKey??'frostHounds';
+    this.species=this.populationKey==='voidFish'?'void-fish':'frost-hound';
     this.maps=createCreatureSurfaceMaps(options.black?'void-armor':'frost-hide',quality.mobile?64:128);
     this.faceMaps=createCreatureSurfaceMaps('horn',quality.mobile?64:128);
     this.geometry=frostHoundAnatomy(options);this.geometry.jet=new THREE.ConeGeometry(.10,1,8).rotateX(Math.PI/2);
@@ -143,7 +146,7 @@ export class FrostHoundRenderer {
     this.meshes={};this.transform=new THREE.Object3D();this.local=new THREE.Object3D();this.matrix=new THREE.Matrix4();
     this.swim={};this.nozzle=v(0,0,0);this.nozzleAhead=v(0,0,0);this.nozzleBehind=v(0,0,0);
     this.jetDirection=v(0,0,1);this.jetAxis=v(0,0,1);
-    this.ids=(world[this.populationKey]??[]).map(h=>{
+    this.ids=getWildlifeRenderPopulation(world,this.species).map(h=>{
       if(typeof h.id!=='string'||![h.x,h.y,h.z,h.heading,h.phase].every(Number.isFinite))throw new TypeError('Frost Hounds need an id and finite pose.');return h.id;
     });
     for(const kind of ['shell','face','jaw','fins','fangs','jet']){
@@ -162,12 +165,13 @@ export class FrostHoundRenderer {
     }
   }
   update(world,_time,reducedMotion=false,camera,quality={}) {
-    if(this.disposed)return;let count=0;
-    for(const h of world[this.populationKey]??[]){
-      if(h.squidRespawnIn>0||!this.ids.includes(h.id))continue;
+    if(this.disposed)return;let count=0,maximumScale=0;
+    for(const h of getWildlifeRenderPopulation(world,this.species)){
+      if(h.lifecycleInactive||h.squidRespawnIn>0||!this.ids.includes(h.id))continue;
       if(camera&&Math.hypot(h.x/25-camera.x,h.z/25-camera.y,h.y/25-camera.z)>capRenderDistance(quality,quality.mobile?42:65))continue;
       const swim=sealSwimmingParameters(h,reducedMotion,this.swim);
-      this.transform.position.set(h.x/25,h.z/25,h.y/25);this.transform.rotation.set(h.swimPitch??0,Math.PI/2-h.heading,h.swimBank??0,'YXZ');this.transform.updateMatrix();
+      const scale=getLifecycleScale(h);maximumScale=Math.max(maximumScale,scale);
+      this.transform.position.set(h.x/25,h.z/25,h.y/25);this.transform.rotation.set(h.swimPitch??0,Math.PI/2-h.heading,h.swimBank??0,'YXZ');this.transform.scale.setScalar(scale);this.transform.updateMatrix();
       for(const kind of ['shell','face','jaw','fins','fangs']){
         this.local.position.set(0,kind==='jaw'?FROST_HOUND_JAW_PIVOT.y:kind==='fangs'?-.027:0,kind==='jaw'?FROST_HOUND_JAW_PIVOT.z:kind==='fangs'?1.45:0);this.local.scale.set(1,1,1);
         this.local.rotation.set(kind==='jaw'?frostHoundJawAngle(h,reducedMotion):kind==='fangs'?1.1*Math.max(0,1-frostHoundJawAngle(h,reducedMotion)/.55):0,0,
@@ -193,7 +197,7 @@ export class FrostHoundRenderer {
     }
     for(const kind of ['shell','face','jaw','fins','fangs'])for(const key of ['sealPhase','sealPower','sealMotion'])this.geometry[kind].attributes[key].needsUpdate=true;
     this.group.visible=count>0;
-    for(const [kind,mesh]of Object.entries(this.meshes)){mesh.count=count*(kind==='jet'?2:1);mesh.instanceMatrix.needsUpdate=true;if(count){mesh.computeBoundingSphere();if(kind!=='jet')mesh.boundingSphere.radius+=kind==='fins'?SEAL_SWIMMING_BOUNDS.fins:SEAL_SWIMMING_BOUNDS.body;}}
+    for(const [kind,mesh]of Object.entries(this.meshes)){mesh.count=count*(kind==='jet'?2:1);mesh.instanceMatrix.needsUpdate=true;if(count){mesh.computeBoundingSphere();if(kind!=='jet')mesh.boundingSphere.radius+=(kind==='fins'?SEAL_SWIMMING_BOUNDS.fins:SEAL_SWIMMING_BOUNDS.body)*maximumScale;}}
   }
   dispose(){if(this.disposed)return;this.disposed=true;this.group.removeFromParent();Object.values(this.meshes).forEach(m=>m.dispose());Object.values(this.geometry).forEach(g=>g.dispose());Object.values(this.materials).forEach(m=>m.dispose());this.maps.dispose();this.faceMaps.dispose();this.group.clear();}
 }

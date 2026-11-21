@@ -1,9 +1,12 @@
 import { getCrabCollider } from "./crab-size.js";
+import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
+import {sampleJuvenileSandWorm} from './sand-worm.js';
 import { EYE_HEIGHT } from "./terrain.js";
 import { TREE_STALKER_HEIGHT, TREE_STALKER_EYE_LOCAL } from "./tree-stalker-anatomy.js";
 import { getAdultSquidHeadContact } from "./adult-squid.js";
 import {penguinGrowthScale} from './penguin-lifecycle.js';
 import { isopodLocalToWorld } from './isopod-frame.js';
+const youngWormDiscoveryPoses=new WeakMap();
 import {BESTIARY_FIELD_NOTES} from './bestiary-notes.js';
 import {tuskjawBodyAxis} from './tuskjaw-shark.js';
 import {getSulfurLizardScale} from './sulfur-lizards.js';
@@ -27,7 +30,7 @@ export const BESTIARY_SPECIES = Object.freeze([
   {"id":"red-fish","name":"Red Fish","size":"0.5 m red/purple · 1 m gray-patterned · 3 m large"},
   {id:'tuskjaw-shark',name:'Crobonic Tuskon',size:'20 m long'},
   {id:'sulfur-maw-lizard',name:'Sulfur Maw Lizard',size:'0.5 m small · 1 m body + tail large'},
-  {id:'sulfur-sand-worm',name:'Crobonic Artic Sulfur Worm',size:'1.9–2.8 m cave form · 100 m adult'},
+  {id:'sulfur-sand-worm',name:'Crobonic Artic Sulfur Worm',size:'2–5 m cave young · 100 m adult'},
 ].map(definition=>Object.freeze({...definition,...BESTIARY_FIELD_NOTES[definition.id]})));
 
 const point = (value) => value && Number.isFinite(value.x) && Number.isFinite(value.y) && Number.isFinite(value.z);
@@ -174,33 +177,38 @@ export function updateBestiary(world) {
   const eye = { x: world.player.x, y: world.player.y, z: world.player.z + EYE_HEIGHT };
   if (!point(eye)) return [];
   const checks = [
-    ['woodlon',world.woodlons,(eye,a)=>point(a)&&nearSphere(eye,{...a,z:a.z+13},9)],
+    ['woodlon',getWildlifeRenderPopulation(world,'woodlon'),(eye,a)=>point(a)&&nearSphere(eye,{...a,z:a.z+13*(a.lifecycleScale??1)},10*(a.lifecycleScale??1))],
     ['three-eye-penguin',world.penguins,(eye,bird)=>{
       if(!point(bird))return false;const scale=penguinGrowthScale(bird);return nearSphere(eye,{...bird,z:bird.z+16*scale},17*scale);
     }],
-    ["tundra-hogwong", world.hogwongs, (eye,hog) => point(hog) && nearSphere(eye,{...hog,z:hog.z+25},40)],
-    ["void-fish", world.voidFish, (eye,fish) => point(fish) && nearSphere(eye,fish,43)],
-    ["frost-hound", world.frostHounds, (eye,hound) => point(hound) && nearSphere(eye,hound,43)],
+    ["tundra-hogwong", getWildlifeRenderPopulation(world,'hogwong'), (eye,hog) => point(hog) && nearSphere(eye,{...hog,z:hog.z+25*(hog.lifecycleScale??1)},40*(hog.lifecycleScale??1))],
+    ["void-fish", getWildlifeRenderPopulation(world,'void-fish'), (eye,fish) => point(fish) && nearSphere(eye,fish,43*(fish.lifecycleScale??1))],
+    ["frost-hound", getWildlifeRenderPopulation(world,'frost-hound'), (eye,hound) => point(hound) && nearSphere(eye,hound,43*(hound.lifecycleScale??1))],
     ["lantern-jellyfish", world.jellyfish, (eye, fish) => point(fish) && positive(fish.headRadius, null) && positive(fish.tentacleLength, null) && nearCapsule(eye, fish, {...fish, z: fish.z - fish.tentacleLength}, fish.headRadius)],
-    ["coral-crab", world.crabs, nearCrab], ["ice-isopod", world.isopods, nearIsopod],
+    ["coral-crab", getWildlifeRenderPopulation(world,'crab'), nearCrab], ["ice-isopod", getWildlifeRenderPopulation(world,'isopod'), nearIsopod],
     ["arctic-squid", world.squids, nearSquid],
     ["arctic-squid", world.adultSquids, (eye, squid) => nearSquid(eye, squid, true)],
     ["ice-centipede", world.centipedes, nearCentipede],
     ["tree-stalker", world.treeStalkers, nearTreeStalker],
-    ["red-fish", world.redFish, (eye, fish) => point(fish) && positive(fish.lengthMeters, null) && nearSphere(eye, fish, fish.lengthMeters * .64 * 25)],
+    ["red-fish", getWildlifeRenderPopulation(world,'red-fish'), (eye, fish) => point(fish) && positive(fish.lengthMeters, null) && nearSphere(eye, fish, fish.lengthMeters * .64 * 25*(fish.lifecycleScale??1))],
     ['tuskjaw-shark',world.tuskjawSharks,(eye,shark)=>point(shark)&&nearCapsule(eye,...tuskjawBodyAxis(shark),45)],
-    ['sulfur-maw-lizard',world.sulfurLizards,(eye,a)=>{
+    ['sulfur-maw-lizard',getWildlifeRenderPopulation(world,'sulfur-lizard'),(eye,a)=>{
       if(!point(a)||!Number.isFinite(a.heading))return false;
       const scale=getSulfurLizardScale(a),fx=Math.cos(a.heading)*scale,fy=Math.sin(a.heading)*scale;
       return nearCapsule(eye,{x:a.x-fx*12,y:a.y-fy*12,z:a.z+10*scale},
         {x:a.x+fx*16,y:a.y+fy*16,z:a.z+10*scale},12*scale);
     }],
     ['sulfur-sand-worm',world.caveWorms,(eye,worm)=>list(worm?.segments).some(s=>point(s)&&positive(s.radius,null)&&nearSphere(eye,s,s.radius))],
-    ['sulfur-sand-worm',world.sandWorms,(eye,a)=>list(a?.segments).some(s=>point(s)&&positive(s.radius,null)&&Number.isFinite(s.ground)&&s.z+s.radius>s.ground&&nearSphere(eye,s,s.radius))],
+    ['sulfur-sand-worm',getWildlifeRenderPopulation(world,'sand-worm'),(eye,animal)=>{
+      if(animal?.lifecycleRenderOnly&&animal.lifecycleHabitat!=='sulfuric-land')return false;
+      let worm=animal;
+      if(animal?.lifecycleRenderOnly){let pose=youngWormDiscoveryPoses.get(animal);if(!pose){pose={};youngWormDiscoveryPoses.set(animal,pose);}worm=sampleJuvenileSandWorm(animal,world.elapsed,pose);}
+      return list(worm?.segments).some(s=>point(s)&&positive(s.radius,null)&&Number.isFinite(s.ground)&&s.z+s.radius>s.ground&&nearSphere(eye,s,s.radius));
+    }],
   ];
   const found = [];
   for (const [id, animals, near] of checks) {
-    if (recorded(world, id) || !list(animals).some((animal) => !(animal?.squidRespawnIn > 0) && near(eye, animal))) continue;
+    if (recorded(world, id) || !list(animals).some((animal) => !animal?.lifecycleInactive && !(animal?.squidRespawnIn > 0) && near(eye, animal))) continue;
     if (!world.bestiary || typeof world.bestiary !== "object" || Array.isArray(world.bestiary)) world.bestiary = {};
     world.bestiary[id] = { firstSeenAt: Number.isFinite(world.elapsed) ? Math.max(0, world.elapsed) : 0 };
     found.push(id);

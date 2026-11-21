@@ -175,6 +175,7 @@ export class CrabColony {
     this.materials.contactShadow = new THREE.MeshBasicMaterial({ color: 0x102e33,
       alphaMap: shadowMap, transparent: true, opacity: .27, depthWrite: false });
     this.ownedMaterials.push(this.materials.contactShadow);
+    this.descriptors=descriptors;
     this.crabs = descriptors.map(descriptor => {
       const crab = createCrab(descriptor, this.geometries, this.materials);
       this.group.add(crab.root); syncRoot(crab); poseCrab(crab, 0, true); return crab;
@@ -185,8 +186,13 @@ export class CrabColony {
   /** @param {number} time @param {number} dt @param {boolean} [reducedMotion]
    * @param {THREE.Vector3} [cameraPosition] @param {{mobile?:boolean}} [quality]
    * @param {CrabVisibility} [visibility] */
-  update(time, dt, reducedMotion = false, cameraPosition, quality = {}, visibility) {
+  update(time, dt, reducedMotion = false, cameraPosition, quality = {}, visibility,descriptors=this.descriptors) {
     if (this.disposed || !Number.isFinite(time) || !Number.isFinite(dt) || dt < 0) return;
+    if(descriptors!==this.descriptors){
+      const byId=new Map(descriptors.map(animal=>[animal.id,animal]));
+      for(const crab of this.crabs){const descriptor=byId.get(crab.descriptor.id);if(descriptor)crab.descriptor=descriptor;}
+      this.descriptors=descriptors;
+    }
     if (dt > 0) this.time = time;
     const direction = visibility?.cameraDirection;
     const length = direction && Math.hypot(direction.x, direction.y, direction.z);
@@ -198,7 +204,7 @@ export class CrabColony {
       // Position is authoritative even while culled, held, or returning as prey.
       syncRoot(crab);
       crab.viewDistanceSquared = cameraPosition ? crab.root.position.distanceToSquared(cameraPosition) : 0;
-      crab.root.visible = !(crab.descriptor.squidRespawnIn > 0) &&
+      crab.root.visible = !crab.descriptor.lifecycleInactive && !(crab.descriptor.squidRespawnIn > 0) &&
         (!cameraPosition || crab.viewDistanceSquared < capRenderDistance(quality,quality?.mobile ? 65 : 125) ** 2);
       if (crab.root.visible && Number.isFinite(fogDepth)) {
         this.visibilitySphere.copy(crab.localBounds).applyMatrix4(crab.root.matrixWorld);

@@ -1,4 +1,6 @@
 import {juvenileEscapeGoal} from './squid-intelligence.js';
+import { prepareJuvenileSquidStroke, applySquidAscentStroke } from './squid-ascent-stroke.js';
+import { getJuvenileSquidJetBeat } from './juvenile-squid-swim.js';
 import { BLUE_OCEAN_START_X, EYE_HEIGHT, WATER_LEVEL, WORLD_BOUNDS,
   getIceDepth, getIceScale, getPlatformVertices, pointInPolygon } from "./terrain.js";
 import { getSeabedHeight } from "./seabed.js";
@@ -199,6 +201,32 @@ function capsuleContacts(a, b, fixedA, local, player, probe, limbRadius, body) {
   }
 }
 
+function stretchedArm(arm) {
+  const minSquared = (LINK - .25) ** 2, maxSquared = (LINK + .25) ** 2;
+  for (let joint = 1; joint <= SQUID_SEGMENTS; joint++) {
+    const a = arm[joint - 1], b = arm[joint];
+    const squared = (b.x - a.x) ** 2 + (b.y - a.y) ** 2 + (b.z - a.z) ** 2;
+    if (squared < minSquared || squared > maxSquared) return true;
+  }
+  return false;
+}
+
+/** A final capsule projection can stretch a link beside uneven ice. Reconcile
+ * only those contact-disturbed arms, retaining collision as the final operation
+ * on every bounded pass. Ordinary open-water arms take the cheap length gate.
+ */
+function reconcileArmContacts(arm, local, player, probe, squid) {
+  for (let pass = 0; pass < 3 && stretchedArm(arm); pass++) {
+    for (let joint = SQUID_SEGMENTS; joint >= 1; joint--) constraint(arm[joint - 1], arm[joint], LINK, joint === 1);
+    for (let joint = 1; joint <= SQUID_SEGMENTS; joint++) {
+      constraint(arm[joint - 1], arm[joint], LINK, joint === 1);
+      contact(arm[joint], armRadius(joint), local, player, squid);
+    }
+    for (let joint = 1; joint <= SQUID_SEGMENTS; joint++)
+      capsuleContacts(arm[joint - 1], arm[joint], joint === 1, local, player, probe, armRadius(joint - 1), squid);
+  }
+}
+
 function integrate(p, dt, ax, ay, az) {
   const damping = Math.exp(-2.8 * dt);
   const vx = Math.max(-2, Math.min(2, (p.x - p.px) * damping));
@@ -258,7 +286,11 @@ function swimmingAcceleration(squid, motion, local, escape) {
   dx += avoidX * 0.12; dy += avoidY * 0.12; dz += avoidZ * 0.12;
   const corrected = Math.hypot(dx, dy, dz) || 1;
   const burst = Boolean(escape) || (motion.time + squid.seed % 7) % 8 < 1.1;
-  const speed = (burst ? 150 : 105 + Math.sin(motion.time * 0.8 + squid.seed) * 12) * motion.speedScale;
+  // Calm juveniles cruise at roughly 2 m/s; a short escape remains quicker.
+  // Thrust and the physical arm stroke share the same slow jet/refill beat.
+  const jet = getJuvenileSquidJetBeat(motion.time, squid.seed);
+  const speed = (burst ? 75 : 50 + Math.sin(motion.time * 0.8 + squid.seed) * 6)
+    * (.85 + .3 * jet) * motion.speedScale;
   const desired = { x: dx / corrected * speed, y: dy / corrected * speed, z: dz / corrected * speed };
   const vx = (squid.x - squid.px) / STEP, vy = (squid.y - squid.py) / STEP, vz = (squid.z - squid.pz) / STEP;
   const acceleration = { x: (desired.x - vx) * 8 + vx * 2.8,
@@ -288,6 +320,9 @@ function substep(squid, local, player, time, probe, world) {
     if (Math.hypot(motion.vx, motion.vy) > 2) squid.heading = Math.atan2(motion.vy, motion.vx);
   }
   anchors(squid);
+  const stroke = prepareJuvenileSquidStroke(squid, motion.speedScale > 0 ? motion.vx : 0,
+    motion.speedScale > 0 ? motion.vy : 0, motion.speedScale > 0 ? motion.vz : 0,
+    motion.time, motion.escapeLeft > 0);
   for (let arm = 0; arm < SQUID_TENTACLE_COUNT; arm++) {
     for (let joint = 1; joint <= SQUID_SEGMENTS; joint++) {
       const p = squid.tentacles[arm][joint];
@@ -297,6 +332,7 @@ function substep(squid, local, player, time, probe, world) {
       p.px += deltaX * carry; p.py += deltaY * carry; p.pz += deltaZ * carry;
       const angle = arm * TAU / SQUID_TENTACLE_COUNT;
       const target = squidLocalToWorld(squid, -Math.sin(angle) * 11, -9 - joint * LINK, Math.cos(angle) * 11);
+      applySquidAscentStroke(target, squid.tentacles[arm][0], arm, joint, SQUID_SEGMENTS, SQUID_TENTACLE_LENGTH, stroke);
       const targetVX = (target.x - (p.tx ?? target.x) - deltaX * carry) / STEP;
       const targetVY = (target.y - (p.ty ?? target.y) - deltaY * carry) / STEP;
       const targetVZ = (target.z - (p.tz ?? target.z) - deltaZ * carry) / STEP;
@@ -323,6 +359,7 @@ function substep(squid, local, player, time, probe, world) {
   for (const arm of squid.tentacles) {
     for (let joint = 1; joint <= SQUID_SEGMENTS; joint++)
       capsuleContacts(arm[joint - 1], arm[joint], joint === 1, local, player, probe, armRadius(joint - 1), squid);
+    reconcileArmContacts(arm, local, player, probe, squid);
   }
   // Player contact never changes the player or suit: only the passive animal reacts.
   contact(squid, SQUID_HEAD_RADIUS, local, null);

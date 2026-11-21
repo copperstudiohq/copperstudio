@@ -18,6 +18,9 @@ import { getBestiaryEntries,selectBestiaryEntries } from "./bestiary.js";
 import { playAdultScreech } from "./squid-audio.js";
 import { createForestAudio } from "./forest-audio.js";
 import { createSandWormAudio } from './sand-worm-audio.js';
+import {createRegionMusic} from './region-music.js';
+import {createRegionalAmbientNoise} from './regional-ambient-noise.js';
+import {createOpeningFlightPlayer} from './opening-flight-player.js';
 import { WATER_LEVEL, BLUE_OCEAN_START_X, BLUE_OCEAN_DEPTH_METERS } from "./terrain.js";
 import {
   createLookState,
@@ -82,6 +85,8 @@ try {
   let forestAudio = null;
   let forestAudioAvailable = true;
   let sandWormAudio=null,sandWormAudioAvailable=true;
+  const regionMusic=createRegionMusic();
+  const regionalAmbientNoise=createRegionalAmbientNoise();
   let lastHudUpdate = -1;
   let lookIsTouch = false;
   let lastTouchTime = -Infinity;
@@ -94,6 +99,10 @@ try {
   const motionPreference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   let reducedMotion = motionPreference?.matches ?? false;
   scene.reducedMotion = reducedMotion;
+  const openingPlayer=createOpeningFlightPlayer({document,
+    drawWake(){scene.setLook(look.yaw,look.pitch);scene.draw(world,0,0,false);},
+    onComplete(event){scene.resetView();previousTime=null;nextSceneTime=null;sceneDirty=true;setPaused(false);startGame(event);},
+  });
 
   function pointerLocked() {
     return document.pointerLockElement === scene.canvas;
@@ -178,6 +187,8 @@ try {
     if (paused) stopAdultCall();
     if (paused) stopForestAudio();
     if (paused) stopSandWormAudio();
+    if (paused) regionMusic.stop();
+    if (paused) regionalAmbientNoise.stop();
     updateEncounter();
     if (ambient && audio)
       ambient.gain.setTargetAtTime(
@@ -365,12 +376,26 @@ try {
     requestLook(event);
   }
 
+  function beginOpening(){
+    if(graphicsLost||document.hidden)return;
+    started=false;hasSession=false;scene.playing=false;
+    releaseLook();clearInput();simulationClock.reset();
+    stopAdultCall();stopForestAudio();stopSandWormAudio();regionMusic.reset();regionalAmbientNoise.reset();
+    menu.close();bestiary.close();expeditionUI?.close();
+    document.body.classList.remove('playing');
+    element('intro').classList.add('hidden');element('main-menu-backdrop').classList.add('hidden');
+    setPaused(false);previousTime=null;nextSceneTime=null;
+    if(openingPlayer.start())element('opening-skip').focus({preventScroll:true});
+  }
+
   function resetGame(event) {
     if (graphicsLost || document.hidden) return;
     element("graphics-notice").classList.add("hidden");
     stopAdultCall();
     stopForestAudio();
     stopSandWormAudio();
+    regionMusic.reset();
+    regionalAmbientNoise.reset();
     lastCallingAdult = "";
     lastAdultCallTime = -Infinity;
     menu.close();
@@ -382,7 +407,7 @@ try {
     Object.assign(look, createLookState());
     scene.resetView();
     setPaused(false);
-    startGame(event);
+    beginOpening();
     lastHudUpdate = -1;
     lastThreatAnnouncement = "";
     lastThreatKind = "";
@@ -506,6 +531,8 @@ try {
       }
       soundEnabled = !soundEnabled;
       if (soundEnabled) {
+        regionMusic.activate(audio);
+        regionalAmbientNoise.activate(audio);
         await audio.resume();
         if (soundEnabled) {
           ambient.gain.setTargetAtTime(
@@ -519,6 +546,8 @@ try {
         stopAdultCall();
         stopForestAudio();
         stopSandWormAudio();
+        regionMusic.stop();
+        regionalAmbientNoise.stop();
         lastCallingAdult = "";
         ambient.gain.setTargetAtTime(0, audio.currentTime, 0.3);
       }
@@ -530,7 +559,11 @@ try {
       element("sound").innerHTML = soundEnabled
         ? '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m11 5-5 4H3v6h3l5 4V5Zm5 3c2 2 2 6 0 8m3-11c4 4 4 10 0 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
         : '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m11 5-5 4H3v6h3l5 4V5Zm5 4 5 6m0-6-5 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+      element('opening-sound').setAttribute('aria-pressed',String(soundEnabled));
+      element('opening-sound').textContent=soundEnabled?'Sound on':'Sound off';
     } catch (error) {
+      regionMusic.stop();
+      regionalAmbientNoise.stop();
       console.warn("Croba Planet: audio could not start.", error);
       soundAvailable = false;
       element("sound").setAttribute(
@@ -678,7 +711,7 @@ try {
   expeditionUI=setupExpeditionUI({world,look,document,window,
     pause(){menu.close();bestiary.close();setPaused(true);},
     resume(){setPaused(false);sceneDirty=true;focusGame();},
-    load(){stopAdultCall();stopForestAudio();stopSandWormAudio();scene.resetView();setPaused(false);startGame();lastHudUpdate=-1;},
+    load(){openingPlayer.cancel();stopAdultCall();stopForestAudio();stopSandWormAudio();regionMusic.stop();regionalAmbientNoise.stop();scene.resetView();setPaused(false);startGame();lastHudUpdate=-1;},
     isPlaying:()=>started,isEncounter:()=>Boolean(activeEncounter()),
     changed(){sceneDirty=true;lastHudUpdate=-1;}
   });
@@ -694,6 +727,7 @@ try {
     element('main-menu-status').textContent=hasSession?'Your current expedition is paused. Continue where you left off.':latest?'Last saved: '+latest.name:'Start a new expedition or load a saved journey.';
   }
   function returnToMainMenu(){
+    openingPlayer.cancel();
     expeditionUI.beforeReset();menu.close();bestiary.close();expeditionUI.close();
     started=false;scene.playing=false;setPaused(true);sceneDirty=true;nextSceneTime=null;sceneDelta=0;
     document.body.classList.remove('playing');element('intro').classList.remove('hidden');element('main-menu-backdrop').classList.remove('hidden');
@@ -705,7 +739,9 @@ try {
   element('main-saves').addEventListener('click',()=>expeditionUI.openSaves());
   element('main-guide').addEventListener('click',openMenu);
   element('return-main-menu').addEventListener('click',returnToMainMenu);
-  element("start").addEventListener("click",event=>{if(hasSession)resetGame(event);else{setPaused(false);startGame(event);}});
+  element("start").addEventListener("click",event=>{if(hasSession)resetGame(event);else beginOpening();});
+  element('opening-skip').addEventListener('click',event=>openingPlayer.skip(event));
+  element('opening-sound').addEventListener('click',toggleSound);
   updateMainMenu();
   element("help").addEventListener("click", openMenu);
   element("bestiary-toggle").addEventListener("click", (event) => bestiary.open ? closeBestiary(event) : openBestiary());
@@ -745,6 +781,7 @@ try {
       : "The view has recovered. Close this guide when you are ready to continue.";
     notice.classList.remove("hidden");
     if (lost) {
+      if(openingPlayer.active){openingPlayer.cancel();returnToMainMenu();}
       openMenu();
       notice.focus();
     }
@@ -780,6 +817,11 @@ try {
     "Escape",
   ]);
   window.addEventListener("keydown", (event) => {
+    if(openingPlayer.active){
+      if(event.code==='Escape'){event.preventDefault();if(!event.repeat)openingPlayer.skip(event);}
+      else if(gameKeys.has(event.code)&&event.target!==element('opening-skip')&&event.target!==element('opening-sound'))event.preventDefault();
+      return;
+    }
     if (!gameKeys.has(event.code)) return;
     if (
       event.target instanceof HTMLElement &&
@@ -900,6 +942,7 @@ try {
     previousTime = null;
     nextSceneTime = null;
     sceneDelta = 0;
+    if(openingPlayer.active){setPaused(Boolean(document.hidden));return;}
     if (document.hidden) {
       simulationClock.reset();
       if (!anyDialogOpen()) openMenu();
@@ -966,6 +1009,15 @@ try {
     const time = milliseconds / 1000;
     const dt = previousTime === null ? 0 : Math.max(0, Math.min(time - previousTime, 0.05));
     previousTime = time;
+    if(openingPlayer.active){
+      openingPlayer.advance(dt,{paused:paused||graphicsLost});
+      regionMusic.update(world,dt,{started:true,paused,soundEnabled,contextRunning:audio?.state==='running',cinematic:true});
+      regionalAmbientNoise.update(world,dt,{started:true,paused,soundEnabled,contextRunning:audio?.state==='running',cinematic:true});
+      if(!graphicsLost&&(nextSceneTime===null||time>=nextSceneTime)){
+        openingPlayer.draw(scene.renderer,{aspect:scene.camera.aspect,reducedMotion});nextSceneTime=time+1/30;
+      }
+      requestAnimationFrame(frame);return;
+    }
     updateEncounter();
     if (started && !paused && !activeEncounter()) {
       const turn =
@@ -1008,6 +1060,8 @@ try {
     updateAdultCall();
     updateForestAudio(dt);
     updateSandWormAudio();
+    regionMusic.update(world,dt,{started,paused,soundEnabled,contextRunning:audio?.state==='running',ducked:Boolean(adultCall)||Boolean(activeEncounter())});
+    regionalAmbientNoise.update(world,dt,{started,paused,soundEnabled,contextRunning:audio?.state==='running',ducked:Boolean(adultCall)||Boolean(activeEncounter())});
     scene.setLook(look.yaw, look.pitch);
     // Simulation, input and audio retain their own RAF time. Accumulate skipped
     // render deltas so water, foliage and capture cameras still run at real speed.
@@ -1054,6 +1108,9 @@ try {
       stopAdultCall();
       stopForestAudio();
       stopSandWormAudio();
+      regionMusic.dispose();
+      regionalAmbientNoise.dispose();
+      openingPlayer.dispose();
       audio?.close().catch(() => {});
       scene.dispose();
     },

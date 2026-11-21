@@ -1,0 +1,17 @@
+.opening-cinematic{position:fixed;inset:0;z-index:200;color:#f1f6f8;pointer-events:none}
+.opening-cinematic[hidden]{display:none}
+.opening-cinematic::before,.opening-cinematic::after{content:"";position:absolute;left:0;right:0;height:9vh;background:#02070d;z-index:2}
+.opening-cinematic::before{top:0}.opening-cinematic::after{bottom:0}
+.opening-controls{position:absolute;top:max(18px,env(safe-area-inset-top));right:max(22px,env(safe-area-inset-right));display:flex;gap:10px;z-index:5;pointer-events:auto}
+.opening-controls button{min-height:44px;padding:10px 16px;border:1px solid #adccd14d;border-radius:7px;background:#07141de8;color:#edf4f8;font:inherit;font-size:14px;cursor:pointer}
+.opening-controls button:hover,.opening-controls button:focus-visible{background:#28414e;outline:2px solid #9cd2df;outline-offset:2px}
+.opening-copy{position:absolute;bottom:11vh;left:max(32px,env(safe-area-inset-left));max-width:min(620px,calc(100% - 64px));z-index:4;text-shadow:0 2px 15px #000}
+.opening-copy>span{font-size:12px;letter-spacing:.19em;color:#bdcdd5}
+.opening-copy h2{font-size:clamp(24px,4vw,44px);letter-spacing:-.04em;margin:9px 0;line-height:1.08}
+.opening-copy p{font-size:clamp(16px,1.6vw,19px);line-height:1.5;margin:0;max-width:55ch}
+.opening-copy progress{display:block;height:2px;width:160px;margin-top:20px;border:0;appearance:none;opacity:.6}
+.opening-copy progress::-webkit-progress-bar{background:#ffffff30}.opening-copy progress::-webkit-progress-value{background:#e1f0f6}
+.opening-fade{position:absolute;inset:0;background:#02070b;opacity:0;z-index:3}
+body.opening>.topbar,body.opening>main,body.opening>#quick-slots,body.opening>.vignette,body.opening>.footer,body.opening>#building-actions{display:none!important}
+@media(max-width:700px){.opening-cinematic::before,.opening-cinematic::after{height:7vh}.opening-copy{left:20px;bottom:9vh;max-width:calc(100% - 40px)}.opening-controls{right:15px;top:12px;gap:6px}.opening-controls button{padding:8px 12px}.opening-copy>span{font-size:11px}.opening-copy h2{font-size:27px}}
+@media(prefers-reduced-motion:reduce){.opening-copy progress{display:none}}

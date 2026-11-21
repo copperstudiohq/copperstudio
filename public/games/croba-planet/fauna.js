@@ -70,10 +70,10 @@ export function updateFauna(world, dt) {
   const delta = Math.min(0.05, dt);
   const time = world.elapsed || 0;
   for (const pod of world.isopods ?? []) {
-    if (pod.squidHeldBy || pod.squidRespawnIn > 0) {
+    if (pod.lifecycleInactive || pod.squidHeldBy || pod.squidRespawnIn > 0) {
       pod.crawling = false; pod.crawlTurn = 0; continue;
     }
-    updateIsopodSurface(world, pod, time, delta);
+    updateIsopodSurface(world, pod, time, delta*(pod.lifecycleSpeedScale??1));
     updateIsopodGaze(world,pod,delta);
   }
   let nearest = Infinity;

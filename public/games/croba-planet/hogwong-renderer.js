@@ -4,6 +4,7 @@ import { PlantMesh } from './plant-mesh.js';
 import { createCreatureSurfaceMaps,applyCreatureSurface } from './creature-materials.js';
 import { HOGWONG_FEET,hogwongTailPoint } from './tundra-hogwongs.js';
 import { addHogwongFur,applyHogwongFur } from './hogwong-fur.js';
+import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 const v=(x,y,z)=>new THREE.Vector3(x,y,z),UP=v(0,1,0);
 export const HOGWONG_COLORS=Object.freeze({hide:0x626b70,belly:0x899093,fur:0xe7eeed,
   beak:0x737e85,beakTip:0x414b53,spine:0x59656d,tail:0x424a53});
@@ -165,11 +166,12 @@ const tailRadius=joint=>.13*(1-joint/8)**1.1+.006;
 /** Five shared batches render all Hogwongs; the tail and legs are articulated. */
 export class HogwongRenderer {
   constructor(world,quality={}){
-    for(const h of world.hogwongs??[])if(typeof h.id!=='string'||![h.x,h.y,h.z,h.heading,h.phase].every(Number.isFinite))throw new TypeError('Hogwongs need a named, finite pose and animation phase.');
+    const population=getWildlifeRenderPopulation(world,'hogwong');
+    for(const h of population)if(typeof h.id!=='string'||![h.x,h.y,h.z,h.heading,h.phase].every(Number.isFinite))throw new TypeError('Hogwongs need a named, finite pose and animation phase.');
     this.group=new THREE.Group();this.group.name='tundra-hogwongs';this.disposed=false;
     this.maps=createCreatureSurfaceMaps('hogwong-hide',quality.mobile?64:128);
     this.beakMaps=createCreatureSurfaceMaps('horn',quality.mobile?64:128);this.geometry=hogwongAnatomy(quality);
-    const count=world.hogwongs?.length??0;this.geometry.tail=hogwongTailGeometry(count);
+    const count=population.length;this.geometry.tail=hogwongTailGeometry(count);
     this.materials={body:applyHogwongFur(applyCreatureSurface(new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.94}),this.maps,.28)),
       face:applyCreatureSurface(new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.65}),this.beakMaps,.10),tail:new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.8})};
     this.materials.tail.onBeforeCompile=shader=>{
@@ -186,14 +188,15 @@ export class HogwongRenderer {
   }
   update(world,_time,reducedMotion=false,camera,quality={}){
     if(this.disposed)return;let count=0;
-    for(const h of world.hogwongs??[]){
-      if(h.squidRespawnIn>0||camera&&Math.hypot(h.x/25-camera.x,h.z/25-camera.y,h.y/25-camera.z)>capRenderDistance(quality,quality.mobile?45:70))continue;
-      this.base.position.set(h.x/25,h.z/25,h.y/25);this.base.rotation.set(0,Math.PI/2-h.heading,0);this.base.updateMatrix();
+    for(const h of getWildlifeRenderPopulation(world,'hogwong')){
+      if(h.lifecycleInactive||h.squidRespawnIn>0||camera&&Math.hypot(h.x/25-camera.x,h.z/25-camera.y,h.y/25-camera.z)>capRenderDistance(quality,quality.mobile?45:70))continue;
+      const scale=Number.isFinite(h.lifecycleScale)?Math.max(.1,Math.min(1,h.lifecycleScale)):1;
+      this.base.position.set(h.x/25,h.z/25,h.y/25);this.base.rotation.set(0,Math.PI/2-h.heading,0);this.base.scale.setScalar(scale);this.base.updateMatrix();
       this.pose.position.copy(this.base.position);
       const stride=h.stridePhase??h.phase*3,walkBlend=h.walkBlend??Math.min(1,h.speed/15);
       if(!reducedMotion)this.pose.position.y+=Math.sin(h.phase*.9)*.006+Math.sin(stride*2)*walkBlend*.012;
       const biteDip=!reducedMotion&&h.state==='biting'?Math.sin(Math.PI*Math.max(0,Math.min(1,h.biteProgress??0)))*.14:0;
-      this.pose.rotation.set((h.pitch??0)+biteDip,Math.PI/2-h.heading,h.roll??0,'YXZ');this.pose.updateMatrix();
+      this.pose.rotation.set((h.pitch??0)+biteDip,Math.PI/2-h.heading,h.roll??0,'YXZ');this.pose.scale.setScalar(scale);this.pose.updateMatrix();
       this.meshes.body.setMatrixAt(count,this.pose.matrix);this.meshes.face.setMatrixAt(count,this.pose.matrix);
       this.local.position.set(0,HOGWONG_BEAK_HINGE.y,HOGWONG_BEAK_HINGE.z);this.local.rotation.set(hogwongBeakAngle(h,reducedMotion),0,0);this.local.scale.set(1,1,1);this.local.updateMatrix();
       this.matrix.multiplyMatrices(this.pose.matrix,this.local.matrix);this.meshes.mouth.setMatrixAt(count,this.matrix);
@@ -204,7 +207,7 @@ export class HogwongRenderer {
         const lift=reducedMotion?0:Math.max(0,Math.sin(cycle))*walking*.065;
         const reach=reducedMotion?0:Math.cos(cycle)*walking*.075;
         const floor=h.squidHeldBy?h.z:h.feet?.[foot]??h.z;
-        this.local.position.set(x,.60+(floor-h.z)/25+lift,z+reach);this.local.rotation.set(gait,0,Math.sign(x)*.28);this.local.scale.set(1,1,1);this.local.updateMatrix();
+        this.local.position.set(x,.60+(floor-h.z)/(25*scale)+lift,z+reach);this.local.rotation.set(gait,0,Math.sign(x)*.28);this.local.scale.set(1,1,1);this.local.updateMatrix();
         this.matrix.multiplyMatrices(this.base.matrix,this.local.matrix);this.meshes.legs.setMatrixAt(count*6+foot,this.matrix);
       }
       for(let joint=0;joint<8;joint++){

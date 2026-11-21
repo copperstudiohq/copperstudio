@@ -8,6 +8,7 @@ import { createFlora } from "./flora.js";
 import { getIceSpikes } from "./ice-spikes.js";
 import { isForestAt } from "./forest-terrain.js";
 import { BLUE_OCEAN_START_X, BLUE_OCEAN_FLOOR, SEABED_LEVEL, WORLD_BOUNDS } from "./terrain.js";
+import {PREPARED_PERIMETER_BORDERS} from './world-perimeter-data.js';
 export { BLUE_OCEAN_START_X, WORLD_BOUNDS } from "./terrain.js";
 
 /** @typedef {{id:string,x:number,y:number,rx:number,ry:number,kind:'iceberg'|'stone',height:number,baseZ:number,seed:number}} Border */
@@ -34,47 +35,8 @@ export function getWorldBiome(world, x, y, underwater = false) {
   return underwater && world.arcticGardens ? getArcticGarden(x,y)?.region.id ?? getBiome(x) : getBiome(x);
 }
 
-function random(seed) {
-  let state = seed >>> 0;
-  return () => {
-    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
-    return state / 4294967296;
-  };
-}
-
-/** Continuous perimeter walls, with their inner faces exactly at WORLD_BOUNDS. */
-export function createBorders(seed) {
-  const rng = random(seed ^ 0xb0ade7);
-  /** @type {Border[]} */
-  const borders = [];
-  const add = (x, y, rx, ry, kind) => borders.push({
-    id: `border-${borders.length}`, x, y, rx, ry, kind,
-    baseZ: kind === "stone" ? BLUE_OCEAN_FLOOR : SEABED_LEVEL,
-    height: (kind === "iceberg" ? 190 : 140) + rng() * 220,
-    seed: Math.floor(rng() * 0x100000000),
-  });
-  const { minX, maxX, minY, maxY } = WORLD_BOUNDS;
-  for (const [start, end, kind] of [
-    [minX - 180, BLUE_OCEAN_START_X, "iceberg"],
-    [BLUE_OCEAN_START_X, maxX + 180, "stone"],
-  ]) {
-    const count = Math.ceil((end - start) / 200);
-    const width = (end - start) / count;
-    for (let i = 0; i < count; i += 1) {
-      const x = start + width * (i + 0.5);
-      add(x, minY - 90, width / 2, 90, kind);
-      add(x, maxY + 90, width / 2, 90, kind);
-    }
-  }
-  const rows = Math.ceil((maxY - minY) / 200);
-  const height = (maxY - minY) / rows;
-  for (let i = 0; i < rows; i += 1) {
-    const y = minY + height * (i + 0.5);
-    add(minX - 90, y, 90, height / 2, "iceberg");
-    add(maxX + 90, y, 90, height / 2, "stone");
-  }
-  return borders;
-}
+/** Every expedition uses the same offline-authored irregular perimeter. */
+export function createBorders(){return structuredClone(PREPARED_PERIMETER_BORDERS);}
 
 /** Keep all ice west of the warm sea and give the 60m hunter a broad glacier. */
 export function createBiomes(archipelago) {

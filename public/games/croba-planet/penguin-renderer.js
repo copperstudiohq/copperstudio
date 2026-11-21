@@ -174,7 +174,7 @@ export class PenguinRenderer{
   if(this.disposed)return;let count=0;this.joints.begin();this.tail.begin();
   for(const bird of world.penguins??[]){
    if(count===this.capacity)break;
-   if(bird.squidRespawnIn>0||camera&&Math.hypot(bird.x/25-camera.x,bird.z/25-camera.y,bird.y/25-camera.z)>capRenderDistance(quality,quality.mobile?45:70))continue;
+   if(bird.lifecycleInactive||bird.squidRespawnIn>0||camera&&Math.hypot(bird.x/25-camera.x,bird.z/25-camera.y,bird.y/25-camera.z)>capRenderDistance(quality,quality.mobile?45:70))continue;
    const swimming=['diving','swimming','surfacing','landing'].includes(bird.state),scale=penguinGrowthScale(bird),growth=bird.offspringId?(scale-.38)/.62:1;
    const crouch=swimming?0:THREE.MathUtils.clamp(bird.nestCrouch??0,0,1),peck=reducedMotion||bird.state!=='defending'&&!bird.defendingNestId?0:Math.sin(Math.PI*THREE.MathUtils.clamp(bird.peckTime??0,0,1));
    const gait=reducedMotion||swimming?0:Math.sin(bird.stride)*Math.min(1,bird.speed/12)*(1-crouch),flap=reducedMotion||!swimming?0:Math.sin(bird.phase*9)*.35;

@@ -1,17 +1,18 @@
 import {getSaltCave} from './salt-cave.js';
 import {WORLD_BOUNDS,EYE_HEIGHT} from './terrain.js';
 import {SULFURIC_GRID as GRID,SULFURIC_HEIGHTS,SULFURIC_VENTS} from './sulfuric-biome-data.js';
+import {NEW_PERIMETER_BOUNDS,isInsidePerimeter,closestPerimeterPoint} from './world-perimeter.js';
 
 export const SULFURIC_LAND=Object.freeze({id:'sulfuric-land',name:'Sulfuric Land',...GRID});
 export const SULFURIC_PASSAGE=Object.freeze({x:6100,halfWidth:150,floor:-85,ceiling:150,frontY:-11300,innerY:-11300,outerY:-11480});
 /** Counter-clockwise arch cross-section in local X / absolute feet height. */
 export const SULFURIC_ARCH=Object.freeze([[-150,-85],[150,-85],[150,50],[128,98],[80,135],[0,150],[-80,135],[-128,98],[-150,50]].map(p=>Object.freeze(p)));
-export const SULFURIC_MAP_BOUNDS=Object.freeze({...WORLD_BOUNDS,minY:GRID.minY});
+export const SULFURIC_MAP_BOUNDS=NEW_PERIMETER_BOUNDS;
 const heights=new Float32Array(SULFURIC_HEIGHTS);
 if(heights.length!==GRID.columns*GRID.rows||!heights.every(Number.isFinite))throw new Error('Sulfuric terrain needs finite heights matching the prepared grid.');
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
-export function isSulfuricLand(x,y){return Number.isFinite(x)&&Number.isFinite(y)&&x>=GRID.minX&&x<=GRID.maxX&&y>=GRID.minY&&y<=GRID.maxY;}
+export function isSulfuricLand(x,y){return isInsidePerimeter('sulfur',x,y);}
 
 /** Exact barycentric height on the same baked triangles used by the renderer. */
 export function getSulfuricGround(x,y){
@@ -22,6 +23,7 @@ export function getSulfuricGround(x,y){
 
 function terrainHeight(x,y){
   if(!isSulfuricLand(x,y))return null;
+  x=clamp(x,GRID.minX,GRID.maxX);y=clamp(y,GRID.minY,GRID.maxY);
   const gx=(x-GRID.minX)/GRID.step,gy=(y-GRID.minY)/GRID.step;
   const c=Math.min(GRID.columns-2,Math.floor(gx)),r=Math.min(GRID.rows-2,Math.floor(gy)),u=gx-c,v=gy-r,i=r*GRID.columns+c;
   const a=heights[i],b=heights[i+1],c1=heights[i+GRID.columns],d=heights[i+GRID.columns+1];
@@ -52,19 +54,20 @@ export function sulfuricPassageWidth(top){
   return 0;
 }
 
-/** Closest point in the union of the original map, real arch and new land.
- * Keeping WORLD_BOUNDS fixed preserves all authored wildlife territories. */
+/** The irregular authored coast and unchanged height-gated arch share the
+ * same physical body clearance. WORLD_BOUNDS still anchors authored habitats. */
 export function confineSulfuricWorld(player,radius=5){
   if(![player?.x,player?.y,player?.z,radius].every(Number.isFinite)||radius<0)return false;
   if(getSaltCave(player.x,player.y,player.z,EYE_HEIGHT,radius))return false;
-  let bestX=clamp(player.x,WORLD_BOUNDS.minX+radius,WORLD_BOUNDS.maxX-radius);
-  let bestY=clamp(player.y,WORLD_BOUNDS.minY+radius,WORLD_BOUNDS.maxY-radius);
-  let distance=(bestX-player.x)**2+(bestY-player.y)**2;
+  if(isInsidePerimeter('main',player.x,player.y,radius)||isInsidePerimeter('sulfur',player.x,player.y,radius))return false;
+  const main=closestPerimeterPoint('main',player.x,player.y,radius),sulfur=closestPerimeterPoint('sulfur',player.x,player.y,radius);
+  let bestX=main.x,bestY=main.y,distance=(bestX-player.x)**2+(bestY-player.y)**2;
   const consider=(minX,maxX,minY,maxY)=>{
     const x=clamp(player.x,minX,maxX),y=clamp(player.y,minY,maxY),d=(x-player.x)**2+(y-player.y)**2;
     if(d<distance){bestX=x;bestY=y;distance=d;}
   };
-  consider(GRID.minX+radius,GRID.maxX-radius,GRID.minY+radius,GRID.maxY-radius);
+  const sulfurDistance=(sulfur.x-player.x)**2+(sulfur.y-player.y)**2;
+  if(sulfurDistance<distance){bestX=sulfur.x;bestY=sulfur.y;distance=sulfurDistance;}
   const width=sulfuricPassageWidth(player.z+EYE_HEIGHT+radius)-radius;
   if(width>=0&&player.z>=getSulfuricPassageFloor(player.x,player.y)-.001)
     consider(SULFURIC_PASSAGE.x-width,SULFURIC_PASSAGE.x+width,GRID.maxY-radius,WORLD_BOUNDS.minY+radius);

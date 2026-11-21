@@ -26,12 +26,16 @@ export function updateHogwongs(world,dt) {
   if(!Number.isFinite(dt)||dt<=0)return;
   const delta=Math.min(dt,.05),player=world.player;
   for(const hog of world.hogwongs??[]){
-    if(hog.squidHeldBy||hog.squidRespawnIn>0){releaseHogwongHunt(world,hog);continue;}
+    if(hog.lifecycleInactive||hog.squidHeldBy||hog.squidRespawnIn>0){releaseHogwongHunt(world,hog);continue;}
+    if(hog.lifecycleCourting)releaseHogwongHunt(world,hog);
     hog.phase+=delta;hog.stateTime+=delta;
-    if(!updateHogwongHunt(world,hog,delta,hogwongGround)){
+    if(hog.lifecycleCourting||!updateHogwongHunt(world,hog,delta,hogwongGround)){
       const near=!player.swimming&&Math.hypot(player.x-hog.x,player.y-hog.y)<125;
       let heading=hog.heading,speed=0;
-      if(near){
+      if(hog.lifecycleCourting&&hog.lifecycleTarget){
+        const target=hog.lifecycleTarget,gap=Math.hypot(target.x-hog.x,target.y-hog.y);
+        hog.state='courting';heading=Math.atan2(target.y-hog.y,target.x-hog.x);speed=gap>90?15:0;
+      }else if(near){
         const gap=Math.hypot(player.x-hog.x,player.y-hog.y);
         hog.state=gap<75?'shying':'watching';
         heading=gap<75?Math.atan2(hog.y-player.y,hog.x-player.x):Math.atan2(player.y-hog.y,player.x-hog.x);speed=gap<75?35:0;
@@ -41,6 +45,7 @@ export function updateHogwongs(world,dt) {
         const ty=hog.homeY+Math.sin(hog.phase*.07+hog.seed)*140;
         heading=Math.atan2(ty-hog.y,tx-hog.x);
       }else hog.state='grazing';
+      speed*=hog.lifecycleSpeedScale??1;
       const turn=Math.atan2(Math.sin(heading-hog.heading),Math.cos(heading-hog.heading));
       const nextHeading=hog.heading+Math.max(-delta,Math.min(delta,turn));
       hog.speed=0;
@@ -69,17 +74,18 @@ export function updateHogwongs(world,dt) {
 }
 
 /** A solid body capsule keeps the explorer from walking through the animal. */
-export function resolveHogwongBodies(world) {
+export function resolveHogwongBodies(world,population=world.hogwongs??[]) {
   const p=world.player;
-  for(const hog of world.hogwongs??[]){
-    if(hog.squidHeldBy||hog.squidRespawnIn>0||Math.hypot(p.x-hog.x,p.y-hog.y)>65)continue;
-    const dx=Math.cos(hog.heading)*18,dy=Math.sin(hog.heading)*18;
+  for(const hog of population){
+    const scale=Number.isFinite(hog.lifecycleScale)?Math.max(.05,Math.min(1,hog.lifecycleScale)):1,radius=17*scale+5;
+    if(hog.lifecycleInactive||hog.squidHeldBy||hog.squidRespawnIn>0||Math.hypot(p.x-hog.x,p.y-hog.y)>65*scale+5)continue;
+    const dx=Math.cos(hog.heading)*18*scale,dy=Math.sin(hog.heading)*18*scale;
     const pair=closestSquidSegments({x:p.x,y:p.y,z:p.z+5},{x:p.x,y:p.y,z:p.z+EYE_HEIGHT-5},
-      {x:hog.x-dx,y:hog.y-dy,z:hog.z+27},{x:hog.x+dx,y:hog.y+dy,z:hog.z+27});
+      {x:hog.x-dx,y:hog.y-dy,z:hog.z+27*scale},{x:hog.x+dx,y:hog.y+dy,z:hog.z+27*scale});
     const x=pair.a.x-pair.b.x,y=pair.a.y-pair.b.y,z=pair.a.z-pair.b.z,d=Math.hypot(x,y,z);
-    if(d>=22)continue;
+    if(d>=radius)continue;
     const planar=Math.hypot(x,y),nx=planar>1e-6?x/planar:-Math.sin(hog.heading),ny=planar>1e-6?y/planar:Math.cos(hog.heading);
-    const cx=p.x+nx*(22-d+.1),cy=p.y+ny*(22-d+.1),ice=highestIceAt(world.platforms,cx,cy);
+    const cx=p.x+nx*(radius-d+.1),cy=p.y+ny*(radius-d+.1),ice=highestIceAt(world.platforms,cx,cy);
     if(!ice||(hog.huntPlatformId?ice.id!==hog.huntPlatformId:ice.biome!=='iceberg-tundra'))continue;
     p.x=cx;p.y=cy;if(!p.swimming&&!p.jumping)p.z=getIceSurfaceHeight(ice,cx,cy);
   }

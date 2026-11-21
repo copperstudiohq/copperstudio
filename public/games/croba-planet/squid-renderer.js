@@ -9,7 +9,11 @@ import { getSquidOrientation } from "./squid-frame.js";
 import { EYE_HEIGHT } from "./terrain.js";
 import { createCreatureSurfaceMaps, applyCreatureSurface } from "./creature-materials.js";
 import { AdultSquidDetails } from "./adult-squid-details.js";
-import { ADULT_SQUID_EYE_SCALE, ADULT_SQUID_MOUTH_LOCAL, ADULT_SQUID_EYE_LAYOUT, ADULT_SQUID_HEAD_Y_SCALE, getAdultSquidHeadYScale } from "./adult-squid-anatomy.js";
+import { JuvenileSquidDetails } from './juvenile-squid-details.js';
+import { JUVENILE_SQUID_RADIUS_SCALE, JUVENILE_SQUID_HEAD_Y_SCALE,
+  JUVENILE_SQUID_HEAD_SIDE_RATIO, JUVENILE_SQUID_EYE_SCALE,
+  JUVENILE_SQUID_EYE_LAYOUT, JUVENILE_SQUID_MOUTH_LOCAL } from './juvenile-squid-anatomy.js';
+import { ADULT_SQUID_EYE_SCALE, ADULT_SQUID_MOUTH_LOCAL, ADULT_SQUID_EYE_LAYOUT, getAdultSquidHeadYScale } from "./adult-squid-anatomy.js";
 
 const SCALE = 25;
 const ARMS = 8;
@@ -17,7 +21,6 @@ const LINKS = 8;
 const PORES = 16;
 const UP = new THREE.Vector3(0, 1, 0);
 const FORWARD = new THREE.Vector3(0, 0, 1);
-const RIGHT = new THREE.Vector3(1, 0, 0);
 const TAPER = 0.84;
 const ARM_RADIUS = 0.108;
 const ARMOR_PLATES = 8;
@@ -161,6 +164,15 @@ export class SquidRenderer {
       this.flatHeads = batch(this.group, this.geometries.flatHead, this.materials.adultBlue, count, "flat-sided-adult-mantles", true);
       this.batches.push([this.flatHeads, 1]);
     }
+    if (world.squids?.length) {
+      this.geometries.juvenileHead = paintSquidMantleStripe(flattenHeadGeometry(
+        this.geometries.head.clone(), JUVENILE_SQUID_HEAD_SIDE_RATIO));
+      this.materials.juvenileBlue = this.materials.blue.clone();
+      this.materials.juvenileBlue.vertexColors = true;
+      this.juvenileHeads = batch(this.group, this.geometries.juvenileHead,
+        this.materials.juvenileBlue, count, 'oval-armored-juvenile-mantles', true);
+      this.batches.push([this.juvenileHeads, 1]);
+    }
     const adultIds = new Set((world.adultSquids ?? []).map((squid) => squid.id));
     this.renderers = new Map(squids.map((squid, index) =>
       [squid.id, { index, adult: adultIds.has(squid.id), visible: true }]));
@@ -180,6 +192,9 @@ export class SquidRenderer {
     this.group.add(this.propulsion.group);
     this.adultDetails = new AdultSquidDetails(world, this.materials);
     if (adultIds.size) this.group.add(this.adultDetails.group);
+    this.juvenileDetails = new JuvenileSquidDetails(world, this.materials);
+    this.group.add(this.juvenileDetails.group);
+    this.isSquidVisible = id => this.renderers.get(id)?.visible === true;
     this.transform = new THREE.Object3D();
     this.bodyRotation = new THREE.Quaternion();
     this.eyeRotation = new THREE.Quaternion();
@@ -189,7 +204,6 @@ export class SquidRenderer {
     this.gazeTarget = new THREE.Vector3();
     this.pupilOffset = new THREE.Vector3();
     this.localRotation = new THREE.Quaternion();
-    this.lowerJawRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI);
     this.a = new THREE.Vector3(); this.b = new THREE.Vector3();
     this.center = new THREE.Vector3(); this.local = new THREE.Vector3();
     this.direction = new THREE.Vector3();
@@ -267,36 +281,32 @@ export class SquidRenderer {
       view.visible = !hasCamera || this.center.distanceToSquared(cameraPosition) < cutoff * cutoff;
       if (!view.visible) { this.hide(view.index); continue; }
       anyVisible = true;
-      const index = view.index, radius = squid.headRadius / SCALE;
-      const headYScale = view.adult ? getAdultSquidHeadYScale(squid) : 1;
+      const index = view.index, radius = squid.headRadius / SCALE * (view.adult ? 1 : JUVENILE_SQUID_RADIUS_SCALE);
+      const headYScale = view.adult ? getAdultSquidHeadYScale(squid) : JUVENILE_SQUID_HEAD_Y_SCALE;
       const speciesScale = squid.headRadius / 15;
       this.bodyRotation.copy(getSquidOrientation(squid));
       const targetDistance = hasTarget ? this.center.distanceToSquared(this.gazeTarget) : Infinity;
       const gazeRange = view.adult ? 60 : 10;
       const looking = targetDistance > 0.000001 && targetDistance <= gazeRange * gazeRange;
       const breathing = getSquidPropulsionState(squid).breath * (_reducedMotion ? .004 : .02);
-      const headMesh = view.adult && headSideRatio(squid) < 1 ? this.flatHeads : this.heads;
+      const headMesh = view.adult ? headSideRatio(squid) < 1 ? this.flatHeads : this.heads : this.juvenileHeads;
+      view.headMesh = headMesh;
       this.heads.setMatrixAt(index, this.hiddenMatrix);
       this.flatHeads?.setMatrixAt(index, this.hiddenMatrix);
+      this.juvenileHeads?.setMatrixAt(index, this.hiddenMatrix);
       this.pose(headMesh, index, this.center, radius * (1 + breathing), radius * headYScale * (1 + breathing * .55),
         radius * (1 + breathing), this.bodyRotation);
       for (let plate = 0; plate < ARMOR_PLATES; plate++) {
-        if (view.adult) {
-          this.armor.setMatrixAt(index * ARMOR_PLATES + plate, this.hiddenMatrix);
-          continue;
-        }
-        this.localRotation.setFromAxisAngle(UP, plate * Math.PI / 4).premultiply(this.bodyRotation);
-        this.pose(this.armor, index * ARMOR_PLATES + plate, this.center,
-          radius * 1.015 * (1 + breathing), radius * 1.015 * (1 + breathing * .55),
-          radius * 1.015 * (1 + breathing), this.localRotation);
+        // Shared plated collars now cover juveniles as well as adult bellies.
+        this.armor.setMatrixAt(index * ARMOR_PLATES + plate, this.hiddenMatrix);
       }
       for (let pore = 0; pore < PORES; pore++) {
         const vertical = -0.86 + pore / (PORES - 1) * 1.72;
         const ring = Math.sqrt(1 - vertical * vertical);
         const angle = pore * 2.399963 + (squid.seed % 41) * 0.15;
         this.direction.set(Math.cos(angle) * ring, vertical, Math.sin(angle) * ring);
-        if (view.adult) this.direction.y /= headYScale;
-        if (view.adult) this.direction.normalize();
+        this.direction.y /= headYScale;
+        this.direction.normalize();
         this.localRotation.setFromUnitVectors(UP, this.direction).premultiply(this.bodyRotation);
         this.a.set(Math.cos(angle) * ring, vertical * headYScale, Math.sin(angle) * ring)
           .applyQuaternion(this.bodyRotation).multiplyScalar(radius * .995).add(this.center);
@@ -305,34 +315,35 @@ export class SquidRenderer {
       }
       for (let row = 0; row < 2; row++) for (let column = 0; column < 2; column++) {
         const eye = row * 2 + column;
-        const eyeScale = view.adult ? (squid.eyeScale ?? ADULT_SQUID_EYE_SCALE) : 1;
-        const x = radius * (view.adult ? ADULT_SQUID_EYE_LAYOUT[eye][0] : (column ? 1 : -1) * .55);
-        const y = radius * headYScale * (view.adult ? ADULT_SQUID_EYE_LAYOUT[eye][1] : (row ? 1 : -1) * .23);
+        const eyeScale = view.adult ? (squid.eyeScale ?? ADULT_SQUID_EYE_SCALE) : JUVENILE_SQUID_EYE_SCALE;
+        const layout = view.adult ? ADULT_SQUID_EYE_LAYOUT : JUVENILE_SQUID_EYE_LAYOUT;
+        const modernEye = !view.adult || squid.designVersion === 2;
+        const x = radius * layout[eye][0];
+        const y = radius * headYScale * layout[eye][1];
         const surfaceZ = Math.sqrt(radius * radius - x * x - (y / headYScale) ** 2);
-        const eyeZ = surfaceZ + radius * (view.adult ? 0.09 * eyeScale : 0.068);
-        const irisHeight = squid.designVersion === 2 ? .12 : .085;
-        const lensDepth = view.adult ? 0.085 * eyeScale : 0.095;
+        const eyeZ = surfaceZ + radius * 0.09 * eyeScale;
+        const irisHeight = modernEye ? .12 : .085;
+        const lensDepth = 0.085 * eyeScale;
         // A modest outward tilt keeps the inner black borders above the curved head.
         this.eyeNormal.set(x, y / headYScale ** 2, surfaceZ).normalize().multiplyScalar(0.65)
           .addScaledVector(FORWARD, 0.35).normalize();
         this.eyeRotation.setFromUnitVectors(FORWARD, this.eyeNormal).premultiply(this.bodyRotation);
         this.eyes.setColorAt(index*4+eye,this.eyeTint.setHex(squid.noticedPlayer||squid.assistingHunt||squid.huntingPrey||squid.feeding?0xbb52ff:0xffd447));
         this.pose(this.eyes, index * 4 + eye, this.eyePoint(x, y, eyeZ),
-          radius * (view.adult ? .13 * eyeScale : .17), radius * (view.adult ? irisHeight * eyeScale : .155), radius * lensDepth, this.eyeRotation);
-        const pupilWidth = view.adult ? (squid.designVersion === 2 ? .062 : .075) * eyeScale : .052, pupilHeight = view.adult ? (squid.designVersion === 2 ? .030 : .018) * eyeScale : .081;
+          radius * .13 * eyeScale, radius * irisHeight * eyeScale, radius * lensDepth, this.eyeRotation);
+        const pupilWidth = (modernEye ? .062 : .075) * eyeScale, pupilHeight = (modernEye ? .030 : .018) * eyeScale;
         this.pose(this.pupils, index * 9 + eye,
           this.pupilPoint(x, y, eyeZ, radius, looking, pupilWidth, pupilHeight, lensDepth,
-            view.adult ? .72 : .85, view.adult ? irisHeight * eyeScale : .155, view.adult ? .13 * eyeScale : .17),
+            .72, irisHeight * eyeScale, .13 * eyeScale),
           radius * pupilWidth, radius * pupilHeight,
           radius * 0.017, this.eyeRotation);
-        this.pose(this.pupils, index * 9 + 5 + eye, this.eyePoint(x, y, eyeZ, -radius * 0.033 * eyeScale),
-          radius * (view.adult ? .16 * eyeScale : .204), radius * (view.adult ? (squid.designVersion === 2 ? .145 : .115) * eyeScale : .186), radius * .085 * eyeScale, this.eyeRotation);
+        const rimWidth = view.adult ? .16 : .138, rimHeight = view.adult ? (modernEye ? .145 : .115) : .127;
+        const rimDepth = view.adult ? .085 : .075, rimRecess = view.adult ? .033 : .028;
+        this.pose(this.pupils, index * 9 + 5 + eye, this.eyePoint(x, y, eyeZ, -radius * rimRecess * eyeScale),
+          radius * rimWidth * eyeScale, radius * rimHeight * eyeScale, radius * rimDepth * eyeScale, this.eyeRotation);
       }
-      const beakY = -radius * 0.34, beakZ = radius * 0.96;
       const encounter = world.squidEncounter?.squidId === id ? world.squidEncounter : squid.feeding;
       const eating = encounter?.squidId === id && encounter.phase === "eating";
-      const progress = eating && Number.isFinite(encounter.progress)
-        ? Math.max(0, Math.min(1, encounter.progress)) : 0;
       if (view.adult) {
         // The adult’s separate, hooked horn halves live in adultDetails.
         this.beaks.setMatrixAt(index * 2, this.hiddenMatrix);
@@ -342,19 +353,11 @@ export class SquidRenderer {
           this.localPoint(0, radius * headYScale * ADULT_SQUID_MOUTH_LOCAL[1], radius * (squid.designVersion === 2 ? 1.01 + breathing : .98)),
           radius * (eating ? .19 : .17), radius * headYScale * (eating ? .10 : .08), radius * (squid.designVersion === 2 ? .09 : .018), this.bodyRotation);
       } else {
-        const openAngle = eating ? .16 + progress * .58 : 0;
-        const beakReduction = .65, beakScale = radius * .65;
-        this.localRotation.setFromAxisAngle(RIGHT, -openAngle).premultiply(this.bodyRotation);
-        this.pose(this.beaks, index * 2, this.localPoint(0, beakY, beakZ),
-          beakScale, beakScale, beakScale, this.localRotation);
-        this.localRotation.setFromAxisAngle(RIGHT, openAngle)
-          .multiply(this.lowerJawRotation).premultiply(this.bodyRotation);
-        this.pose(this.beaks, index * 2 + 1, this.localPoint(0, beakY, beakZ),
-          beakScale, beakScale, beakScale, this.localRotation);
-        this.pose(this.pupils, index * 9 + 4, this.localPoint(0, beakY, beakZ + radius * 0.07 * beakReduction),
-          radius * beakReduction * (eating ? .09 : .07),
-          radius * beakReduction * (eating ? .13 : .008),
-          radius * beakReduction * (eating ? .05 : .16), this.bodyRotation);
+        this.beaks.setMatrixAt(index * 2, this.hiddenMatrix);
+        this.beaks.setMatrixAt(index * 2 + 1, this.hiddenMatrix);
+        this.pose(this.pupils, index * 9 + 4,
+          this.localPoint(0, radius * headYScale * JUVENILE_SQUID_MOUTH_LOCAL[1], radius * .99),
+          radius * .18, radius * headYScale * .11, radius * .035, this.bodyRotation);
       }
       squid.tentacles.forEach((arm, armIndex) => {
         arm.forEach((point, joint) => {
@@ -382,6 +385,7 @@ export class SquidRenderer {
       });
     }
     this.adultDetails.update(world, cameraPosition, quality, _reducedMotion);
+    this.juvenileDetails.update(world, cameraPosition, quality, _reducedMotion, this.isSquidVisible);
     this.propulsion.update(world, id => this.renderers.get(id)?.visible, _reducedMotion);
     this.group.visible = anyVisible;
     for (const [mesh, perAnimal] of this.batches) {
@@ -395,7 +399,8 @@ export class SquidRenderer {
       if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
       for (const view of this.renderers.values()) {
         if (!view.visible) continue;
-        if (view.adult && (mesh === this.beaks || mesh === this.armor)) continue;
+        if (mesh === this.beaks || mesh === this.armor) continue;
+        if ((mesh === this.heads || mesh === this.flatHeads || mesh === this.juvenileHeads) && mesh !== view.headMesh) continue;
         for (let part = 0; part < perAnimal; part++) {
           mesh.getMatrixAt(view.index * perAnimal + part, this.boundsMatrix);
           mesh.boundingSphere.union(this.boundsPart.copy(mesh.geometry.boundingSphere)
@@ -410,7 +415,7 @@ export class SquidRenderer {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    this.adultDetails.dispose(); this.propulsion.dispose();
+    this.adultDetails.dispose(); this.juvenileDetails.dispose(); this.propulsion.dispose();
     for (const [mesh] of this.batches) mesh.dispose();
     Object.values(this.geometries).forEach((geometry) => geometry.dispose());
     Object.values(this.materials).forEach((material) => material.dispose());

@@ -10,6 +10,7 @@ import { findIsopodSurfaceContact } from './isopod-surface.js';
 import { wreckBodyPenetration } from './wreck-collision.js';
 import { getIceSpikeCollision } from './ice-spikes.js';
 import { updateRedFishTendrils } from './red-fish-tendril-physics.js';
+import {getLifecycleScale} from './lifecycle-scale.js';
 
 /** @typedef {{id:string,x:number,y:number,z:number,homeX:number,homeY:number,homeZ:number,
  * heading:number,pitch?:number,seed:number,lengthMeters:number,variant:'small'|'large'|'gray'|'glow',
@@ -32,7 +33,7 @@ const distantPhase=fish=>{
 };
 
 /** Conservative full-model sphere, in simulation units (25 units = one metre). */
-export function getRedFishRadius(fish) { return .64 * fish.lengthMeters * 25; }
+export function getRedFishRadius(fish) { return .64 * fish.lengthMeters * 25*getLifecycleScale(fish); }
 
 function edgeDistance(vertices, x, y) {
   let distance = Infinity;
@@ -118,6 +119,7 @@ function direction(heading,pitch) {
 }
 
 function targetFor(fish,time) {
+  if(fish.lifecycleCourting&&fish.lifecycleTarget)return fish.lifecycleTarget;
   const large = fish.variant === 'large', radius = large ? 220 : 85, phase = fish.seed + time * (large ? .011 : .06);
   return {x:fish.homeX + Math.cos(phase)*radius,y:fish.homeY + Math.sin(phase*.87)*radius,
     z:fish.homeZ + Math.sin(phase*.73)*(large ? 30 : 20)};
@@ -154,8 +156,9 @@ function escapeCourse(world,fish,state,goalHeading,speed) {
 }
 
 function steer(world,fish,state,dt) {
-  const large = fish.variant === 'large', speed = (large ? .22 : fish.variant === 'gray' ? .4 : .6)*25;
+  const large = fish.variant === 'large', speed = (fish.lifecycleCourting?.8:large ? .22 : fish.variant === 'gray' ? .4 : .6)*25*(fish.lifecycleSpeedScale??1);
   const goal = targetFor(fish,state.time), dx = goal.x-fish.x, dy = goal.y-fish.y;
+  if(fish.lifecycleCourting&&Math.hypot(dx,dy,goal.z-fish.z)<getRedFishRadius(fish)*2+6){fish.vx=fish.vy=fish.vz=0;return;}
   let heading = Math.atan2(dy,dx), pitch = clamp(Math.atan2(goal.z-fish.z,Math.hypot(dx,dy)),-.5,.5);
   let escaping=state.escapeUntil>state.time;
   if (escaping) { heading=state.escapeHeading;pitch=state.escapePitch; }
@@ -193,7 +196,7 @@ export function updateRedFish(world, delta) {
   for(const group of [world.adultSquids,world.squids])for(const squid of group??[])
     if(squid.feeding?.preyId)prey.add(squid.feeding.preyId);
   for (const fish of world.redFish ?? []) {
-    if (fish.squidHeldBy || fish.squidRespawnIn > 0) continue;
+    if (fish.lifecycleInactive || fish.squidHeldBy || fish.squidRespawnIn > 0) continue;
     let state=states.get(fish);
     if (!state) { state={time:0,distantPhase:distantPhase(fish)};state.distantAge=state.distantPhase;states.set(fish,state); }
     state.time+=dt;

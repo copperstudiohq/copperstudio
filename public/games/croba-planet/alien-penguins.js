@@ -23,7 +23,7 @@ export function updatePenguins(world,dt){
  updatePenguinNests(world,delta,penguinGround);
  updatePenguinBrood(world,delta,penguinGround);
  for(const bird of world.penguins??[]){
-  if(bird.squidHeldBy||bird.squidRespawnIn>0||Math.hypot(player.x-bird.x,player.y-bird.y)>2000)continue;
+  if(bird.lifecycleInactive||bird.squidHeldBy||bird.squidRespawnIn>0||Math.hypot(player.x-bird.x,player.y-bird.y)>2000)continue;
   bird.phase+=delta;bird.speed=0;bird.wetness=Math.max(0,(bird.wetness??0)-delta*.06);
   if(updateChickPenguin(world,bird,delta,penguinGround)||updateNestPenguin(world,bird,delta,penguinGround)||updatePenguinDive(world,bird,delta,penguinGround)){
    updatePenguinTail(world,bird,delta);continue;
@@ -48,7 +48,7 @@ export function resolvePenguinBodies(world){
  const p=world.player;if(p.swimming)return;
  for(let pass=0;pass<6;pass++)for(const bird of world.penguins??[]){
   const scale=penguinGrowthScale(bird),radius=5+8*scale;
-  if(bird.squidHeldBy||bird.squidRespawnIn>0||p.z>bird.z+31*scale||p.z+36<bird.z)continue;
+  if(bird.lifecycleInactive||bird.squidHeldBy||bird.squidRespawnIn>0||p.z>bird.z+31*scale||p.z+36<bird.z)continue;
   const dx=p.x-bird.x,dy=p.y-bird.y,gap=Math.hypot(dx,dy);
   if(gap<radius){
    let nx=dx,ny=dy,length=gap;

@@ -2,6 +2,7 @@ import {coordinateSquidHunt} from './squid-hunt-calls.js';
 import {observeSquidPlayer,squidSearchGoal} from './squid-intelligence.js';
 import { headSideRatio, closestFlatHeadLocal } from './adult-head-shape.js';
 import { adultSwimmingOrientation } from './adult-squid-swim.js';
+import { prepareSquidAscentStroke, applySquidAscentStroke } from './squid-ascent-stroke.js';
 import { chooseSquidPrey, advanceSquidFeeding, updateSquidPreyRespawns, unavailablePrey } from './squid-feeding.js';
 import { getSquidClawAxis } from "./squid-claw-anatomy.js";
 import { selector, sequence, condition, action, RUNNING } from "./behavior-tree.js";
@@ -525,7 +526,7 @@ function solveArm(arm, root, squid, grip, forest) {
 
 /** Shared jet rhythm, trailing arms and delayed tip curls; no independent paddling.
  * Returns physical solver goals, so collision and rendering use the same motion. */
-function swimmingArmPoint(squid, index, joint, time) {
+function swimmingArmPoint(squid, index, joint, time, ascent) {
   const point = getAdultSquidArmRestPoint(squid, index, joint);
   const weight = (joint / LINKS) ** 2 * Math.min(1, time);
   const alert = Boolean(squid.noticedPlayer || squid.assistingHunt || squid.huntingPrey);
@@ -543,12 +544,15 @@ function swimmingArmPoint(squid, index, joint, time) {
   point.x += (root.x - point.x) * fold + Math.cos(ARM_ANGLES[index]) * wave * (alert ? 45 : 12) * weight;
   point.y += (root.y - point.y) * fold + Math.sin(ARM_ANGLES[index]) * wave * (alert ? 45 : 12) * weight;
   point.z += wave * (alert ? 190 : 32) * weight;
-  return point;
+  return applySquidAscentStroke(point, root, index, joint, LINKS, armLength(squid), ascent);
 }
 
 function updateArms(world, squid, player, attacking, state) {
   const brain = brainFor(state, squid);
   const swimming = !state.capture;
+  const ascent = swimming ? prepareSquidAscentStroke(squid, (squid.x - squid.px) / STEP,
+    (squid.y - squid.py) / STEP, (squid.z - squid.pz) / STEP, state.time,
+    Boolean(squid.noticedPlayer || squid.assistingHunt || squid.huntingPrey), true) : null;
   squid.armTargets ??= [];
   for (let index = 0; index < ARMS; index++) {
     const arm = squid.tentacles[index], root = getAdultSquidArmRoot(squid, index), angle = ARM_ANGLES[index];
@@ -561,7 +565,7 @@ function updateArms(world, squid, player, attacking, state) {
     else if (reaching) target = { x: player.x + Math.cos(angle) * 8,
       y: player.y + Math.sin(angle) * 8, z: player.z + EYE_HEIGHT * 0.5 + (index % 3 - 1) * 5 };
     else {
-      target = swimming ? swimmingArmPoint(squid, index, LINKS, state.time) : getAdultSquidArmRestPoint(squid, index);
+      target = swimming ? swimmingArmPoint(squid, index, LINKS, state.time, ascent) : getAdultSquidArmRestPoint(squid, index);
       restGoal = true;
     }
     if (!reaching && !grip && !lift) {
@@ -574,7 +578,7 @@ function updateArms(world, squid, player, attacking, state) {
     if (grip) goal = arm;
     else if (restGoal && distance(beforeClamp, target) < 1e-8) {
       goal = Array.from({ length: LINKS + 1 }, (_, joint) => swimming
-        ? swimmingArmPoint(squid, index, joint, state.time) : getAdultSquidArmRestPoint(squid, index, joint));
+        ? swimmingArmPoint(squid, index, joint, state.time, ascent) : getAdultSquidArmRestPoint(squid, index, joint));
     } else goal = goalChain(root, target, angle, squid);
     for (let joint = 1; joint <= LINKS; joint++) {
       const p = arm[joint]; p.px = p.x; p.py = p.y; p.pz = p.z;

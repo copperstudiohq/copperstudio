@@ -13,7 +13,7 @@ import {updateHaulerBird} from './hauler-birds.js';
 
 export const PENGUIN_EGG_LAY_SECONDS=45;
 const body={radius:10,height:36};
-const available=bird=>bird&&!bird.squidHeldBy&&!(bird.squidRespawnIn>0);
+const available=bird=>bird&&!bird.lifecycleInactive&&!bird.squidHeldBy&&!(bird.squidRespawnIn>0);
 const near=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const active=(world,bird)=>available(bird)&&near(world.player,bird)<=2000;
 const encounter=world=>world.squidEncounter||world.centipedeEncounter||world.treeStalkerEncounter;

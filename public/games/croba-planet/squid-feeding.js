@@ -6,7 +6,7 @@ const states = new WeakMap();
 const finite = p => p && [p.x,p.y,p.z].every(Number.isFinite);
 const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
 const copy = p => ({x:p.x,y:p.y,z:p.z});
-export const unavailablePrey = animal => Boolean(animal?.squidHeldBy || animal?.squidRespawnIn > 0);
+export const unavailablePrey = animal => Boolean(animal?.lifecycleInactive || animal?.squidHeldBy || animal?.squidRespawnIn > 0);
 
 function stateFor(world) {
   let state = states.get(world);
@@ -39,8 +39,11 @@ function place(animal, point) {
 function restore(state, animal) {
   const home=state.homes.get(animal);
   if(!home)return;
+  // Feeding restores navigation, while the independent life-cycle clock owns
+  // age, growth, courtship and whether this original adult slot is alive.
+  const lifecycle=Object.fromEntries(Object.entries(animal).filter(([key])=>key.startsWith('lifecycle')));
   for(const key of Object.keys(animal))delete animal[key];
-  Object.assign(animal,structuredClone(home));
+  Object.assign(animal,structuredClone(home),lifecycle);
 }
 
 export function updateSquidPreyRespawns(world,dt) {
@@ -65,7 +68,7 @@ export function chooseSquidPrey(world,squid,dt,playerPriority=false) {
   const state=stateFor(world);
   let hunt=state.hunts.get(squid);
   if(hunt && (unavailablePrey(squid) || !finite(hunt.prey)
-    || hunt.prey.squidRespawnIn>0 || hunt.prey.squidHeldBy && hunt.prey.squidHeldBy!==squid.id
+    || hunt.prey.lifecycleInactive || hunt.prey.squidRespawnIn>0 || hunt.prey.squidHeldBy && hunt.prey.squidHeldBy!==squid.id
     || playerPriority && !hunt.held || (hunt.age+=dt)>25)) { cancel(state,squid);hunt=null; }
   if(!hunt && !playerPriority && !unavailablePrey(squid) && !state.cooldown.get(squid)) {
     const scan=(state.scan.get(squid)??0)-dt;state.scan.set(squid,scan);

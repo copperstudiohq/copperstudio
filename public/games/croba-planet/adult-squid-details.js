@@ -80,7 +80,7 @@ class Relief {
 
 /** A closed curved horn with one central hook. Its mirrored,
  * slightly shallower instance forms the separate lower bowl in the drawing. */
-function jawGeometry() {
+function jawGeometry(curveSegments = 12) {
   const shape = new THREE.Shape();
   shape.moveTo(-.19, .015);
   shape.bezierCurveTo(-.18, .13, -.075, .19, 0, .18);
@@ -88,7 +88,7 @@ function jawGeometry() {
   shape.bezierCurveTo(.12, .04, .065, -.01, 0, -.10);
   shape.bezierCurveTo(-.065, -.01, -.12, .04, -.19, .015);
   shape.closePath();
-  const geometry = new THREE.ExtrudeGeometry(shape, { depth: .14, curveSegments: 12, steps: 1,
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: .14, curveSegments, steps: 1,
     bevelEnabled: true, bevelSegments: 1, bevelSize: .006, bevelThickness: .006 }).translate(0, 0, -.07);
   // A central keel curves the horn forward into a single overlapping hook.
   const vertices = geometry.attributes.position;
@@ -103,15 +103,16 @@ function jawGeometry() {
 }
 
 /** One hooked mandible, mirrored for its partner. Taper closes to a sharp tip. */
-function fangGeometry(redesigned = false) {
+function fangGeometry(redesigned = false, segments = 24) {
   const path = new THREE.CatmullRomCurve3((redesigned ? CROBONIC_MANDIBLE_PATH : ADULT_SQUID_MANDIBLE_PATH).map(point => new THREE.Vector3(...point)));
-  const geometry = new THREE.TubeGeometry(path, 24, 1, 6, false);
+  const geometry = new THREE.TubeGeometry(path, segments, 1, 6, false);
   const points = geometry.attributes.position, colors = [];
-  for (let ring = 0; ring <= 24; ring++) {
-    const t = ring / 24, center = path.getPointAt(t);
+  for (let ring = 0; ring <= segments; ring++) {
+    const t = ring / segments, center = path.getPointAt(t);
     // Raised hard cuffs flank two narrow, recessed joint bands.
-    const joint = ring === 8 || ring === 16;
-    const cuff = ring === 7 || ring === 9 || ring === 15 || ring === 17;
+    const joint = ring === segments / 3 || ring === segments * 2 / 3;
+    const cuff = ring === segments / 3 - 1 || ring === segments / 3 + 1
+      || ring === segments * 2 / 3 - 1 || ring === segments * 2 / 3 + 1;
     const radius = (redesigned
       ? t < .72 ? (joint ? .145 : .195 - t * .05 + (cuff ? .012 : 0)) : .13 * ((1 - t) / .28) ** 1.6
       : joint ? .060 : t < .72 ? .13 * (1 - t * .32) + (cuff ? .035 : 0)
@@ -150,16 +151,16 @@ function plateTint(u, v, index) {
   return edge < .12 ? 0xe1c4ab : index % 3 === 0 ? 0xc29373 : index % 3 === 1 ? 0xd4a98a : 0xc9a189;
 }
 
-function collarGeometry() {
+function collarGeometry(detail = 4, liningColumns = 24) {
   const surface = new Relief();
   // A recessed continuous armor lining keeps the belly covered beneath seams.
-  for (let plate = 0; plate < 10; plate++) surface.strip('ventral-lining-' + plate, 4, 24, (u, v) => {
+  for (let plate = 0; plate < 10; plate++) surface.strip('ventral-lining-' + plate, detail, liningColumns, (u, v) => {
     const angle = TAU * (plate + u) / 10, y = -.44 - v * .56;
     const reach = Math.sqrt(1 - y * y);
     return new THREE.Vector3(Math.sin(angle) * reach, y, Math.cos(angle) * reach).multiplyScalar(1.016);
   }, () => 0x92705c);
   for (let row = 0; row < 3; row++) for (let plate = 0; plate < 12; plate++) {
-    surface.plate('ventral-plate-' + row + '-' + plate, 4, 4, (u, v) => {
+    surface.plate('ventral-plate-' + row + '-' + plate, detail, detail, (u, v) => {
       const angle = TAU * (plate + row * .5 + .035 + u * .93) / 12;
       const y = -.44 - ((row + .035 + v * .93) / 3) * .56;
       const reach = Math.sqrt(1 - y * y), bevel = Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
@@ -171,10 +172,10 @@ function collarGeometry() {
 
 /** Staggered rows of beveled plates. Small real gaps reveal the recessed skin;
  * all relief stays inside the unchanged solid head envelope. */
-function carapaceGeometry() {
+function carapaceGeometry(detail = 4) {
   const surface = new Relief();
   for (let row = 0; row < 4; row++) for (let panel = 0; panel < 8; panel++) {
-    surface.plate('carapace-plate-' + row + '-' + panel, 4, 4, (u, v) => {
+    surface.plate('carapace-plate-' + row + '-' + panel, detail, detail, (u, v) => {
       const angle = (panel + row * .5 + .025 + u * .95) * TAU / 8;
       const side = Math.max(0, Math.min(1, (Math.abs(Math.sin(angle)) - .55) / .37));
       const blend = side * side * (3 - 2 * side);
@@ -244,6 +245,11 @@ function detailMaterial(source, color, name) {
   material.roughness = Math.max(0.9, material.roughness); material.metalness = 0.04;
   return material;
 }
+
+// Juveniles reuse the actual family anatomy in shared instanced batches.
+// Optional density arguments leave every existing adult default unchanged.
+export { jawGeometry as createSquidJawGeometry, fangGeometry as createSquidMandibleGeometry,
+  collarGeometry as createSquidCollarGeometry, carapaceGeometry as createSquidCarapaceGeometry };
 
 /** Adult-only drawing details share parent PBR maps and follow the physical
  * head quaternion. Shell, collar, scars, jaws and paired mandibles use five draws.

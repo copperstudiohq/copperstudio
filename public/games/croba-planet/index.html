@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="./crafting.css" />
     <link rel="stylesheet" href="./building.css" />
     <link rel="stylesheet" href="./bestiary.css" />
+    <link rel="stylesheet" href="./opening-flight.css" />
   </head>
   <body>
     <section id="loading-screen" class="loading-screen" aria-label="Loading Croba Planet" aria-busy="true" hidden>
@@ -37,6 +38,19 @@
       id="world"
       aria-label="Croba Planet first-person exploration. WASD to move, mouse or drag to look, Space to jump or swim up, C or Shift to dive, and E to record a discovery."
     ></canvas>
+    <section id="opening-cinematic" class="opening-cinematic" aria-label="Opening flight to Croba" hidden>
+      <div class="opening-fade" id="opening-fade" aria-hidden="true"></div>
+      <div class="opening-controls">
+        <button id="opening-sound" type="button" aria-pressed="false">Sound off</button>
+        <button id="opening-skip" type="button">Skip intro</button>
+      </div>
+      <div class="opening-copy">
+        <span id="opening-tag">CROBA / INBOUND</span>
+        <h2 id="opening-title">A world below.</h2>
+        <p id="opening-subtitle" role="status" aria-live="polite"></p>
+        <progress id="opening-progress" max="1" value="0" aria-label="Opening sequence progress"></progress>
+      </div>
+    </section>
     <div class="vignette" aria-hidden="true"></div>
     <div id="squid-encounter" class="squid-encounter hidden" aria-hidden="true">
       <div id="encounter-iris" class="encounter-iris"></div>
@@ -678,12 +692,13 @@
         the eastern and southern stone borders, with clear weather, purple grass,
         and woodland hills. The low beach still leads onto the inland trail. Your field log
         still has three discoveries. The bestiary records fifteen creature species.
-        A bark-skinned Tree Stalker hides among the spruce. It creeps toward you
+        Six bark-skinned Tree Stalkers hide among the spruce. Each creeps toward you
         after spotting you, then sprints when it closes within 10 m. Break its
         sight behind terrain or reach water to escape.
         If it catches you, its claws lift you toward a mosquito-like feeding tube;
         your view fades to black before your rescue tether returns you to the wreck.
         With sound on, soft wind and footsteps accompany forest walks.
+        Rare ambient sounds drift through the forest and Basin Caves, with several quiet minutes between them.
       </p>
       <details class="botany-guide">
         <summary>Plants of Croba <span>9 species · 3 habitats</span></summary>
@@ -742,19 +757,23 @@
       </p>
       <p class="wildlife-guide">
         <strong>Juvenile Artic Crobonic Squid.</strong> Eight peaceful juveniles live across the Arctic, kelp, grass fields and blue ocean. They are
-        3 meters long, with round blue heads, four yellow eyes
-        with black outlines spaced toward the sides, a beak lower on the face,
-        peach underside armor, and eight smooth dark gray tentacles with blue bands.
+        3 meters long, with the adults’ oval, flat-sided blue heads and segmented shell armor.
+        Four large yellow eyes have slim black outlines, horizontal squid pupils and folded blinking lids, without brow ridges.
+        Blue cheek mandibles flank a dark beak above a peach plated belly.
+        Their smooth head sides have no ear-like fins. Eight dark gray tentacles have blue bands.
         Their pupils follow swimmers within 10 m.
-        They swim quickly in all directions, turning, pitching, and banking
-        their whole bodies as the tentacles follow. Swimmers can push them;
+        They cruise gently in all directions, turning, pitching, and banking
+        their whole bodies. Their tentacles pulse with the water jets, opening during refill
+        and gathering during thrust. Swimmers can push them;
         look for their blue circles on the map.
       </p>
       <p class="wildlife-guide">
         <strong>Adult Artic Crobonic Squids.</strong> Three 30 m hunters patrol the blue ocean.
         Their oval, flat-sided blue heads measure 8 m across, with four small yellow squid eyes and folded blinking lids,
-        armored blue sides, a central blue stripe reaching the rear siphons, and skin-colored bellies. Short, sharp blue mandibles curve inward from the cheeks around the exposed beak. Adults have no side fins; juveniles keep theirs.
+        armored blue sides, a central blue stripe reaching the rear siphons, and skin-colored bellies. Short, sharp blue mandibles curve inward from the cheeks around the exposed beak. Neither adults nor juveniles have ear-like side fins.
         Each of their eight tentacles ends in a hooked pincer. Their swimming strokes become faster and stronger when they spot prey. They can grab and eat other creatures, which return after a short delay. Keep clear when they notice you.
+        When adults or juveniles swim upward, their free tentacles gather beneath
+        the body with each jet pulse and fan gently outward between strokes.
       </p>
       <p class="wildlife-guide">
         <strong>Ice Centipede.</strong> One hunts across the ice islands: <strong>60 meters long</strong>,
@@ -771,18 +790,22 @@
         to descend at 12 m/s and Space to ascend at the same speed. A full oxygen
         tank lasts 500 seconds in the blue ocean and 100 seconds in the Arctic.
         Swim up to clear steep underwater rock faces.
+        With sound on, Cold Air plays first in the Arctic, followed by The Bound Arctic.
+        The two songs alternate and fade away as you leave the ice.
+        Inside the Basin Caves, Cold World takes over and loops until you leave.
         A permanent snowstorm blows above the Arctic. The blue ocean has no snowstorm,
         with thin ice fragments drifting on its surface. Icebergs border the Arctic, while
         orange stone cliffs surround the ocean. A yellow-marked arch in Shell Field’s
         northern rock border opens into Sulfuric Land. Follow its shallow ramp to
-        warm mineral hills, basalt ridges, geyser ponds and steaming fumaroles. Four-eyed Sulfur Maw Lizards bask nearby. The biome extends five times its original area, with the Crobonic Artic Sulfur Worm: 100 metres long and 9 metres wide, leaping through its open mineral flats. Its four mouth shields open as it breaches. Jumping on this land alerts it. Listen for approaching rumbles and dodge sideways when the ground swells. A fatal strike draws you into its mouth before the four shields close and the rescue tether returns you. Return through
+        warm mineral hills, basalt ridges, geyser ponds and steaming fumaroles. Four-eyed Sulfur Maw Lizards bask nearby. The biome extends five times its original area, with three adult Crobonic Artic Sulfur Worms, each 100 metres long and 9 metres wide, leaping through its open mineral flats. Their four mouth shields open as they breach. Jumping on this land alerts the worms. Listen for approaching rumbles and dodge sideways when the ground swells. A fatal strike draws you into its mouth before the four shields close and the rescue tether returns you. Return through
         the same arch to reach the ocean. A second salt-crusted opening deeper in
         Shell Field’s northern cliff enters the flooded <strong>Salt Cave</strong>.
         Two looping side halls and a smaller gallery have scorched stone,
         sulfur-stained salt crystals, murky yellow water and sparse withered plants.
         Bubbling hot sulfur seeps burn your suit nearby; swim higher or go around them.
-        Mini armored sand worms swim through the cave halls with flexible bodies
-        and four opening mouth shields. They are adapted to this mineral water.
+        Newly hatched sulfur worms burrow into the cave and swim through its halls
+        with flexible bodies and four opening mouth shields. They grow here before
+        leaving through the geyser shaft. The cave has no separate starting worm population.
         Barnacle colonies cling to the walls and floor, filtering the water with
         small moving feelers. Related colonies grow on submerged seabed shelves throughout the ocean,
         kelp forest and grass fields. Barnacles remain underwater, away from dry land
@@ -796,7 +819,10 @@
         at the same time. Hold JUMP / UP to jump or rise, DIVE to descend, and
         tap USE beside a discovery. Map and pause remain available during play.
       </p>
-      <dl>
+      <p><strong>Your arrival.</strong> New expeditions begin aboard your ship above Croba. Your friend's mistake disables the cloak, exposing the ship to an alien attack. Secure your harness as the damaged ship falls toward the Arctic pole. The opening leads into the existing crash site; Skip intro or Esc takes you straight there. Saved expeditions resume where you left them.</p>
+      <p><strong>Growing wildlife.</strong> Crobon Birds, Woodlons, Hogwongs, Red Root Crabs, Gold Rock Bugs, sulfur worms, Sulfur Maw Lizards, Red Fish, Frost Hounds and Void Fish reproduce. Woodlons give birth to soft white babies that follow their parents and grow into adult coats; they do not lay eggs. Baby sulfur worms grow in the Salt Cave before leaving through the geyser shaft. Aging adults slow down, and mature local offspring replace retiring elders. Breeding, growth and aging progress stay in your expedition save.</p>
+      <p>Artic Crobonic Squids, Ice Centipedes, Tree Stalkers, Lantern Jellyfish and Crobonic Tuskons do not currently breed.</p>
+<dl>
         <div>
           <dt>WASD</dt>
           <dd>Move in the direction you face</dd>
