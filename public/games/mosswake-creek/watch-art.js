@@ -778,7 +778,7 @@ function drawTowerDiningRoom(ctx, watch) {
   }
   watchRect(ctx, '#f3c477', door + 4, ground - 18, 2, 3);
   watchRect(ctx, '#c29964', door - 10, ground, 21, 1);
-  // A shelf of plates and a small copper kettle above the dining table.
+  // A wall shelf holds plates and a small copper kettle.
   watchRect(ctx, '#4c352e', 52, 24, 24, 3);
   watchRect(ctx, '#b98650', 52, 24, 24, 1);
   for (const x of [54, 58]) {
@@ -789,7 +789,9 @@ function drawTowerDiningRoom(ctx, watch) {
   watchRect(ctx, '#e5a66c', 70, 19, 3, 4);
   watchRect(ctx, '#6e4932', 70, 17, 2, 2);
   watchRect(ctx, '#ca8a52', 74, 19, 2, 1);
-  // The dinner setting stays to the right, leaving the central entry clear.
+  // The dining table sits in front of the centered door.
+  ctx.save();
+  ctx.translate(door - 64, 0);
   for (const x of [51, 75]) {
     watchRect(ctx, '#49322c', x, 34, 4, 18);
     watchRect(ctx, '#b58250', x, 34, 4, 2);
@@ -819,6 +821,7 @@ function drawTowerDiningRoom(ctx, watch) {
   watchRect(ctx, '#f1d9a1', 64, 30, 1, 4);
   watchRect(ctx, '#f2ae61', 64, 28, 1, 2);
   watchRect(ctx, '#ffedab', 64, 29, 1, 1);
+  ctx.restore();
   for (const x of [18, width - 8]) {
     sceneGlow(ctx, '#f3b86c38', x, 13, 12);
     watchRect(ctx, '#53372b', x - 1, 9, 3, 9);
