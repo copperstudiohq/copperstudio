@@ -713,27 +713,33 @@ function drawWatchIchorSpray(ctx, sprayer, tick) {
 function drawTowerChair(ctx, chair, watch) {
   const occupied = watch.seatedChair === chair.id;
   const nearby = !watch.seatedChair && Math.abs(watch.interiorX - chair.x) <= 5;
-  const trim = occupied ? '#f3c488' : nearby ? '#dba76a' : '#b58250';
+  const trim = occupied ? '#ffe4b6' : nearby ? '#ffc18b' : '#df9568';
   ctx.save();
   ctx.translate(chair.x, WATCH_TOWER_ROOM.ground);
   ctx.scale(chair.direction, 1);
   // A slim, slightly reclined back is on the outer side; the seat faces inward.
-  watchRect(ctx, '#49322c', -6, -21, 3, 13);
+  watchRect(ctx, '#542f31', -6, -21, 3, 13);
   watchRect(ctx, trim, -6, -22, 3, 2);
-  watchRect(ctx, '#a77548', -5, -19, 1, 10);
-  watchRect(ctx, '#d19b60', -5, -18, 1, 4);
-  watchRect(ctx, '#49322c', -5, -12, 3, 7);
-  watchRect(ctx, '#b58250', -4, -12, 1, 5);
-  watchRect(ctx, '#50372c', -5, -8, 11, 3);
+  watchRect(ctx, '#be714e', -5, -19, 1, 10);
+  watchRect(ctx, '#ffe0ac', -5, -18, 1, 4);
+  watchRect(ctx, '#542f31', -5, -12, 3, 7);
+  watchRect(ctx, '#e69c6a', -4, -12, 1, 5);
+  watchRect(ctx, '#743d35', -5, -8, 11, 3);
   watchRect(ctx, trim, -4, -8, 9, 1);
-  watchRect(ctx, '#9d693e', -4, -7, 8, 1);
-  watchRect(ctx, '#49322c', -5, -5, 2, 6);
-  watchRect(ctx, '#b58250', -5, -5, 1, 5);
-  watchRect(ctx, '#49322c', 3, -5, 2, 6);
-  watchRect(ctx, '#c18b55', 3, -5, 1, 5);
-  watchRect(ctx, '#795034', -3, -3, 6, 1);
-  watchRect(ctx, '#9d6b42', -6, 0, 3, 1);
-  watchRect(ctx, '#9d6b42', 3, 0, 3, 1);
+  watchRect(ctx, '#be704c', -4, -7, 8, 1);
+  watchRect(ctx, '#542f31', -5, -5, 2, 6);
+  watchRect(ctx, '#e69c6a', -5, -5, 1, 5);
+  watchRect(ctx, '#542f31', 3, -5, 2, 6);
+  watchRect(ctx, '#f4b17b', 3, -5, 1, 5);
+  watchRect(ctx, '#a65e45', -3, -3, 6, 1);
+  watchRect(ctx, '#d18a60', -6, 0, 3, 1);
+  watchRect(ctx, '#d18a60', 3, 0, 3, 1);
+  // Sharp metal glints and copper rivets replace the old wood grain.
+  watchRect(ctx, '#ffe8bb', -5, -21, 1, 1);
+  watchRect(ctx, '#ffe8bb', -4, -8, 2, 1);
+  watchRect(ctx, '#ffd39a', 4, -8, 1, 1);
+  watchRect(ctx, '#5f8c7e', -5, -13, 1, 1);
+  watchRect(ctx, '#5f8c7e', 4, -1, 1, 1);
   ctx.restore();
 }
 
