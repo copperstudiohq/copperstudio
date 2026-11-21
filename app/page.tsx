@@ -1,11 +1,11 @@
-import { ArrowDown, ArrowUpRight, CloudRain, Gamepad2, Layers, Pickaxe, Snowflake, Swords } from "lucide-react";
+import { CloudRain, Gamepad2, Layers, Pickaxe, Snowflake, Swords } from "lucide-react";
 import QuartzWordmark from "@/components/quartz-wordmark";
 import VisitCounter from "@/components/visit-counter";
 import OctoNoseChat from "@/components/octo-nose-chat";
 
 const games = [
   {
-    number: "01", name: "Croba Planet", label: "Beyond the familiar", genre: "Alien exploration",
+    number: "01", shortName: "Croba Planet", name: "Croba Planet", label: "Beyond the familiar", genre: "Alien exploration",
     description: [
       "Your spaceship lies broken on an alien glacier, and the only way to understand this world is to step outside. Cross windblown ice islands, swim beneath their spiked undersides, and follow blue coral and glowing plants into a deep cobalt ocean. Beyond the frozen coast, the Violet Spruce Forest offers a completely different landscape to explore.",
       "This is a first-person expedition built around curiosity and survival. Watch your suit’s warmth and integrity, plan each dive around your oxygen, and use your map to learn the way back. Peaceful young Crobonic Squid share the water with armored alien wildlife, while a giant ice centipede and a forest stalker make some discoveries more dangerous than others.",
@@ -23,7 +23,7 @@ const games = [
     features: ["Explore", "Discover", "Survive"], Icon: Snowflake,
   },
   {
-    number: "02", name: "Rain & Copper", label: "Something is growing", genre: "Island adventure",
+    number: "02", shortName: "Rain & Copper", name: "Rain & Copper", label: "Something is growing", genre: "Island adventure",
     description: [
       "Rain falls through the birch trees, ducks wander beside the water, and a fishing hut waits on the shore. Start a named world and make this chunky, first-person island your own: gather wood, cast a line, craft new equipment, and build a little shelter. It is a place for quiet wandering — until you notice the strange pink growth spreading through the grass.",
       "The island’s friendly surface hides a much stranger adventure. Meet the living Tri infection and its creatures, discover unusual weapons and fishing-rod upgrades, and unlock portals into copper ruins and icy realms. Explore at your own pace, return to your saved world, or invite a second player on the same Wi-Fi to share the journey from another device.",
@@ -41,7 +41,7 @@ const games = [
     features: ["Craft", "Fish", "Adventure"], Icon: CloudRain,
   },
   {
-    number: "03", name: "Rain & Copper: The Card Game", label: "Take a seat. Keep a secret.", genre: "Creature card duel",
+    number: "03", shortName: "The Card Game", name: "Rain & Copper: The Card Game", label: "Take a seat. Keep a secret.", genre: "Creature card duel",
     description: [
       "Take a seat at an oak table in a warm wooden room, with a fireplace, red carpet, and a rival across from you. This first-person card duel brings eleven Rain and Copper creatures into a twenty-one-card deck, from the familiar Duck to the Copper Giant and the dangerous Tri.",
       "Start each round with a secret creature, draw another, then play one for its power while keeping the other hidden. Outlast your opponent or hold the stronger creature at the final reveal; the first player to three tokens wins. Play solo against the Watcher, an AI opponent, or invite a friend with a room code. Stand up to explore the room, scatter the physical cards, customize your outfit, or choose a song on the jukebox.",
@@ -59,7 +59,7 @@ const games = [
     features: ["Cards", "Solo", "Online duel"], Icon: Layers,
   },
   {
-    number: "04", name: "Rain Arena of Copper", label: "Aim. Cut. Survive.", genre: "Voxel arena combat",
+    number: "04", shortName: "Rain Arena", name: "Rain Arena of Copper", label: "Aim. Cut. Survive.", genre: "Voxel arena combat",
     description: [
       "Step into the Tri Bonefields, where infected pink ground stretches between scattered bones, giant teeth, and watching eyes. This first-person voxel sword fighter brings the Tri creatures from Rain & Copper into an arena built for close combat. Aim your blade at an enemy’s body and choose horizontal or vertical cuts, then block, dash, or kick to make room for your next strike.",
       "Choose Endless Waves for upgrades between fights, Survival for continuous danger, Practice to learn an opponent, or War Mode to build red and blue armies. Fight in the Tri Bonefields, the copper Colosseum, or the Drill Mine, with creatures and machines drawn from Rain & Copper. Join a War battle with the Player unit or watch your armies fight. Your best wave and score are saved in this browser.",
@@ -77,10 +77,10 @@ const games = [
     features: ["Combat", "Four modes", "Bosses"], Icon: Swords,
   },
   {
-    number: "05", name: "Rain & Copper: Mosswake Creek", label: "Build. Break. Make it rain.", genre: "2D sandbox & creek defense",
+    number: "05", shortName: "Mosswake Creek", name: "Rain & Copper: Mosswake Creek", label: "Build. Break. Make it rain.", genre: "2D sandbox & creek defense",
     description: [
       "Return to Mosswake’s birch-lined pond, with its copper-roofed hut, dock, and wandering ducks. Paint falling copper and sand, pour flowing water, build basalt dams, and chip the landscape apart pixel by pixel. Explore five connected areas, change the rain, and experiment with creatures, scenery, and the spreading Tri.",
-      "Choose day, night, or an automatic sky cycle, and place Tri Portals that wake after dark. For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Travel all five areas, collect copper, and hire guards at the recruiting camps. Guards fill both banks evenly, gather coins across the map by day, bring them back to you, and return before night. Train veterans, fortify the banks, and protect the tower through endless raids. Save 100 copper to enlarge the tower and step into its compact, windowless dining room, with a small table under a red cloth. Save your watch in named slots in this browser; your Sandbox edits stay in the current tab.",
+      "Choose day, night, or an automatic sky cycle, and place Tri Portals that wake after dark. For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Travel all five areas, collect copper, and hire guards at the recruiting camps. Guards fill both banks evenly, gather coins across the map by day, bring them back to you, and return before night. Train veterans, fortify the banks, and protect the tower through endless raids. Save 100 copper to enlarge the tower and step into its compact, windowless dining room, with wooden walls, a long red-clothed table and four chairs you can sit on. Save your watch in named slots in this browser; your Sandbox edits stay in the current tab.",
     ],
     highlights: [
       { title: "Build and break", text: "Pour materials, shape the water, place scenery, and chip away individual pixels with a brush as small as one pixel." },
@@ -106,47 +106,56 @@ export default function Home() {
           <QuartzWordmark />
         </a>
         <nav aria-label="Main navigation">
-          <a className="nav-link" href="#worlds">The games <span>{String(games.length).padStart(2, "0")}</span></a>
-          <a className="nav-link" href="#how-to-play">How to play <ArrowUpRight size={15} aria-hidden="true" /></a>
+          <a className="nav-link" href="#worlds">The games</a>
+          <a className="nav-link" href="#octo-nose">Ask Octo</a>
+          <a className="nav-link" href="#how-to-play">How to play</a>
         </nav>
       </header>
       <main>
         <section className="hero shell" aria-labelledby="hero-title">
-          <div className="eyebrow"><span className="status-dot" /> A LITTLE COLLECTION OF BIG ADVENTURES</div>
+          <div className="eyebrow">A LITTLE COLLECTION OF BIG ADVENTURES</div>
           <div className="hero-content">
             <h1 id="hero-title">Small games.<br /><span className="copper-text">Strange</span> worlds.</h1>
             <div className="hero-aside">
               <p>Across the ice. Into the rain.<br /> Around the table. Into the arena.<br /> Or build your own little world.</p>
-              <a className="explore-link" href="#worlds">Find your world <span><ArrowDown size={18} aria-hidden="true" /></span></a>
+              <div className="hero-actions"><a className="primary-link" href="#worlds">Explore the games</a><a className="secondary-link" href="#octo-nose">Meet your guide</a></div>
             </div>
           </div>
           <div className="hero-bottom"><span>MADE TO GET A LITTLE LOST IN.</span><span><Gamepad2 size={16} aria-hidden="true" /> PLAY IN YOUR BROWSER</span></div>
           <span className="hero-crystal" aria-hidden="true"><img src="/purple-quartz-crystal.svg" width="120" height="144" alt="" /></span>
         </section>
         <section className="worlds shell" id="worlds" aria-labelledby="worlds-title">
-          <div className="section-label"><h2 id="worlds-title">CHOOSE YOUR NEXT ADVENTURE</h2><span>FIVE GAMES. YOUR CALL.</span></div>
+          <div className="worlds-heading"><div><span className="eyebrow">THE COLLECTION</span><h2 id="worlds-title">Find a world that feels like you.</h2></div><p>Five games. All in your browser.<br />Pick a place to begin.</p></div>
+          <nav className="game-jump-nav" aria-label="Jump to a game">{games.map((game) => <a key={game.number} href={"#game-" + game.number}>{game.shortName}</a>)}</nav>
           <div className="game-grid">
-            {games.map(({ Icon, ...game }) => (
-              <article className={"game-card " + game.color} key={game.name} aria-labelledby={"game-title-" + game.number}>
-                <a className="game-art" href={game.href} target="_blank" rel="noopener noreferrer" aria-label={"Play " + game.name + " (opens in a new tab)"}>
-                  <img src={game.image} alt={game.alt} width={game.imageWidth} height={game.imageHeight} fetchPriority={game.number === "01" ? "high" : "auto"} />
-                  <span className="art-label"><Icon size={14} aria-hidden="true" /> {game.label}</span>
-                  <span className="art-arrow"><ArrowUpRight size={26} aria-hidden="true" /></span>
-                  <span className="art-caption">{game.caption}</span>
-                </a>
-                <div className="game-info">
-                  <div className="game-category"><span>{game.genre}</span><span>GAME / {game.number}</span></div>
-                  <h3 className="copper-text" id={"game-title-" + game.number}>{game.name}</h3>
-                  <div className="game-description">
-                    {game.description.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
-                    <ul className="game-highlights" aria-label={game.name + " highlights"}>
-                      {game.highlights.map((highlight) => <li key={highlight.title}><strong>{highlight.title}</strong><span>{highlight.text}</span></li>)}
-                    </ul>
+            {games.map(({ Icon, ...game }) => {
+              const local = game.href.startsWith("/");
+              return (
+                <article className={"game-card " + game.color + (game.color === "sandbox" ? " game-featured" : "")} id={"game-" + game.number} key={game.name} aria-labelledby={"game-title-" + game.number}>
+                  <a className="game-art" href={game.href} target="_blank" rel="noopener noreferrer" aria-label={"Open " + game.name + " (opens in a new tab)"}>
+                    <img src={game.image} alt={game.alt} width={game.imageWidth} height={game.imageHeight} loading={game.number === "01" ? "eager" : "lazy"} fetchPriority={game.number === "01" ? "high" : "auto"} />
+                    <span className="art-label"><Icon size={16} aria-hidden="true" />{game.label}</span>
+                    <span className="art-caption">{game.caption}</span>
+                  </a>
+                  <div className="game-info">
+                    <div className="game-category"><span>{game.genre}</span><span className="game-host">{local ? "Plays here" : "Original site"}</span></div>
+                    <h3 className="copper-text" id={"game-title-" + game.number}>{game.name}</h3>
+                    <div className="game-tags" aria-label={game.name + " themes"}>{game.features.map((feature) => <span key={feature}>{feature}</span>)}</div>
+                    <p className="game-overview">{game.description[0]}</p>
+                    <div className="game-footer"><a className="play-link" href={game.href} target="_blank" rel="noopener noreferrer" aria-label={"Play " + game.name + " (opens in a new tab)"}><Gamepad2 size={18} aria-hidden="true" />Play {game.shortName}</a><p className="game-access">{local ? "No sign-in needed." : "May ask you to sign in with ChatGPT."}<span>Opens in a new tab</span></p></div>
+                    <details className="game-details">
+                      <summary aria-label={"More about this game: " + game.name}><span>More about this game</span><span className="details-mark" aria-hidden="true">+</span></summary>
+                      <div className="game-description">
+                        {game.description.slice(1).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                        <ul className="game-highlights" aria-label={game.name + " highlights"}>
+                          {game.highlights.map((highlight) => <li key={highlight.title}><strong>{highlight.title}</strong><span>{highlight.text}</span></li>)}
+                        </ul>
+                      </div>
+                    </details>
                   </div>
-                  <div className="game-footer"><div className="game-tags">{game.features.map((feature) => <span key={feature}>{feature}</span>)}</div><a className="play-link" href={game.href} target="_blank" rel="noopener noreferrer" aria-label={"Start " + game.name + " (opens in a new tab)"}>Let’s play <ArrowUpRight size={18} aria-hidden="true" /></a></div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </section>
         <OctoNoseChat />
@@ -155,12 +164,12 @@ export default function Home() {
           <div className="guide-questions">
             <details><summary>How do I get started?<span aria-hidden="true">+</span></summary><div className="answer">Choose a game above to open it in a new tab. All five games run in your browser. Croba Planet, Rain Arena of Copper and Mosswake Creek open directly from Copperstudio with no sign-in. The Rain &amp; Copper island and The Card Game keep their original sites and multiplayer, and may ask you to sign in with ChatGPT.</div></details>
             <details><summary>What are the controls?<span aria-hidden="true">+</span></summary><div className="answer"><p>In Croba Planet and the Rain &amp; Copper island adventure, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the mouse or arrow keys to look, and <kbd>Space</kbd> to jump. Press <kbd>E</kbd> to interact and <kbd>Esc</kbd> to pause.</p><p>At the card table, <kbd>E</kbd> draws, <kbd>1</kbd>/<kbd>2</kbd> select cards, <kbd>R</kbd> raises or lowers your card, and <kbd>F</kbd> plays it. Press <kbd>C</kbd> to stand up or sit down.</p><p>In Rain Arena of Copper, use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys to move and the mouse or a drag to look. Left-click to attack, using <kbd>A</kbd>/<kbd>D</kbd> for horizontal cuts or holding <kbd>V</kbd> to force vertical cuts. Right-click to kick, use <kbd>E</kbd> or <kbd>K</kbd> to block, <kbd>Shift</kbd> to dash, <kbd>Space</kbd> to jump, and <kbd>Esc</kbd> to pause.</p><p>In Mosswake Creek’s Sandbox, drag or tap to paint, use <kbd>1</kbd>–<kbd>9</kbd> for tools, <kbd>B</kbd> to break pixels, <kbd>E</kbd> to erase, and <kbd>A</kbd>/<kbd>D</kbd> to pan the map. <kbd>Space</kbd> pauses. In Creek Watch, use <kbd>A</kbd>/<kbd>D</kbd>, the arrow keys, or tap the ground to walk; <kbd>E</kbd> uses a nearby station. Press <kbd>F</kbd> or use Swing to attack with an equipped weapon. At the tower by day, use Upgrade tower for 100 copper, then Enter tower to visit the dining room. Near a chair, press <kbd>E</kbd> to sit or stand. Use Leave tower room to return outside.</p><p>All five games have touch controls. The island adventure also supports standard game controllers. Each game has its own full control guide.</p></div></details>
-            <details><summary>Where are my existing saves?<span aria-hidden="true">+</span></summary><div className="answer">Saves stay with the browser and website where you made them. To bring a Croba expedition here, open Saved Expeditions on the <a href="https://croba-planet-icebound.davidwebstar.chatgpt.site" target="_blank" rel="noopener noreferrer">original game</a>, export a JSON backup, then import it in Croba on Copperstudio. Arena records stay on the original site. Mosswake Creek’s Sandbox keeps edits in its open tab; Creek Watch has named save slots stored in this browser.</div></details>
+            <details><summary>Where are my existing saves?<span aria-hidden="true">+</span></summary><div className="answer">Saves stay with the browser and website where you made them. To bring a Croba expedition here, open Saved Expeditions on the <a href="https://croba-planet-icebound.davidwebstar.chatgpt.site" target="_blank" rel="noopener noreferrer">original Croba Planet game</a>, export a JSON backup, then import it in Croba on Copperstudio. Arena records stay on the original site. Mosswake Creek’s Sandbox keeps edits in its open tab; Creek Watch has named save slots stored in this browser.</div></details>
             <details><summary>Which game should I choose?<span aria-hidden="true">+</span></summary><div className="answer">Choose Croba Planet for alien wildlife, icy exploration, and deep ocean dives. Choose the Rain &amp; Copper island adventure for fishing, crafting, and strange creatures. Choose Rain &amp; Copper: The Card Game for secret hands, creature powers, and a solo or online duel across the table. Choose Rain Arena of Copper for sword combat, waves, upgrades, bosses and army battles. Choose Mosswake Creek for a pixel sandbox where you can build and break the world, plus an endless creek defense challenge.</div></details>
           </div>
         </section>
       </main>
-      <footer className="site-footer shell"><a className="wordmark footer-wordmark" href="#"><img className="brand-mark" src="/copper-c.svg" width="32" height="32" alt="" aria-hidden="true" /><QuartzWordmark /></a><div className="footer-note"><p>A little curiosity goes a long way.</p><VisitCounter /></div><a className="back-top" href="#">Back to the surface <ArrowUpRight size={15} aria-hidden="true" /></a></footer>
+      <footer className="site-footer shell"><a className="wordmark footer-wordmark" href="#"><img className="brand-mark" src="/copper-c.svg" width="32" height="32" alt="" aria-hidden="true" /><QuartzWordmark /></a><div className="footer-note"><p>A little curiosity goes a long way.</p><VisitCounter /></div><a className="back-top" href="#">Back to the surface</a></footer>
     </>
   );
 }

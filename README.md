@@ -29,6 +29,10 @@ Configure **copperstudio.nl** as the repository's Pages custom domain before upd
 
 The prepared Route 53 change batch is in [`infra/route53-records.json`](infra/route53-records.json). Before applying it, verify that the selected public hosted zone is the zone delegated for `copperstudio.nl`, review the existing records, and preserve unrelated records.
 
+## Browsing the collection
+
+The landing page keeps the copper and quartz identity while providing a five-game jump menu, readable overviews and prominent Play links. Each game’s expandable details retain its longer description and feature highlights. The layout adapts from a two-column collection to single-column phone cards; Mosswake Creek has a wider desktop feature. Secondary cover images load lazily. Octo’s chat includes keyboard guidance, a visible input limit and accessible links that announce a new tab.
+
 ## Octo Nose chat
 
 The section below the games reuses Octo Nose's local conversation rules and original nose, Tri, and Croba dialogue from Axolotl Major, Rain & Copper, and Tri Arena. Its static portrait is rendered from Rain & Copper's `dist/octo-rounded-model.js` through the game's `createOctoNose()` model wrapper, preserving its original 16×16 pixel cloth texture on the robe and scarf. The lossless WebP is rendered at 2560×1440; the landing page loads only that image. A bundled library adds source-checked answers about all five games, including recipes, card powers, oxygen, saves, bosses and Mosswake Creek's two modes. Local question matching tolerates common spelling mistakes and scores specific topics rather than choosing a random tip. It is a rule-based character and game guide, rather than a general-purpose language model; unsupported questions receive honest suggestions for things Octo can answer.

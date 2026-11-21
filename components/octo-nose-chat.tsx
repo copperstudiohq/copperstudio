@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowUpRight, RotateCcw, Send, Volume2 } from "lucide-react";
+import { Send, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createOctoChat, OCTO_GREETING, OCTO_PROMPTS, replyAsOcto, type OctoMemory, type OctoReply } from "@/lib/octo-chat.mjs";
 import { OCTO_VOICE_SETTINGS, selectOctoVoice } from "@/lib/octo-voice.mjs";
 
 type ChatMessage = { id: number; speaker: "octo" | "you"; text: string; links: OctoReply["links"] };
 const greeting: ChatMessage = { id: 0, speaker: "octo", text: OCTO_GREETING, links: [] };
+const MESSAGE_LIMIT = 300;
 
 function useOctoVoice() {
   const [available, setAvailable] = useState(false);
@@ -105,7 +106,7 @@ export default function OctoNoseChat() {
   }, [messages]);
 
   function sendMessage(value: string) {
-    const text = value.trim().slice(0, 300);
+    const text = value.trim().slice(0, MESSAGE_LIMIT);
     if (!text) return;
     let answer: OctoReply | null;
     try {
@@ -152,27 +153,32 @@ export default function OctoNoseChat() {
     <section className="octo-section shell" id="octo-nose" aria-labelledby="octo-title">
       <div className="octo-heading">
         <div><span className="eyebrow">A FAMILIAR FACE, A LITTLE ADVICE</span><h2 id="octo-title">Talk to <span className="copper-text">Octo Nose.</span></h2></div>
-        <span className="octo-badge"><span className="status-dot" aria-hidden="true" />Free · Runs in your browser</span>
+        <span className="octo-badge">Free · Runs in your browser</span>
       </div>
       <div className="octo-layout">
         <div className="octo-profile">
           <div className="octo-portrait"><img src="/images/octo-nose-rain-copper.webp" width="1280" height="720" loading="lazy" alt="Octo Nose with the pixel cloth robe and scarf from Rain & Copper, carrying a lantern" /></div>
           <span className="octo-profile-label">OCTO NOSE / YOUR GAME GUIDE</span>
-          <p>Compare games, ask a follow-up, or tell Octo what you enjoy. Specific hints, strange creatures, and the occasional terrible joke.</p>
-          <div className="octo-prompts" aria-label="Conversation starters">
-            {OCTO_PROMPTS.map((prompt) => <button key={prompt} type="button" onClick={() => sendMessage(prompt)}>{prompt}<ArrowUpRight size={12} aria-hidden="true" /></button>)}
+          <p>Need a hint or a world to explore? Ask about the games, tell Octo what you enjoy, or follow up for more detail. Nose jokes are welcome too.</p>
+          <p className="octo-prompt-label" id="octo-starters">Start with a question</p>
+          <div className="octo-prompts" aria-labelledby="octo-starters">
+            {OCTO_PROMPTS.map((prompt) => <button key={prompt} type="button" aria-controls="octo-conversation" onClick={() => sendMessage(prompt)}>{prompt}</button>)}
           </div>
         </div>
         <div className="octo-panel">
-          <div className="octo-panel-header"><span>A chat by lantern light</span><button className="octo-clear" type="button" onClick={clearChat}><RotateCcw size={13} aria-hidden="true" />Clear chat</button></div>
-          <div className="octo-log" ref={logRef} role="log" aria-label="Conversation with Octo Nose" aria-live="polite" aria-relevant="additions text" tabIndex={0}>
+          <div className="octo-panel-header"><span>A chat by lantern light</span><button className="octo-clear" type="button" onClick={clearChat}>Clear chat</button></div>
+          <div className="octo-log" id="octo-conversation" ref={logRef} role="log" aria-label="Conversation with Octo Nose" aria-live="polite" aria-atomic="false" aria-relevant="additions text" tabIndex={0}>
             <ol className="octo-messages">
-              {messages.map((message) => <li key={message.id} className={"octo-message octo-message-" + message.speaker}><span className="octo-speaker">{message.speaker === "octo" ? "Octo Nose" : "You"}</span><p>{message.text}</p>{message.links.length > 0 && <div className="octo-game-links">{message.links.map((link) => <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer">{link.label}<ArrowUpRight size={13} aria-hidden="true" /></a>)}</div>}</li>)}
+              {messages.map((message) => <li key={message.id} className={"octo-message octo-message-" + message.speaker}><span className="octo-speaker">{message.speaker === "octo" ? "Octo Nose" : "You"}</span><p>{message.text}</p>{message.links.length > 0 && <div className="octo-game-links">{message.links.map((link) => <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.label + " (opens in a new tab)"} title="Opens in a new tab">{link.label}</a>)}</div>}</li>)}
             </ol>
           </div>
           <form className="octo-form" onSubmit={submit}>
             <label htmlFor="octo-message">Your message</label>
-            <div className="octo-input-row"><textarea id="octo-message" ref={inputRef} value={draft} maxLength={300} rows={2} onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask a question or tell Octo what you enjoy…" /><button className="octo-send" type="submit" disabled={!draft.trim()}><span>Send</span><Send size={15} aria-hidden="true" /></button></div>
+            <div className="octo-input-row"><textarea id="octo-message" ref={inputRef} value={draft} maxLength={MESSAGE_LIMIT} rows={2} aria-describedby="octo-input-hint octo-message-count" onChange={(event) => setDraft(event.target.value)} onKeyDown={handleKeyDown} placeholder="Ask about a game, a creature, or what to play next…" /><button className="octo-send" type="submit" disabled={!draft.trim()}><span>Send</span><Send size={15} aria-hidden="true" /></button></div>
+            <div className="octo-form-meta">
+              <p id="octo-input-hint">Enter to send · Shift + Enter for a new line</p>
+              <span className="octo-count" id="octo-message-count" aria-label={draft.length + " of " + MESSAGE_LIMIT + " characters used"}>{draft.length}/{MESSAGE_LIMIT}</span>
+            </div>
           </form>
           <div className="octo-panel-footer"><p>Your chat stays in this tab. No sign-in needed.</p><button className="octo-voice" type="button" disabled={!voice.available} aria-pressed={voice.enabled} onClick={() => voice.toggle(latestReply)} title={voice.available ? "Read Octo’s replies using a voice on this device" : "No local English voice is available on this device"}><Volume2 size={14} aria-hidden="true" />{voice.available ? "Read aloud: " + (voice.enabled ? "on" : "off") : "Read aloud unavailable"}</button></div>
         </div>
