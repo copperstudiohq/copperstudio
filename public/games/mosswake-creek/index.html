@@ -472,7 +472,7 @@ dialog dd { margin: 2px 0 0; }
       <div><dt>Cross Mosswake</dt><dd>Use A/D, the arrow keys, or tap the ground. Use the map buttons to walk to either edge portal or back to the tower. Walk over copper coins to collect them.</dd></div>
       <div><dt>Prepare for the raid</dt><dd>Build, repair, or reinforce a wall at its frame. Press E or use the action button at a camp to hire guards for 3 copper each, with no limit on the roster. Guards fill the two banks evenly. After hiring three guards, either keep recruiting or train a guard as a veteran for 4 copper. Recruits take shelter until nearby Tri Opus pass.</dd></div>
       <div><dt>Bridge market</dt><dd>Build both forward walls for 5 copper each to open the market east of the tower. Approach a stall and press E to shop. Buying a weapon equips it. Face a Tri and press F or use Swing to attack.</dd></div>
-      <div><dt>A room in the tower</dt><dd>During the day, stand beside the tower and choose Upgrade tower for 100 copper. You pay once. Then choose Enter tower to visit the dining room with its red tablecloth. Walk with A/D, the arrow keys, or tap the floor; press E or Leave tower to return. The outside watch pauses while you are inside. The upgrade and your room position are kept in named saves.</dd></div>
+      <div><dt>A room in the tower</dt><dd>During the day, stand beside the tower and choose Upgrade tower for 100 copper. You pay once. Then choose Enter tower to visit the dining room with its red tablecloth. Walk with A/D, the arrow keys, or tap the floor. Approach one of the four chairs and press E or Sit to take a seat. Press E or move to stand up. Use Leave tower room to return outside. The outside watch pauses while you are inside. Named saves keep the upgrade, room position and seated chair.</dd></div>
       <div><dt>Keep the light burning</dt><dd>At dusk, Tri Opus walk out of both portals and strike your defenses with pulses of light. Each dawn starts a new day until the tower falls.</dd></div>
       <div><dt>Blood moons</dt><dd>Every tenth night has a blood moon. An Ichor Sprayer appears at the west portal on night 20 and every night from 30 onward, releasing new Tri Opus in bursts of ichor.</dd></div>
       <div><dt>Daytime patrols</dt><dd>Guards gather copper across the whole map, carry it to you, and drop it at your feet. The pile adds to your total when you pick it up; guards leave delivered piles for you. If delivery would leave too little time to get home before dusk, they keep the copper and bring it the next day. You can still walk over other coins to collect them yourself.</dd></div>
@@ -2588,6 +2588,12 @@ const WATCH_TOWER_ROOM = {
   left: 6, right: 74, door: 40, ground: 52,
   width: 80, height: 58, scale: 3
 };
+const WATCH_TOWER_CHAIRS = [
+  { id: 'left-end', label: 'Left end chair', x: 6, direction: 1, front: false },
+  { id: 'left-front', label: 'Left table chair', x: 26, direction: 1, front: true },
+  { id: 'right-front', label: 'Right table chair', x: 54, direction: -1, front: true },
+  { id: 'right-end', label: 'Right end chair', x: 74, direction: -1, front: false }
+];
 const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
 const WATCH_PORTALS = [
   { side: -1, x: WATCH_BOUNDS.left + 26 },
@@ -2720,6 +2726,7 @@ class CreekWatch {
     this.signal = WATCH_HEALTH;
     this.towerUpgraded = false;
     this.insideTower = false;
+    this.seatedChair = null;
     this.towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT;
     this.interiorX = WATCH_TOWER_ROOM.door;
     this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
@@ -2802,7 +2809,16 @@ class CreekWatch {
 
   getAction() {
     if (this.status !== 'running') return null;
-    if (this.insideTower) return { kind: 'tower-exit', label: 'Leave tower room', cost: 0 };
+    if (this.insideTower) {
+      if (this.seatedChair !== null) return { kind: 'tower-stand', label: 'Stand up', cost: 0 };
+      let chair;
+      for (const candidate of WATCH_TOWER_CHAIRS) {
+        const distance = Math.abs(candidate.x - this.interiorX);
+        if (distance <= 5 && (!chair || distance < Math.abs(chair.x - this.interiorX))) chair = candidate;
+      }
+      return chair ? { kind: 'tower-sit', chair, label: `Sit on ${chair.label.toLowerCase()}`, cost: 0 }
+        : { kind: 'tower-exit', label: 'Leave tower room', cost: 0 };
+    }
     const player = this.player.x;
     const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
     if (atSignal && this.phase === 'day') {
@@ -2923,12 +2939,24 @@ class CreekWatch {
         break;
       case 'tower-enter':
         this.insideTower = true;
+        this.seatedChair = null;
         this.interiorX = WATCH_TOWER_ROOM.door;
         this.player.x = WATCH_SIGNAL;
-        this.message = 'Inside the tower room. The outside watch is paused; use the action button or E to leave.';
+        this.message = 'Walk to a chair and press E to sit. Leave tower room returns outside; the watch is paused indoors.';
+        break;
+      case 'tower-sit':
+        this.seatedChair = action.chair.id;
+        this.interiorX = action.chair.x;
+        this.player.direction = action.chair.direction;
+        this.message = `You sat on the ${action.chair.label.toLowerCase()}. Press E or move to stand up.`;
+        break;
+      case 'tower-stand':
+        this.seatedChair = null;
+        this.message = 'You stood up. Use Leave tower room to return outside.';
         break;
       case 'tower-exit':
         this.insideTower = false;
+        this.seatedChair = null;
         this.player.x = WATCH_SIGNAL;
         this.message = 'You left the tower room. The watch continues.';
         break;
@@ -3017,6 +3045,7 @@ class CreekWatch {
     if (this.status !== 'running') return;
     if (this.insideTower) {
       if (direction) {
+        this.seatedChair = null;
         this.interiorX = Math.max(WATCH_TOWER_ROOM.left,
           Math.min(WATCH_TOWER_ROOM.right, this.interiorX + direction * WATCH_SPEED));
         this.player.direction = direction;
@@ -3338,9 +3367,10 @@ function validWatchState(state) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
-    insideTower = false, towerRoomLayout = 1,
+    insideTower = false, seatedChair = null, towerRoomLayout = 1,
     interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
   const room = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM : WATCH_TOWER_ROOM;
+  const chair = WATCH_TOWER_CHAIRS.find((seat) => seat.id === seatedChair);
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
@@ -3351,7 +3381,9 @@ function validWatchState(state) {
       || !validWatchFlag(towerUpgraded) || !validWatchFlag(insideTower)
       || (towerRoomLayout !== 1 && towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT)
       || !Number.isFinite(interiorX) || interiorX < room.left || interiorX > room.right
-      || (insideTower && (!towerUpgraded || status !== 'running' || phase !== 'day' || player?.x !== WATCH_SIGNAL))) return false;
+      || (insideTower && (!towerUpgraded || status !== 'running' || phase !== 'day' || player?.x !== WATCH_SIGNAL))
+      || (seatedChair !== null && (!chair || !insideTower || towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT
+        || interiorX !== chair.x || player?.direction !== chair.direction))) return false;
 
   return (sprayer === null || (phase === 'night' && hasWatchSprayer(day) && validSprayer(sprayer, tick)))
     && player && validWatchX(player.x) && validWatchSide(player.direction) && validWatchCount(player.step)
@@ -3394,9 +3426,9 @@ function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders,
     shots, loot, huntedPigeons = 0, queue, message, sprayer = null, forwardWalls, gear = [], weapon = null,
     swingAt = -TICKS_PER_SECOND, recallingGuards = false, towerUpgraded = false,
-    insideTower = false, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
+    insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, sprayer,
-    gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, towerRoomLayout, interiorX,
+    gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }
@@ -4201,6 +4233,71 @@ function drawWatchIchorSpray(ctx, sprayer, tick) {
   }
 }
 
+function drawTowerChair(ctx, chair, watch) {
+  const occupied = watch.seatedChair === chair.id;
+  const nearby = !watch.seatedChair && Math.abs(watch.interiorX - chair.x) <= 5;
+  const trim = occupied ? '#f3c488' : nearby ? '#dba76a' : '#b58250';
+  ctx.save();
+  ctx.translate(chair.x, WATCH_TOWER_ROOM.ground);
+  ctx.scale(chair.direction, 1);
+  // A slim, slightly reclined back is on the outer side; the seat faces inward.
+  watchRect(ctx, '#49322c', -6, -21, 3, 13);
+  watchRect(ctx, trim, -6, -22, 3, 2);
+  watchRect(ctx, '#a77548', -5, -19, 1, 10);
+  watchRect(ctx, '#d19b60', -5, -18, 1, 4);
+  watchRect(ctx, '#49322c', -5, -12, 3, 7);
+  watchRect(ctx, '#b58250', -4, -12, 1, 5);
+  watchRect(ctx, '#50372c', -5, -8, 11, 3);
+  watchRect(ctx, trim, -4, -8, 9, 1);
+  watchRect(ctx, '#9d693e', -4, -7, 8, 1);
+  watchRect(ctx, '#49322c', -5, -5, 2, 6);
+  watchRect(ctx, '#b58250', -5, -5, 1, 5);
+  watchRect(ctx, '#49322c', 3, -5, 2, 6);
+  watchRect(ctx, '#c18b55', 3, -5, 1, 5);
+  watchRect(ctx, '#795034', -3, -3, 6, 1);
+  watchRect(ctx, '#9d6b42', -6, 0, 3, 1);
+  watchRect(ctx, '#9d6b42', 3, 0, 3, 1);
+  ctx.restore();
+}
+
+function drawSeatedWatchPlayer(ctx, chair) {
+  ctx.save();
+  ctx.translate(chair.x, WATCH_TOWER_ROOM.ground);
+  ctx.scale(chair.direction, 1);
+  const edge = '#372634';
+  watchRect(ctx, '#231e29', -5, 0, 16, 1);
+  // The robe folds over the lap; knees bend forward toward the table.
+  watchRect(ctx, edge, -5, -15, 10, 10);
+  watchRect(ctx, '#753e3c', -4, -14, 8, 8);
+  watchRect(ctx, '#915040', -2, -15, 6, 9);
+  watchRect(ctx, '#b66d4d', -1, -14, 4, 6);
+  watchRect(ctx, '#4e3037', -3, -12, 1, 7);
+  watchRect(ctx, edge, -3, -8, 13, 5);
+  watchRect(ctx, '#915040', -2, -8, 11, 3);
+  watchRect(ctx, '#c07a53', -1, -8, 9, 1);
+  watchRect(ctx, '#753e3c', 4, -6, 5, 2);
+  for (const leg of [2, 7]) {
+    watchRect(ctx, '#362933', leg, -4, 3, 4);
+    watchRect(ctx, '#6d4438', leg, -3, 1, 3);
+    watchRect(ctx, '#2d2530', leg, -1, 4, 2);
+    watchRect(ctx, '#9b694b', leg + 1, -1, 2, 1);
+  }
+  // Keep the copper hood and dark face of the standing watchkeeper.
+  watchRect(ctx, edge, -2, -23, 6, 2);
+  watchRect(ctx, edge, -5, -21, 11, 9);
+  watchRect(ctx, edge, 5, -19, 2, 5);
+  watchRect(ctx, '#a66047', -4, -20, 9, 7);
+  watchRect(ctx, '#ca825b', -2, -22, 5, 2);
+  watchRect(ctx, '#d89265', 2, -20, 3, 1);
+  watchRect(ctx, '#d89265', 5, -19, 1, 5);
+  watchRect(ctx, '#231c29', 1, -19, 4, 5);
+  watchRect(ctx, '#231c29', 2, -14, 3, 1);
+  watchRect(ctx, edge, 2, -13, 8, 3);
+  watchRect(ctx, '#b66d4d', 3, -13, 6, 2);
+  watchRect(ctx, '#d08a61', 8, -13, 2, 2);
+  ctx.restore();
+}
+
 function drawTowerDiningRoom(ctx, watch) {
   const { width, height, scale, ground, door } = WATCH_TOWER_ROOM;
   const wall = WATCH_TOWER_BUILDING.wall;
@@ -4284,13 +4381,6 @@ function drawTowerDiningRoom(ctx, watch) {
   const tableWidth = Math.floor(width * 0.8);
   const tableLeft = Math.round(door - tableWidth / 2);
   const tableRight = tableLeft + tableWidth;
-  for (const x of [tableLeft - 5, tableRight + 2]) {
-    watchRect(ctx, '#49322c', x, 34, 4, 18);
-    watchRect(ctx, '#b58250', x, 34, 4, 2);
-    watchRect(ctx, '#bc8d56', x, 38, 1, 14);
-    watchRect(ctx, '#a26d42', x, 44, 5, 2);
-    watchRect(ctx, '#63432f', x + 3, 46, 1, 6);
-  }
   for (const x of [tableLeft + 3, door - 1, tableRight - 4]) {
     watchRect(ctx, '#6a442f', x, 40, 2, 12);
     watchRect(ctx, '#c38a52', x, 41, 1, 10);
@@ -4321,7 +4411,10 @@ function drawTowerDiningRoom(ctx, watch) {
     watchRect(ctx, '#fff0b5', x, 11, 1, 3);
     watchRect(ctx, '#785134', x - 2, 16, 5, 1);
   }
-  drawWatchPlayer(ctx, watch.interiorX, ground, watch.player.direction, (watch.player.step >> 2) % 2, null, 0);
+  for (const chair of WATCH_TOWER_CHAIRS) drawTowerChair(ctx, chair, watch);
+  const seat = WATCH_TOWER_CHAIRS.find(({ id }) => id === watch.seatedChair);
+  if (seat) drawSeatedWatchPlayer(ctx, seat);
+  else drawWatchPlayer(ctx, watch.interiorX, ground, watch.player.direction, (watch.player.step >> 2) % 2, null, 0);
   ctx.restore();
 }
 
@@ -4766,9 +4859,14 @@ function drawWatchMode() {
   timer.dateTime = `PT${watch.secondsLeft}S`;
   setWatchText(watchArea, watch.insideTower ? 'Tower dining room' : WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
   setWatchText(watchPanelTitle, watch.insideTower ? 'Dining room' : 'Signal tower');
-  setWatchText(watchPanelDescription, watch.insideTower ? 'A little room above the creek. The outside watch pauses while you rest.'
+  setWatchText(watchPanelDescription, watch.insideTower
+    ? watch.seatedChair ? 'Resting at the table. Press E or move to stand up.'
+      : 'Walk to a chair and press E to sit. The outside watch pauses while you rest.'
     : 'Keep the light burning as long as you can.');
-  world.setAttribute('aria-label', watch.insideTower ? 'Tower dining room. Walk with A and D or tap the floor. Press E to leave.' : 'Creek Watch playfield');
+  world.setAttribute('aria-label', watch.insideTower
+    ? watch.seatedChair ? 'Seated at the tower dining table. Press E or move to stand up.'
+      : 'Tower dining room. Walk with A and D or tap the floor. Press E near a chair to sit; Leave tower room exits.'
+    : 'Creek Watch playfield');
   watchMapRoute.hidden = watch.insideTower;
   watchMapDestinations.hidden = watch.insideTower;
   const position = `${(watch.player.x / WATCH_BOUNDS.right * 100).toFixed(2)}%`;
@@ -4796,7 +4894,7 @@ function drawWatchMode() {
   setWatchText(watchAction, label);
   watchAction.disabled = active && (paused || !action || action.kind === 'shelter');
   const tower = watch.getTowerAction();
-  watchTower.hidden = !tower || watch.insideTower;
+  watchTower.hidden = !tower || (watch.insideTower && action?.kind === 'tower-exit');
   if (tower) {
     setWatchText(watchTower, `${tower.label}${tower.cost ? ` · ${tower.cost} copper` : ''}`);
     watchTower.disabled = paused;
@@ -4881,10 +4979,11 @@ function useWatchStation(kind) {
   if (watch.status === 'ready') setPaused(false);
   if (!paused) {
     const wasInside = watch.insideTower;
+    const wasSeated = watch.seatedChair;
     const action = kind === 'train' || kind === 'tower' ? null : watch.getAction();
     if (action?.kind === 'market') openWatchMarket(action.vendor);
     else watch.use(kind);
-    if (watch.insideTower !== wasInside) {
+    if (watch.insideTower !== wasInside || watch.seatedChair !== wasSeated) {
       walkKeys.clear();
       walkTarget = null;
       lag = 0;

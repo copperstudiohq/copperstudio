@@ -8,6 +8,12 @@ export const WATCH_TOWER_ROOM = {
   left: 6, right: 74, door: 40, ground: 52,
   width: 80, height: 58, scale: 3
 };
+export const WATCH_TOWER_CHAIRS = [
+  { id: 'left-end', label: 'Left end chair', x: 6, direction: 1, front: false },
+  { id: 'left-front', label: 'Left table chair', x: 26, direction: 1, front: true },
+  { id: 'right-front', label: 'Right table chair', x: 54, direction: -1, front: true },
+  { id: 'right-end', label: 'Right end chair', x: 74, direction: -1, front: false }
+];
 export const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
 export const WATCH_PORTALS = [
   { side: -1, x: WATCH_BOUNDS.left + 26 },
@@ -140,6 +146,7 @@ export class CreekWatch {
     this.signal = WATCH_HEALTH;
     this.towerUpgraded = false;
     this.insideTower = false;
+    this.seatedChair = null;
     this.towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT;
     this.interiorX = WATCH_TOWER_ROOM.door;
     this.player = { x: WATCH_SIGNAL, direction: 1, step: 0 };
@@ -222,7 +229,16 @@ export class CreekWatch {
 
   getAction() {
     if (this.status !== 'running') return null;
-    if (this.insideTower) return { kind: 'tower-exit', label: 'Leave tower room', cost: 0 };
+    if (this.insideTower) {
+      if (this.seatedChair !== null) return { kind: 'tower-stand', label: 'Stand up', cost: 0 };
+      let chair;
+      for (const candidate of WATCH_TOWER_CHAIRS) {
+        const distance = Math.abs(candidate.x - this.interiorX);
+        if (distance <= 5 && (!chair || distance < Math.abs(chair.x - this.interiorX))) chair = candidate;
+      }
+      return chair ? { kind: 'tower-sit', chair, label: `Sit on ${chair.label.toLowerCase()}`, cost: 0 }
+        : { kind: 'tower-exit', label: 'Leave tower room', cost: 0 };
+    }
     const player = this.player.x;
     const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
     if (atSignal && this.phase === 'day') {
@@ -343,12 +359,24 @@ export class CreekWatch {
         break;
       case 'tower-enter':
         this.insideTower = true;
+        this.seatedChair = null;
         this.interiorX = WATCH_TOWER_ROOM.door;
         this.player.x = WATCH_SIGNAL;
-        this.message = 'Inside the tower room. The outside watch is paused; use the action button or E to leave.';
+        this.message = 'Walk to a chair and press E to sit. Leave tower room returns outside; the watch is paused indoors.';
+        break;
+      case 'tower-sit':
+        this.seatedChair = action.chair.id;
+        this.interiorX = action.chair.x;
+        this.player.direction = action.chair.direction;
+        this.message = `You sat on the ${action.chair.label.toLowerCase()}. Press E or move to stand up.`;
+        break;
+      case 'tower-stand':
+        this.seatedChair = null;
+        this.message = 'You stood up. Use Leave tower room to return outside.';
         break;
       case 'tower-exit':
         this.insideTower = false;
+        this.seatedChair = null;
         this.player.x = WATCH_SIGNAL;
         this.message = 'You left the tower room. The watch continues.';
         break;
@@ -437,6 +465,7 @@ export class CreekWatch {
     if (this.status !== 'running') return;
     if (this.insideTower) {
       if (direction) {
+        this.seatedChair = null;
         this.interiorX = Math.max(WATCH_TOWER_ROOM.left,
           Math.min(WATCH_TOWER_ROOM.right, this.interiorX + direction * WATCH_SPEED));
         this.player.direction = direction;

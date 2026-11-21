@@ -1,6 +1,6 @@
 import { HEIGHT, POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
 import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow, sceneOval } from './art.js';
-import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_ROOM, WATCH_VENDORS, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
+import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_VENDORS, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
 import { drawVendorPortraitImage } from './vendor-portraits.js';
 
 function watchRect(ctx, color, x, y, width, height) {
@@ -710,6 +710,71 @@ function drawWatchIchorSpray(ctx, sprayer, tick) {
   }
 }
 
+function drawTowerChair(ctx, chair, watch) {
+  const occupied = watch.seatedChair === chair.id;
+  const nearby = !watch.seatedChair && Math.abs(watch.interiorX - chair.x) <= 5;
+  const trim = occupied ? '#f3c488' : nearby ? '#dba76a' : '#b58250';
+  ctx.save();
+  ctx.translate(chair.x, WATCH_TOWER_ROOM.ground);
+  ctx.scale(chair.direction, 1);
+  // A slim, slightly reclined back is on the outer side; the seat faces inward.
+  watchRect(ctx, '#49322c', -6, -21, 3, 13);
+  watchRect(ctx, trim, -6, -22, 3, 2);
+  watchRect(ctx, '#a77548', -5, -19, 1, 10);
+  watchRect(ctx, '#d19b60', -5, -18, 1, 4);
+  watchRect(ctx, '#49322c', -5, -12, 3, 7);
+  watchRect(ctx, '#b58250', -4, -12, 1, 5);
+  watchRect(ctx, '#50372c', -5, -8, 11, 3);
+  watchRect(ctx, trim, -4, -8, 9, 1);
+  watchRect(ctx, '#9d693e', -4, -7, 8, 1);
+  watchRect(ctx, '#49322c', -5, -5, 2, 6);
+  watchRect(ctx, '#b58250', -5, -5, 1, 5);
+  watchRect(ctx, '#49322c', 3, -5, 2, 6);
+  watchRect(ctx, '#c18b55', 3, -5, 1, 5);
+  watchRect(ctx, '#795034', -3, -3, 6, 1);
+  watchRect(ctx, '#9d6b42', -6, 0, 3, 1);
+  watchRect(ctx, '#9d6b42', 3, 0, 3, 1);
+  ctx.restore();
+}
+
+function drawSeatedWatchPlayer(ctx, chair) {
+  ctx.save();
+  ctx.translate(chair.x, WATCH_TOWER_ROOM.ground);
+  ctx.scale(chair.direction, 1);
+  const edge = '#372634';
+  watchRect(ctx, '#231e29', -5, 0, 16, 1);
+  // The robe folds over the lap; knees bend forward toward the table.
+  watchRect(ctx, edge, -5, -15, 10, 10);
+  watchRect(ctx, '#753e3c', -4, -14, 8, 8);
+  watchRect(ctx, '#915040', -2, -15, 6, 9);
+  watchRect(ctx, '#b66d4d', -1, -14, 4, 6);
+  watchRect(ctx, '#4e3037', -3, -12, 1, 7);
+  watchRect(ctx, edge, -3, -8, 13, 5);
+  watchRect(ctx, '#915040', -2, -8, 11, 3);
+  watchRect(ctx, '#c07a53', -1, -8, 9, 1);
+  watchRect(ctx, '#753e3c', 4, -6, 5, 2);
+  for (const leg of [2, 7]) {
+    watchRect(ctx, '#362933', leg, -4, 3, 4);
+    watchRect(ctx, '#6d4438', leg, -3, 1, 3);
+    watchRect(ctx, '#2d2530', leg, -1, 4, 2);
+    watchRect(ctx, '#9b694b', leg + 1, -1, 2, 1);
+  }
+  // Keep the copper hood and dark face of the standing watchkeeper.
+  watchRect(ctx, edge, -2, -23, 6, 2);
+  watchRect(ctx, edge, -5, -21, 11, 9);
+  watchRect(ctx, edge, 5, -19, 2, 5);
+  watchRect(ctx, '#a66047', -4, -20, 9, 7);
+  watchRect(ctx, '#ca825b', -2, -22, 5, 2);
+  watchRect(ctx, '#d89265', 2, -20, 3, 1);
+  watchRect(ctx, '#d89265', 5, -19, 1, 5);
+  watchRect(ctx, '#231c29', 1, -19, 4, 5);
+  watchRect(ctx, '#231c29', 2, -14, 3, 1);
+  watchRect(ctx, edge, 2, -13, 8, 3);
+  watchRect(ctx, '#b66d4d', 3, -13, 6, 2);
+  watchRect(ctx, '#d08a61', 8, -13, 2, 2);
+  ctx.restore();
+}
+
 function drawTowerDiningRoom(ctx, watch) {
   const { width, height, scale, ground, door } = WATCH_TOWER_ROOM;
   const wall = WATCH_TOWER_BUILDING.wall;
@@ -793,13 +858,6 @@ function drawTowerDiningRoom(ctx, watch) {
   const tableWidth = Math.floor(width * 0.8);
   const tableLeft = Math.round(door - tableWidth / 2);
   const tableRight = tableLeft + tableWidth;
-  for (const x of [tableLeft - 5, tableRight + 2]) {
-    watchRect(ctx, '#49322c', x, 34, 4, 18);
-    watchRect(ctx, '#b58250', x, 34, 4, 2);
-    watchRect(ctx, '#bc8d56', x, 38, 1, 14);
-    watchRect(ctx, '#a26d42', x, 44, 5, 2);
-    watchRect(ctx, '#63432f', x + 3, 46, 1, 6);
-  }
   for (const x of [tableLeft + 3, door - 1, tableRight - 4]) {
     watchRect(ctx, '#6a442f', x, 40, 2, 12);
     watchRect(ctx, '#c38a52', x, 41, 1, 10);
@@ -830,7 +888,10 @@ function drawTowerDiningRoom(ctx, watch) {
     watchRect(ctx, '#fff0b5', x, 11, 1, 3);
     watchRect(ctx, '#785134', x - 2, 16, 5, 1);
   }
-  drawWatchPlayer(ctx, watch.interiorX, ground, watch.player.direction, (watch.player.step >> 2) % 2, null, 0);
+  for (const chair of WATCH_TOWER_CHAIRS) drawTowerChair(ctx, chair, watch);
+  const seat = WATCH_TOWER_CHAIRS.find(({ id }) => id === watch.seatedChair);
+  if (seat) drawSeatedWatchPlayer(ctx, seat);
+  else drawWatchPlayer(ctx, watch.interiorX, ground, watch.player.direction, (watch.player.step >> 2) % 2, null, 0);
   ctx.restore();
 }
 

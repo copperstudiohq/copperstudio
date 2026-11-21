@@ -375,9 +375,14 @@ function drawWatchMode() {
   timer.dateTime = `PT${watch.secondsLeft}S`;
   setWatchText(watchArea, watch.insideTower ? 'Tower dining room' : WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
   setWatchText(watchPanelTitle, watch.insideTower ? 'Dining room' : 'Signal tower');
-  setWatchText(watchPanelDescription, watch.insideTower ? 'A little room above the creek. The outside watch pauses while you rest.'
+  setWatchText(watchPanelDescription, watch.insideTower
+    ? watch.seatedChair ? 'Resting at the table. Press E or move to stand up.'
+      : 'Walk to a chair and press E to sit. The outside watch pauses while you rest.'
     : 'Keep the light burning as long as you can.');
-  world.setAttribute('aria-label', watch.insideTower ? 'Tower dining room. Walk with A and D or tap the floor. Press E to leave.' : 'Creek Watch playfield');
+  world.setAttribute('aria-label', watch.insideTower
+    ? watch.seatedChair ? 'Seated at the tower dining table. Press E or move to stand up.'
+      : 'Tower dining room. Walk with A and D or tap the floor. Press E near a chair to sit; Leave tower room exits.'
+    : 'Creek Watch playfield');
   watchMapRoute.hidden = watch.insideTower;
   watchMapDestinations.hidden = watch.insideTower;
   const position = `${(watch.player.x / WATCH_BOUNDS.right * 100).toFixed(2)}%`;
@@ -405,7 +410,7 @@ function drawWatchMode() {
   setWatchText(watchAction, label);
   watchAction.disabled = active && (paused || !action || action.kind === 'shelter');
   const tower = watch.getTowerAction();
-  watchTower.hidden = !tower || watch.insideTower;
+  watchTower.hidden = !tower || (watch.insideTower && action?.kind === 'tower-exit');
   if (tower) {
     setWatchText(watchTower, `${tower.label}${tower.cost ? ` · ${tower.cost} copper` : ''}`);
     watchTower.disabled = paused;
@@ -490,10 +495,11 @@ function useWatchStation(kind) {
   if (watch.status === 'ready') setPaused(false);
   if (!paused) {
     const wasInside = watch.insideTower;
+    const wasSeated = watch.seatedChair;
     const action = kind === 'train' || kind === 'tower' ? null : watch.getAction();
     if (action?.kind === 'market') openWatchMarket(action.vendor);
     else watch.use(kind);
-    if (watch.insideTower !== wasInside) {
+    if (watch.insideTower !== wasInside || watch.seatedChair !== wasSeated) {
       walkKeys.clear();
       walkTarget = null;
       lag = 0;

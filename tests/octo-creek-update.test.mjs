@@ -57,10 +57,11 @@ test('Octo explains the paid-once tower dining room and its safe exit', () => {
     'How do I upgrade the tower in Creek Watch?',
     'How do I enter the tower dining room in Mosswake Creek?',
     'Where is the red tablecloth dinner table in Creek Watch?',
+    'How do I sit in a chair in Mosswake Creek?',
   ]) {
     const reply = ask(question, 'sandbox-tower-dining');
     assert.match(reply, /during the day.*Upgrade tower for 100 copper.*pay once.*Enter tower.*red tablecloth/);
-    assert.match(reply, /A\/D.*arrow keys.*tap.*E or Leave tower.*Time and the outside watch pause/);
-    assert.match(reply, /upgrade and your room location.*named Watch save slots/);
+    assert.match(reply, /A\/D.*arrow keys.*tap.*four chairs.*E or Sit.*E or move to stand up.*Leave tower room.*Time and the outside watch pause/);
+    assert.match(reply, /upgrade, your room location and your seated chair.*named Watch save slots/);
   }
 });
