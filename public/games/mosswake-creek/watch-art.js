@@ -722,7 +722,7 @@ function drawTowerDiningRoom(ctx, watch) {
   watchRect(ctx, '#7b6752', 0, 0, width, ground);
   for (let row = 0; row < 8; row++) {
     const y = row * 6;
-    for (let col = -1; col < 7; col++) {
+    for (let col = -1; col < Math.ceil(width / 11) + 1; col++) {
       const x = col * 11 + (row % 2) * 5;
       const left = Math.max(0, x);
       const right = Math.min(width, x + 10);
@@ -766,6 +766,8 @@ function drawTowerDiningRoom(ctx, watch) {
   }
   watchRect(ctx, '#f3c477', door + 2, ground - 16, 2, 3);
   watchRect(ctx, '#c29964', door - 7, ground, 15, 1);
+  ctx.save();
+  ctx.translate((width - 64) / 2, 0);
   // A shelf of plates and a small copper kettle above the dining table.
   watchRect(ctx, '#4c352e', 37, 18, 21, 3);
   watchRect(ctx, '#b98650', 37, 18, 21, 1);
@@ -807,7 +809,8 @@ function drawTowerDiningRoom(ctx, watch) {
   watchRect(ctx, '#f1d9a1', 44, 30, 1, 4);
   watchRect(ctx, '#f2ae61', 44, 28, 1, 2);
   watchRect(ctx, '#ffedab', 44, 29, 1, 1);
-  for (const x of [24, 60]) {
+  ctx.restore();
+  for (const x of [28, width - 8]) {
     sceneGlow(ctx, '#f3b86c38', x, 13, 12);
     watchRect(ctx, '#53372b', x - 1, 9, 3, 9);
     watchRect(ctx, '#c99253', x - 2, 10, 5, 7);

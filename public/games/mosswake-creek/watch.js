@@ -5,8 +5,8 @@ export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
 export const WATCH_TOWER_BUILDING = { width: 72, height: 96, wall: 4 };
 export const WATCH_TOWER_ROOM_LAYOUT = 2;
 export const WATCH_TOWER_ROOM = {
-  left: 6, right: 58, door: 12, ground: 52,
-  width: WATCH_TOWER_BUILDING.width - 2 * WATCH_TOWER_BUILDING.wall, height: 58, scale: 3
+  left: 6, right: 74, door: 12, ground: 52,
+  width: 80, height: 58, scale: 3
 };
 export const WATCH_BOUNDS = { left: 0, right: WIDTH - 1 };
 export const WATCH_PORTALS = [
