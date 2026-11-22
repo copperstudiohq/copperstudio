@@ -6,19 +6,23 @@ import { canWalkDungeon, dungeonAction, dungeonFloor, DUNGEON_NAME, DUNGEON_SPAW
 import { createDungeon } from './dungeon.mjs';
 import { createSouthField } from './field.mjs';
 import { createForest } from './forest.mjs';
-import { doorSweepOccupied, houseToWorld, worldToHouse } from './house-plan.mjs';
-import { canStand, doorwayAt, houseAt, regionAt, VIEWS, walkSurface, ZONES } from './layout.mjs';
+import { doorSweepOccupied, houseToWorld, PLAYER_EYE_HEIGHT, worldToHouse } from './house-plan.mjs';
+import { canStand, doorwayAt, houseAt, regionAt, VIEWS, walkSurface, WOODLAND_HOUSE, WOODLAND_OUTHOUSE, ZONES } from './layout.mjs';
 import { createOrcJourney, PRISONER_NAME } from './orc-journey.mjs';
 import { createRiderEncounter, RIDER_MAX_HEALTH } from './rider-encounter.mjs';
 import { RIDER_NAME } from './rider.mjs';
+import { createSaveStore } from './save-game.mjs';
+import { bindSaveMenu } from './save-menu.mjs';
 import { createSky } from './sky.mjs';
 import { bindSoundSettings } from './sound-settings.mjs';
 import { loadSurfaces } from './surfaces.mjs';
-import { createTerrain } from './terrain.mjs';
+import { createTerrain, trailElevation } from './terrain.mjs';
 import { createTower } from './tower.mjs';
 import { GUARD_NAME } from './tower-guards.mjs';
 import { inThroneRoom, towerAction, towerLanding, towerWalkHeight, THRONE_ROOM, TOWER_NAME, TOWER_SPAWN } from './tower-plan.mjs';
 import { createVillage } from './village.mjs';
+import { createVillager } from './villagers.mjs';
+import { createWoodlandResident, woodlandDoorwayDuck } from './woodland-resident.mjs';
 
 const world = document.getElementById('world');
 const viewport = document.getElementById('viewport');
@@ -32,9 +36,14 @@ const healthMeter = document.getElementById('hunt-health');
 const healthValue = document.getElementById('hunt-health-value');
 const dungeonStatus = document.getElementById('dungeon-status');
 const prisonerSpeech = document.getElementById('prisoner-speech');
+const blubActivity = document.getElementById('blub-activity');
 const soundSettings = document.getElementById('sound-settings');
+const saveMenu = document.getElementById('save-menu');
 const voice = createBlubVoice();
 bindSoundSettings(soundSettings, voice.setVolume);
+for (const [menu, other] of [[saveMenu, soundSettings], [soundSettings, saveMenu]]) {
+  menu.addEventListener('toggle', () => { if (menu.open) other.open = false; });
+}
 const talkLabel = 'Talk to ' + PRISONER_NAME;
 const towerHints = {
   'Lower gallery': 'Watch for Opsing Guards. Take the stairs on the left.',
@@ -42,22 +51,26 @@ const towerHints = {
   'Broken crown': 'Find the service stair across the broken crown.',
 };
 const placeButtons = [...document.querySelectorAll('.places button')];
-const PLAYER_HEIGHT = 1.78;
 const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'ShiftLeft', 'ShiftRight']);
+const openDoorAngle = (house) => (house.doorOutward ? -1 : 1) * Math.PI / 2;
 
 let player = { ...VIEWS.village };
 let currentRegion = '';
 let renderWorld = null;
+
+function locationName(region, house) {
+  return house?.name ?? ({
+    dungeon: DUNGEON_NAME, tower: TOWER_NAME, battlefield: BATTLEFIELD_NAME, throne: THRONE_ROOM.name,
+  }[region] ?? ZONES[region]);
+}
 
 function displayLocation(region, house) {
   const location = house?.id ?? region;
   if (location === currentRegion) return;
   currentRegion = location;
   world.dataset.view = region;
-  placeName.textContent = house?.name ?? ({
-    dungeon: DUNGEON_NAME, tower: TOWER_NAME, battlefield: BATTLEFIELD_NAME, throne: THRONE_ROOM.name,
-  }[region] ?? ZONES[region]);
-  placeKicker.textContent = house ? ZONES.village : {
+  placeName.textContent = locationName(region, house);
+  placeKicker.textContent = house ? ZONES[region] : {
     village: 'The southern edge',
     forest: 'Beyond the last lantern',
     field: 'Below the distant ridge',
@@ -109,10 +122,23 @@ async function startWorld() {
   const obstacles = createForest(scene, surfaces);
   obstacles.push(...createSouthField(scene));
   const openDoors = new Set();
+  const woodlandResident = createWoodlandResident({
+    canStep: canWoodlandResidentStep,
+    moveDoor: moveWoodlandDoor,
+    outhouseFree: () => (area !== null || houseAt(player.x, player.z) !== WOODLAND_OUTHOUSE)
+      && (prisoner.area !== 'village' || houseAt(prisoner.position.x, prisoner.position.z) !== WOODLAND_OUTHOUSE),
+  });
+  const woodlandActor = createVillager(scene, WOODLAND_HOUSE, woodlandResident.position);
+  const seatedWoodlandActor = createVillager(scene, WOODLAND_HOUSE, woodlandResident.seat);
+  poseWoodlandResident(0);
   const prisoner = createOrcJourney(
-    (x, z) => !houseAt(x, z) && canStand(x, z, obstacles),
+    (x, z) => !houseAt(x, z) && canWalkOverworld(x, z),
     Math.random,
-    (x, z) => canStand(x, z, obstacles, openDoors),
+    canWalkOverworld,
+    (house) => {
+      setHouseDoor(house, true);
+      return openDoors.has(house.id);
+    },
   );
   const riderObstacles = obstacles.filter(({ x, z }) => Math.abs(x) < 118 && z > -82 && z < 262);
   const rider = createRiderEncounter(scene, {
@@ -134,7 +160,7 @@ async function startWorld() {
   let walking = false;
   let isAvailable = true;
   let lastTime = 0;
-  let visualY = walkSurface(player.x, player.z) + PLAYER_HEIGHT;
+  let visualY = walkSurface(player.x, player.z) + PLAYER_EYE_HEIGHT;
   const keys = new Set();
   const touchKeys = new Map();
   let drag = null;
@@ -142,6 +168,8 @@ async function startWorld() {
   const openingDoors = new Set();
   const doorChanges = new Map();
   let litRoom = null;
+  let diningVisible = false;
+  let keepersBusy = false;
   let riderNearby = false;
   let dungeon = null;
   let tower = null;
@@ -149,12 +177,101 @@ async function startWorld() {
   let battlefield = null;
   let battlefieldSky = null;
   let area = null;
-  let standingHeight = visualY - PLAYER_HEIGHT;
+  let standingHeight = visualY - PLAYER_EYE_HEIGHT;
   let guardsAlert = false;
   let guardStriking = false;
   let speechArea = null;
   let speechUntil = 0;
   let remarksAfter = 0;
+  const saves = createSaveStore();
+  let autoRevision = saves.read('auto').record?.revision ?? null;
+  let autoState = '';
+  let refreshSaves;
+
+  function snapshotWorld() {
+    const region = area === 'tower' && inThroneRoom(player.z, standingHeight) ? 'throne' : area ?? regionAt(player.z);
+    return {
+      area, player: { ...player, height: standingHeight },
+      place: locationName(region, !area && houseAt(player.x, player.z)),
+      doors: [...openingDoors], gates: [...(dungeon?.openCells ?? [])], openingGate: dungeon?.openingGate ?? null,
+      blub: prisoner.snapshot(), rider: rider.snapshot(),
+    };
+  }
+
+  function autosave(force = false) {
+    if (!isAvailable) return 'unavailable';
+    const state = snapshotWorld();
+    const serialized = JSON.stringify(state);
+    if (!force && serialized === autoState) return 'ready';
+    const { status, record } = saves.write('auto', state, force ? undefined : autoRevision);
+    if (record) {
+      autoRevision = record.revision;
+      autoState = serialized;
+    }
+    refreshSaves?.();
+    return status;
+  }
+
+  function clearInteriorAtLoad(spot) {
+    const house = houseAt(spot.x, spot.z);
+    if (!house || canWalkOverworld(spot.x, spot.z)) return spot;
+    for (const distance of [.28, .56, .84, 1.12, 1.40]) {
+      for (let direction = 0; direction < 8; direction++) {
+        const angle = direction * Math.PI / 4;
+        const x = spot.x + distance * Math.sin(angle);
+        const z = spot.z + distance * Math.cos(angle);
+        if (houseAt(x, z) === house && canWalkOverworld(x, z)) return { ...spot, x, z };
+      }
+    }
+    return { ...spot, ...houseToWorld(0, house.d / 2 - .92, house) };
+  }
+
+  function restoreWorld(state) {
+    area = state.area;
+    const desiredDoors = new Set(state.doors);
+    openDoors.clear();
+    openingDoors.clear();
+    doorChanges.clear();
+    keepersBusy = false;
+    woodlandResident.reset();
+    poseWoodlandResident(0);
+    for (const [id, room] of rooms) {
+      room.keeper?.reset();
+      room.poseKeeper?.(0);
+      const open = desiredDoors.has(id);
+      room.hinge.rotation.y = open ? openDoorAngle(room.house) : 0;
+      if (!open) continue;
+      openDoors.add(id);
+      openingDoors.add(id);
+    }
+    prisoner.restore(state.blub);
+    if (prisoner.area === 'village') Object.assign(prisoner.position, clearInteriorAtLoad(prisoner.position));
+    if (area || prisoner.active || state.gates.length || state.openingGate) dungeon ??= createDungeon(surfaces);
+    dungeon?.restoreGates(state.gates, state.openingGate);
+    if (area === 'tower' || prisoner.area === 'tower') prepareTower();
+    tower?.reset();
+    if (area === 'battlefield' || prisoner.area === 'battlefield') prepareBattlefield();
+    rider.restore(state.rider);
+    const { x, z, yaw, pitch, height } = area === null ? clearInteriorAtLoad(state.player) : state.player;
+    const floor = movementFloor(x, z, height);
+    if (floor !== null) placePlayer({ x, z, yaw, pitch }, floor);
+    else {
+      const spawn = { dungeon: DUNGEON_SPAWN, tower: TOWER_SPAWN, battlefield: BATTLEFIELD_SPAWN }[area] ?? VIEWS.village;
+      placePlayer(spawn, movementFloor(spawn.x, spawn.z, 0) ?? 0);
+    }
+    guardsAlert = guardStriking = false;
+    prisonerSpeech.textContent = '';
+    dungeonStatus.removeAttribute('data-danger');
+    dungeonStatus.textContent = area === 'battlefield' ? 'Follow the old road to the lantern for Thornwick.' : '';
+    speechUntil = 0;
+    remarksAfter = performance.now() + 10000;
+    for (const button of placeButtons) button.disabled = area !== null;
+    currentRegion = '';
+    shadowAnchor.set(Infinity, Infinity);
+    updatePrisonerModel(performance.now(), true);
+    render();
+    if (area || prisoner.active || rider.active || openDoors.size) walk();
+  }
 
   function sharesPrisonerArea() {
     const now = area ?? 'village';
@@ -193,7 +310,7 @@ async function startWorld() {
     voice.stop();
     player = { ...view };
     standingHeight = height;
-    visualY = height + PLAYER_HEIGHT;
+    visualY = height + PLAYER_EYE_HEIGHT;
   }
 
   function capturePlayer(byGuards = false) {
@@ -209,6 +326,7 @@ async function startWorld() {
     dungeonStatus.removeAttribute('data-danger');
     dungeonStatus.textContent = byGuards ? 'The Opsing Guards dragged you back to your cell.'
       : RIDER_NAME + ' captured you.' + (prisoner.area === 'cell' ? ' A small prisoner is chained beside you.' : '');
+    autosave();
   }
 
   function prepareTower() {
@@ -226,6 +344,7 @@ async function startWorld() {
     area = 'tower';
     placePlayer(TOWER_SPAWN, 0);
     render();
+    autosave();
   }
 
   function enterDungeonStairs() {
@@ -234,6 +353,7 @@ async function startWorld() {
     dungeonStatus.removeAttribute('data-danger');
     dungeonStatus.textContent = '';
     render();
+    autosave();
   }
 
   function prepareBattlefield() {
@@ -251,6 +371,7 @@ async function startWorld() {
     dungeonStatus.removeAttribute('data-danger');
     dungeonStatus.textContent = 'Follow the old road to the lantern for Thornwick.';
     render();
+    autosave();
   }
 
   function returnToVillage() {
@@ -259,6 +380,7 @@ async function startWorld() {
     prisoner.travelWith('village', player);
     dungeonStatus.textContent = '';
     render();
+    autosave();
   }
 
   function updateHunt() {
@@ -307,27 +429,102 @@ async function startWorld() {
     doorButton.hidden = !doorIsAhead;
     if (doorIsAhead) {
       const open = openingDoors.has(nearby.id);
-      const byPlayer = open && doorSweepOccupied(worldToHouse(player.x, player.z, nearby), nearby);
-      const byBlub = open && prisonerInDoorway(nearby);
-      const label = byPlayer ? 'Step back to close' : byBlub ? 'Blub is in the doorway' : open ? 'Close door' : 'Open door';
+      const checkSweep = open || nearby.doorOutward;
+      const byPlayer = checkSweep && doorSweepOccupied(worldToHouse(player.x, player.z, nearby), nearby);
+      const byBlub = checkSweep && prisonerInDoorway(nearby);
+      const byResident = checkSweep && woodlandResident.inDoorway(nearby);
+      const label = byPlayer ? (open ? 'Step back to close' : 'Step back to open')
+        : byBlub ? 'Blub is in the doorway' : byResident ? 'Someone is in the doorway'
+          : open ? 'Close door' : 'Open door';
       if (doorLabel.textContent !== label) doorLabel.textContent = label;
-      doorButton.disabled = byPlayer || byBlub;
+      doorButton.disabled = byPlayer || byBlub || byResident;
     }
     const next = rooms.get((inside ?? nearby)?.id) ?? null;
+    if (next) {
+      const now = performance.now() / 1000;
+      const local = inside ? worldToHouse(player.x, player.z, inside) : null;
+      for (const [index, resident] of next.residents.entries()) {
+        if (index !== next.keeper.index || !next.keeper.pose) resident.pose(now, local);
+      }
+    }
+    const mealsInView = Boolean(next?.residents.length > 1 && (inside || openDoors.has(nearby?.id)));
+    if (mealsInView && !diningVisible) walk();
+    diningVisible = mealsInView;
     if (next !== litRoom) {
       litRoom = next;
-      hearthLight.intensity = next ? 23 : 0;
-      candleLight.intensity = next ? 14 : 0;
-      if (next) {
-        hearthLight.position.copy(next.hearth);
-        candleLight.position.copy(next.lamp);
-      }
+      hearthLight.intensity = next?.hearth ? 23 : 0;
+      candleLight.intensity = next?.lamp ? 14 : 0;
+      if (next?.hearth) hearthLight.position.copy(next.hearth);
+      if (next?.lamp) candleLight.position.copy(next.lamp);
     }
   }
 
   function prisonerInDoorway(house) {
-    return prisoner.following && prisoner.area === 'village'
+    return prisoner.area === 'village' && (prisoner.following || prisoner.mealActivity)
       && doorSweepOccupied(worldToHouse(prisoner.position.x, prisoner.position.z, house), house);
+  }
+
+  function clearHouseDoor(house) {
+    return (area !== null || !doorSweepOccupied(worldToHouse(player.x, player.z, house), house))
+      && !prisonerInDoorway(house) && !woodlandResident.inDoorway(house);
+  }
+
+  function moveWoodlandDoor(house, open) {
+    if (openingDoors.has(house.id) === open) return open ? openDoors.has(house.id) : !doorChanges.has(house.id);
+    if ((open && !house.doorOutward) || clearHouseDoor(house)) setHouseDoor(house, open);
+    return false;
+  }
+
+  function canWoodlandResidentStep(x, z) {
+    return (area !== null || Math.hypot(player.x - x, player.z - z) > .62)
+      && (prisoner.area !== 'village' || Math.hypot(prisoner.position.x - x, prisoner.position.z - z) > .54)
+      && canStand(x, z, obstacles, openDoors);
+  }
+
+  function nearWoodlandCabin() {
+    return area === null && Math.hypot(player.x - WOODLAND_HOUSE.x, player.z - WOODLAND_HOUSE.z) < 24;
+  }
+
+  function poseWoodlandResident(seconds) {
+    const { sitting, position } = woodlandResident;
+    woodlandActor.root.visible = !sitting;
+    seatedWoodlandActor.root.visible = sitting;
+    if (sitting) seatedWoodlandActor.pose(seconds);
+    else woodlandActor.standAt(seconds, position, woodlandDoorwayDuck(position.x, position.z));
+  }
+
+  function advanceDoorKeepers(elapsed, time) {
+    keepersBusy = false;
+    let visible = false;
+    for (const room of rooms.values()) {
+      const { house, keeper } = room;
+      const open = openDoors.has(house.id);
+      if (!keeper || (!open && !keeper.active)) continue;
+      const playerLocal = area === null ? worldToHouse(player.x, player.z, house) : null;
+      const blub = prisoner.position;
+      const blubLocal = prisoner.area === 'village' ? worldToHouse(blub.x, blub.z, house) : null;
+      const mayStep = (x, z) => (!playerLocal || Math.hypot(x - playerLocal.x, z - playerLocal.z) > .60)
+        && (!blubLocal || Math.hypot(x - blubLocal.x, z - blubLocal.z) > .49);
+      const wasVisible = Boolean(keeper.pose);
+      if (keeper.advance(elapsed, open, mayStep, () => clearHouseDoor(house))) setHouseDoor(house, false);
+      keepersBusy ||= keeper.active;
+      if (wasVisible || keeper.pose) {
+        room.poseKeeper(time / 1000);
+        visible ||= !area && Math.hypot(player.x - house.x, player.z - house.z) < 30;
+      }
+    }
+    return visible;
+  }
+
+  function setHouseDoor(house, open) {
+    if (openingDoors.has(house.id) === open) return;
+    if (open) openingDoors.add(house.id);
+    else {
+      openingDoors.delete(house.id);
+      openDoors.delete(house.id);
+    }
+    doorChanges.set(house.id, open ? openDoorAngle(house) : 0);
+    walk();
   }
 
   function useDoor() {
@@ -363,18 +560,17 @@ async function startWorld() {
       return;
     }
     const closing = openingDoors.has(house.id);
-    if (closing && (doorSweepOccupied(worldToHouse(player.x, player.z, house), house) || prisonerInDoorway(house))) return;
-    if (closing) {
-      openingDoors.delete(house.id);
-      openDoors.delete(house.id);
-    } else openingDoors.add(house.id);
-    doorChanges.set(house.id, closing ? 0 : Math.PI / 2);
-    walk();
+    if ((closing || house.doorOutward) && !clearHouseDoor(house)) return;
+    setHouseDoor(house, !closing);
   }
 
   function moveDoors(elapsed) {
     for (const [id, target] of doorChanges) {
-      const hinge = rooms.get(id).hinge;
+      const { house, hinge } = rooms.get(id);
+      if (target === 0 && !clearHouseDoor(house)) {
+        setHouseDoor(house, true);
+        continue;
+      }
       const delta = target - hinge.rotation.y;
       const step = elapsed * 8.2;
       if (Math.abs(delta) > step) {
@@ -382,7 +578,7 @@ async function startWorld() {
         continue;
       }
       hinge.rotation.y = target;
-      if (target > 0) openDoors.add(id);
+      if (target !== 0) openDoors.add(id);
       doorChanges.delete(id);
       moonlight.shadow.needsUpdate = true;
     }
@@ -400,7 +596,13 @@ async function startWorld() {
 
   function render() {
     if (!isAvailable) return;
+    if (area) diningVisible = false;
     if (speechArea !== area || performance.now() >= speechUntil) prisonerSpeech.textContent = '';
+    const meal = !area && nearPrisoner(22) ? prisoner.mealActivity : null;
+    const activity = meal?.phase === 'entering' ? 'Blub is heading to ' + meal.house.name + ' for a meal.'
+      : meal?.phase === 'eating' ? 'Blub is eating at ' + meal.house.name + '.' : '';
+    if (blubActivity.textContent !== activity) blubActivity.textContent = activity;
+    blubActivity.hidden = !activity;
     camera.position.set(player.x, visualY, player.z);
     camera.rotation.set(player.pitch, player.yaw, 0);
     if (area === 'dungeon') {
@@ -436,6 +638,7 @@ async function startWorld() {
     }
     sky.position.copy(camera.position);
     updatePlace();
+    if (nearWoodlandCabin()) walk();
     if (!doorwayAt(player.x, player.z) && canTalkToPrisoner()) showAction(talkLabel);
     updateHunt();
     updateMoonlight();
@@ -464,23 +667,49 @@ async function startWorld() {
     return keys.has(key) || [...touchKeys.values()].includes(key);
   }
 
-  function moveTo(x, z) {
+  function canWalkOverworld(x, z) {
+    return !woodlandResident.blocks(x, z) && canStand(x, z, obstacles, openDoors);
+  }
+
+  function movementFloor(x, z, fromHeight) {
     if (area === 'tower') {
-      const floor = towerWalkHeight(x, z, standingHeight);
-      if (floor === null) return;
-      standingHeight = floor;
-    } else if (area === 'dungeon') {
-      if (!canWalkDungeon(x, z, dungeon.gateOpen, dungeon.openCells, prisoner.area === 'cell')) return;
-      standingHeight = dungeonFloor(z);
-    } else if (area === 'battlefield') {
-      if (!canWalkBattlefield(x, z)) return;
-      standingHeight = battlefieldHeight(x, z);
-    } else {
-      if (!canStand(x, z, obstacles, openDoors)) return;
-      standingHeight = walkSurface(x, z);
+      return towerWalkHeight(x, z, fromHeight);
     }
+    if (area === 'dungeon') {
+      return canWalkDungeon(x, z, dungeon.gateOpen, dungeon.openCells, prisoner.area === 'cell') ? dungeonFloor(z) : null;
+    }
+    if (area === 'battlefield') return canWalkBattlefield(x, z) ? battlefieldHeight(x, z) : null;
+    const house = houseAt(x, z);
+    const keeper = rooms.get(house?.id)?.keeper?.pose;
+    if (keeper) {
+      const local = worldToHouse(x, z, house);
+      if (Math.hypot(local.x - keeper.x, local.z - keeper.z) < .58) return null;
+    }
+    return canWalkOverworld(x, z) ? walkSurface(x, z) : null;
+  }
+
+  function moveTo(x, z) {
+    const floor = movementFloor(x, z, standingHeight);
+    if (floor === null) return;
+    standingHeight = floor;
     player.x = x;
     player.z = z;
+  }
+
+  function updatePrisonerModel(time, force = false) {
+    if (!dungeon) return;
+    const actor = dungeon.prisoner;
+    const room = { tower: tower?.scene, battlefield, village: scene }[prisoner.area] ?? dungeon.scene;
+    const changedScene = actor.root.parent !== room;
+    if (changedScene) room.add(actor.root);
+    if (!force && !changedScene && !sharesPrisonerArea()) return;
+    const { x, y, z } = prisoner.position;
+    const lift = prisoner.area === 'village' && !houseAt(x, z) ? trailElevation(x, z) : 0;
+    actor.pose(time / 1000, { ...prisoner.position, y: y + lift }, {
+      seated: prisoner.area === 'cell', moving: prisoner.walking, running: prisoner.running,
+      eating: prisoner.eating, recovery: prisoner.recovery,
+      stride: prisoner.stride, player: nearPrisoner(3.8) ? player : undefined, snap: force,
+    });
   }
 
   function tick(time) {
@@ -509,7 +738,7 @@ async function startWorld() {
       if (dz) moveTo(player.x, player.z + dz);
     }
     if (area || forward || right) {
-      visualY += (standingHeight + PLAYER_HEIGHT - visualY) * (1 - Math.exp(-elapsed * 17));
+      visualY += (standingHeight + PLAYER_EYE_HEIGHT - visualY) * (1 - Math.exp(-elapsed * 17));
     }
     if (rider.active) {
       const sheltered = Boolean(houseAt(player.x, player.z));
@@ -520,11 +749,14 @@ async function startWorld() {
     if (rider.stage === 'captured') capturePlayer();
     if (area === 'dungeon') {
       const gateWasOpen = dungeon.gateOpen;
+      const wasOpening = dungeon.opening;
       dungeon.animate(time / 1000, elapsed);
       if (!gateWasOpen && dungeon.gateOpen && prisoner.start(true)) say(blubBarks.gate);
+      if (wasOpening && !dungeon.opening) autosave();
     }
     const companionTarget = !area || area === 'battlefield' ? { x: player.x, z: player.z, area: area ?? 'village' } : null;
     const wasFollowing = prisoner.following;
+    const previousRecovery = prisoner.recovery;
     const next = prisoner.advance(elapsed, dungeon?.gateOpen ?? false, companionTarget);
     if (next === 'tower') prepareTower();
     if (next === 'battlefield') {
@@ -551,27 +783,24 @@ async function startWorld() {
         guardStriking = striking;
       }
     }
-    if (dungeon) {
-      const actor = dungeon.prisoner;
-      const room = { tower: tower?.scene, battlefield, village: scene }[prisoner.area] ?? dungeon.scene;
-      const changedScene = actor.root.parent !== room;
-      if (changedScene) room.add(actor.root);
-      if (changedScene || sharesPrisonerArea()) {
-        actor.pose(time / 1000, prisoner.position, {
-          seated: prisoner.area === 'cell', moving: prisoner.walking, running: prisoner.running,
-          stride: prisoner.stride, player: nearPrisoner(3.8) ? player : undefined,
-        });
-      }
-      if ((prisoner.area === 'village' || prisoner.following) && nearPrisoner(4.8) && time > Math.max(remarksAfter, speechUntil)) {
-        talkToPrisoner();
-      }
+    updatePrisonerModel(time);
+    if (dungeon && (prisoner.area === 'village' || prisoner.following)
+      && nearPrisoner(4.8) && time > Math.max(remarksAfter, speechUntil)) {
+      talkToPrisoner();
     }
+    if (next || prisoner.recovery !== previousRecovery || prisoner.following !== wasFollowing) autosave();
+    const keeperVisible = advanceDoorKeepers(elapsed, time);
+    const woodlandNear = nearWoodlandCabin();
+    const woodlandChanged = (woodlandNear || woodlandResident.visiting) && woodlandResident.advance(elapsed, woodlandNear, delta);
+    if (woodlandChanged) poseWoodlandResident(time / 1000);
     const prisonerNearby = prisoner.area === 'village' && nearPrisoner(70);
-    if (area || forward || right || turn || doorsMoving || riderNearby || prisonerNearby
+    if (area || forward || right || turn || doorsMoving || riderNearby || prisonerNearby || diningVisible || keeperVisible
+      || (woodlandNear && woodlandChanged)
       || prisonerSpeech.textContent || rider.within(player.x, player.z, 131)) render();
     else updateHunt();
-    if (area === 'tower' || area === 'dungeon' || keys.size || touchKeys.size || doorChanges.size || rider.active || prisoner.active
-      || (area === 'battlefield' && Math.abs(standingHeight + PLAYER_HEIGHT - visualY) > .018)) requestAnimationFrame(tick);
+    if (area === 'tower' || area === 'dungeon' || keys.size || touchKeys.size || doorChanges.size || rider.active || prisoner.active || diningVisible
+      || openDoors.size || keepersBusy || woodlandNear || woodlandResident.visiting
+      || (area === 'battlefield' && Math.abs(standingHeight + PLAYER_EYE_HEIGHT - visualY) > .018)) requestAnimationFrame(tick);
     else walking = false;
   }
 
@@ -591,6 +820,7 @@ async function startWorld() {
   document.addEventListener('keydown', (event) => {
     if (!isAvailable || event.altKey || event.ctrlKey || event.metaKey) return;
     if (soundSettings.open && soundSettings.contains(event.target)) return;
+    if (saveMenu.open && saveMenu.contains(event.target)) return;
     if (event.code === 'KeyE' && !event.repeat) useDoor();
     if (!MOVEMENT_KEYS.has(event.code)) return;
     if (event.code.startsWith('Arrow')) event.preventDefault();
@@ -605,12 +835,14 @@ async function startWorld() {
       clearMovement();
       voice.stop();
       rider.setEligible(false);
+      autosave();
     } else if (isAvailable) {
       lastTime = performance.now();
       render();
-      if (area || prisoner.active || rider.active || doorChanges.size) walk();
+      if (area || prisoner.active || rider.active || doorChanges.size || diningVisible || openDoors.size || keepersBusy) walk();
     }
   });
+  window.addEventListener('pagehide', () => autosave());
 
   canvas.addEventListener('pointerdown', (event) => {
     if (drag || !isAvailable || event.button !== 0) return;
@@ -650,6 +882,8 @@ async function startWorld() {
     viewport.hidden = true;
     world.classList.remove('has-world');
     doorButton.hidden = true;
+    saveMenu.open = false;
+    saveMenu.hidden = true;
     if (!area && regionAt(player.z) === 'field') displayLocation('village');
     document.getElementById('fallback-note').hidden = false;
   });
@@ -657,18 +891,46 @@ async function startWorld() {
     isAvailable = true;
     viewport.hidden = false;
     world.classList.add('has-world');
+    saveMenu.hidden = false;
     document.getElementById('fallback-note').hidden = true;
     shadowAnchor.set(Infinity, Infinity);
     resize();
-    if (area || prisoner.active || doorChanges.size || rider.active) walk();
+    if (area || prisoner.active || doorChanges.size || rider.active || diningVisible || openDoors.size || keepersBusy) walk();
   });
   viewport.replaceChildren(canvas);
   world.classList.add('has-world');
+  const villageStart = { ...VIEWS.village, height: walkSurface(VIEWS.village.x, VIEWS.village.z) };
+  const firstRun = { ...snapshotWorld(), player: villageStart, place: ZONES.village, rider: {} };
+  refreshSaves = bindSaveMenu(saveMenu, saves, {
+    save() {
+      if (!isAvailable) return 'unavailable';
+      const { status, record } = saves.write('manual', snapshotWorld());
+      if (record) autosave(true);
+      return status;
+    },
+    load(record) {
+      if (!isAvailable) return false;
+      restoreWorld(record.state);
+      autosave(true);
+      canvas.focus({ preventScroll: true });
+      return true;
+    },
+    restart() {
+      if (!isAvailable) return 'unavailable';
+      restoreWorld(firstRun);
+      return autosave(true);
+    },
+  });
+  const latest = saves.latest();
+  if (latest) restoreWorld(latest.state);
+  window.setInterval(() => {
+    if (!document.hidden) autosave();
+  }, 8000);
   resize();
   new ResizeObserver(resize).observe(viewport);
   return () => {
     standingHeight = walkSurface(player.x, player.z);
-    visualY = standingHeight + PLAYER_HEIGHT;
+    visualY = standingHeight + PLAYER_EYE_HEIGHT;
     if (prisoner.following) {
       prisoner.travelWith('village', player);
       voice.stop();
@@ -676,6 +938,7 @@ async function startWorld() {
       walk();
     }
     render();
+    autosave();
   };
 }
 

@@ -3,6 +3,7 @@ import {CLIFF_CANYON_GRID,CLIFF_CANYON_HEIGHTS} from './cliff-canyon-data.js';
 import { SEABED_LEVEL, BLUE_OCEAN_FLOOR } from "./terrain.js";
 import { PREPARED_SEABED_GRID, PREPARED_SEABED_HEIGHTS } from "./prepared-seabed-data.js";
 import {SHELL_FIELD_GRID,SHELL_FIELD_HEIGHTS} from './shell-field-data.js';
+import {JELLYFISH_SPIRES_GRID,JELLYFISH_SPIRES_HEIGHTS} from './jellyfish-spires-data.js';
 
 export const MIN_SEABED_HEIGHT = BLUE_OCEAN_FLOOR;
 export const MAX_SEABED_HEIGHT = -140;
@@ -28,10 +29,13 @@ if(!Number.isInteger(shellColumn)||!Number.isInteger(shellRow))throw new Error('
 for(let row=0;row<shellGrid.rows;row++)heights.set(SHELL_FIELD_HEIGHTS.slice(row*shellGrid.columns,(row+1)*shellGrid.columns),
   (shellRow+row)*SEABED_GRID.columns+shellColumn);
 const detailFields=[{grid:CLIFF_CANYON_GRID,heights:new Float32Array(CLIFF_CANYON_HEIGHTS)},
-  ...KELP_SEABED_PATCHES.map(patch=>({grid:patch.grid,heights:new Float32Array(patch.heights)}))];
+  ...KELP_SEABED_PATCHES.map(patch=>({grid:patch.grid,heights:new Float32Array(patch.heights)})),
+  {grid:JELLYFISH_SPIRES_GRID,heights:new Float32Array(JELLYFISH_SPIRES_HEIGHTS)}];
 for(const field of detailFields)if(field.heights.length!==field.grid.columns*field.grid.rows)
   throw new Error('Detailed seabed heights do not match their grid dimensions.');
 export const SEABED_DETAIL_GRIDS=Object.freeze(detailFields.map(field=>Object.freeze({...field.grid})));
+export const SEABED_RENDER_BOUNDS=Object.freeze({minX:SEABED_GRID.minX,maxX:JELLYFISH_SPIRES_GRID.maxX,
+  minY:Math.min(SEABED_GRID.minY,JELLYFISH_SPIRES_GRID.minY),maxY:Math.max(SEABED_GRID.maxY,JELLYFISH_SPIRES_GRID.maxY)});
 const contains=(grid,x,y)=>x>=grid.minX&&x<=grid.maxX&&y>=grid.minY&&y<=grid.maxY;
 /** Exact visible grid resolution for local surface and climbing queries. */
 export function getSeabedGridAt(x,y){

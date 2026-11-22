@@ -64,16 +64,17 @@ test('Blub-following questions receive factual companion advice without enabling
   }
 });
 
-test('Blackroot sound advice preserves subtitles and does not promise adventure persistence or online play', () => {
+test('Blackroot sound and save advice describe the current local slots without promising online play', () => {
   const sound = fact('How do I hear Blub and change the volume?', 'blackroot-sound', 'blackroot', blackrootUrl);
   assert.match(sound, /E near Blub.*bundled goblin voice.*Sound.*mute.*subtitles remain visible while muted/);
   assert.match(sound, /preferences are remembered in this browser/);
   const saves = ask('Does Blackroot Vale save my progress?').reply;
-  assert.match(saves, /sound volume and mute preferences.*browser.*session-only.*starts again on reload/);
-  assert.match(saves, /no named expedition saves or progress export/);
-  assert.doesNotMatch(saves, /autosaves every|JSON backup|cloud sync/);
+  assert.match(saves, /one manual save and one autosave.*browser.*Open Save.*load either slot/);
+  assert.match(saves, /every 8 seconds.*resumes the newest save automatically.*Blub/);
+  assert.match(saves, /New game replaces only the autosave.*keeps the manual slot/);
+  assert.match(saves, /no JSON export or cloud sync/);
   const session = OCTO_KNOWLEDGE.find(({ id }) => id === 'blackroot-session');
-  assert.match(session.answer, /session-only.*reloading starts it again.*no named progress slots, adventure autosaves or progress export/i);
+  assert.match(session.answer, /one manual save and one autosave.*every 8 seconds.*newest save automatically/i);
   assert.match(ask('Blackroot Vale multiplayer').reply, /solo adventure.*Blub.*not an online player/);
 });
 

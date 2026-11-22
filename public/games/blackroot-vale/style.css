@@ -58,8 +58,8 @@ h1, h2, p { margin: 0; }
 .places button { min-height: 34px; min-width: 68px; padding: 4px 9px; border: 1px solid transparent; background: transparent; border-radius: 3px; color: #ced1bf; font-size: 12px; font-weight: 650; }
 .places button:hover { color: var(--brass); }
 .places button[aria-pressed="true"] { color: #f5d9a5; border-color: #9d83506e; background: #3b3727; }
-.sound-settings { position: relative; }
-.sound-settings summary {
+.sound-settings, .save-menu { position: relative; }
+:is(.sound-settings, .save-menu) summary {
   display: grid;
   place-items: center;
   min-height: 42px;
@@ -73,9 +73,9 @@ h1, h2, p { margin: 0; }
   font-size: 12px;
   font-weight: 650;
 }
-.sound-settings summary::-webkit-details-marker { display: none; }
-.sound-settings[open] summary, .sound-settings summary:hover { color: var(--brass); }
-.sound-panel {
+:is(.sound-settings, .save-menu) summary::-webkit-details-marker { display: none; }
+:is(.sound-settings, .save-menu)[open] summary, :is(.sound-settings, .save-menu) summary:hover { color: var(--brass); }
+.sound-panel, .save-panel {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
@@ -93,7 +93,25 @@ h1, h2, p { margin: 0; }
 .sound-level output { color: var(--brass); font-variant-numeric: tabular-nums; }
 .sound-panel input { margin: 0; accent-color: var(--brass); }
 .sound-mute { display: flex; align-items: center; gap: 8px; min-height: 26px; cursor: pointer; }
+.save-panel { width: min(246px, calc(100vw - 26px)); max-height: calc(100dvh - 82px); overflow: auto; gap: 9px; }
+.save-panel button {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid #9c885a73;
+  border-radius: 3px;
+  background: #242b20;
+  color: #f2dfb4;
+  text-align: left;
+}
+.save-panel button:hover:enabled { background: #3b3727; }
+.save-panel button:disabled { color: #a9ab9d; cursor: default; }
+.save-slot { display: grid; gap: 4px; }
+.save-slot span { color: #d4c6a7; font-size: 13px; font-weight: 400; }
+.save-message { color: var(--brass); }
+.save-message:empty { display: none; }
 .place { min-width: 0; text-shadow: 0 3px 16px #070b08, 0 1px 8px #070b08; }
+.blub-activity { margin: 0 0 9px 2px; color: #f0dbab; font-size: 14px; font-weight: 600; }
 .place-kicker { display: flex; gap: 8px; align-items: center; margin: 0 0 6px 2px; color: var(--brass); letter-spacing: .16em; text-transform: uppercase; font-size: 10px; font-weight: 700; }
 .place-kicker > span:first-child { background: var(--brass); width: 5px; height: 5px; transform: rotate(45deg); }
 .place h2 { color: #fff0ce; font: 500 clamp(38px, 5.6vw, 83px)/.96 var(--serif); letter-spacing: -.065em; }
@@ -170,15 +188,25 @@ kbd { padding: 3px 5px; border: 1px solid #bda97758; border-radius: 4px; backgro
   .places button { min-width: 46px; padding-inline: 6px; }
   .controls { text-align: left; font-size: 11px; }
 }
-@media (max-width: 410px) {
-  .brand-icon { display: none; }
+@media (max-width: 430px) {
+  .world.has-world .hud-top {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 6px;
+  }
+  .world.has-world .hud-actions { display: contents; }
+  .world.has-world .places { grid-row: 2; grid-column: 1 / -1; justify-self: end; }
+  .world.has-world .sound-settings { grid-row: 1; grid-column: 2; pointer-events: auto; }
+  .world.has-world .save-menu { grid-row: 1; grid-column: 3; pointer-events: auto; }
+  .world.has-world :is(.hunt-notice, .dungeon-status) { top: 111px; }
+  .world.has-world .prisoner-speech { top: max(145px, calc(50% - 110px)); }
 }
 @media (max-width: 365px) {
   .hud-top { gap: 8px; }
   .brand h1 { font-size: 19px; }
   .brand-icon { width: 24px; height: 24px; }
   .places button { min-width: 40px; font-size: 11px; }
-  .sound-settings summary { padding-inline: 7px; }
+  :is(.sound-settings, .save-menu) summary { padding-inline: 7px; }
 }
 @media (pointer: coarse) {
   .touch-pad {

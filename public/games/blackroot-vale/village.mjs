@@ -1,8 +1,10 @@
 import * as T from './vendor/three.module.js';
 import { DOOR_HEIGHT, DOOR_WIDTH, FLOOR_LEVEL, WALL_THICKNESS } from './house-plan.mjs';
-import { FENCES, groundHeight, HOUSES, LAMPS, seeded, WELL } from './layout.mjs';
+import { FENCES, groundHeight, HOUSES, LAMPS, seeded, WELL, WOODLAND_OUTHOUSE } from './layout.mjs';
 import { furnishRoom, roomMaterials } from './rooms.mjs';
 import { repeatSurface } from './surfaces.mjs';
+import { createDoorKeeper } from './village-door-keeper.mjs';
+import { createVillager } from './villagers.mjs';
 
 const cube = new T.BoxGeometry();
 const batch = new Map();
@@ -125,7 +127,7 @@ function timberWall(parent, width, height, lower, style, entry = false) {
   if (style === 2) crossbeam(height * .56, .16);
 }
 
-function masonryBands(side, width, low, high, material, openings) {
+function wallBands(side, width, low, high, material, openings, depth = WALL_THICKNESS, offset = 0) {
   const stops = [-width / 2, ...openings.flatMap((opening) => [opening.left, opening.right]), width / 2].sort((a, b) => a - b);
   for (let i = 1; i < stops.length; i++) {
     const left = stops[i - 1];
@@ -134,16 +136,22 @@ function masonryBands(side, width, low, high, material, openings) {
     const opening = openings.find((hole) => x > hole.left && x < hole.right);
     const strips = opening ? [[low, Math.min(high, opening.low)], [Math.max(low, opening.high), high]] : [[low, high]];
     for (const [bottom, top] of strips) {
-      if (top > bottom) box(side, material, x, (top + bottom) / 2, 0, right - left, top - bottom, WALL_THICKNESS);
+      if (top > bottom) box(side, material, x, (top + bottom) / 2, offset, right - left, top - bottom, depth);
     }
   }
 }
 
-function buildWall(side, width, height, style, panes, entry = false) {
+function buildWall(side, width, height, style, panes, { entry = false, woodland = false } = {}) {
   const openings = panes.map(({ x, y, w, h }) => ({ left: x - w * .48, right: x + w * .48, low: y - h * .48, high: y + h * .48 }));
   if (entry) openings.push({ left: -DOOR_WIDTH / 2, right: DOOR_WIDTH / 2, low: -.86, high: FLOOR_LEVEL + DOOR_HEIGHT });
-  masonryBands(side, width + .24, -.64, .80, footings, openings);
-  masonryBands(side, width + .24, .80, height, plaster[style], openings);
+  wallBands(side, width + .24, -.64, .80, footings, openings);
+  wallBands(side, width + .24, .80, height, woodland ? darkWood : plaster[style], openings);
+  if (woodland) {
+    for (let row = 0, bottom = .80; bottom < height; row++, bottom += .21) {
+      const finish = row % 3 === 1 ? darkWood : wood;
+      wallBands(side, width + .21, bottom, Math.min(height, bottom + .199), finish, openings, .044, .144);
+    }
+  }
   timberWall(side, width, height, .72, style, entry);
   for (const { x, y, w, h, light } of panes) {
     frontWindow(side, x, y, .153, w, h, light);
@@ -157,19 +165,26 @@ function buildWall(side, width, height, style, panes, entry = false) {
   }
 }
 
-function entryDoor(front) {
+function doorHinge(front, width) {
   const hinge = new T.Group();
-  hinge.position.set(-DOOR_WIDTH / 2, FLOOR_LEVEL, .025);
+  hinge.position.set(-width / 2, FLOOR_LEVEL, .025);
   front.add(hinge);
-  // Attach the moving pieces directly to the hinge; the walls and furniture are batched.
-  function part(material, x, y, z, w, h, d) {
-    const mesh = new T.Mesh(cube, material);
-    mesh.position.set(x, y, z);
-    mesh.scale.set(w, h, d);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    hinge.add(mesh);
-  }
+  return hinge;
+}
+
+// Attach moving pieces to the hinge instead of the static batches.
+function movingDoorPart(hinge, material, x, y, z, w, h, d) {
+  const mesh = new T.Mesh(cube, material);
+  mesh.position.set(x, y, z);
+  mesh.scale.set(w, h, d);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  hinge.add(mesh);
+}
+
+function entryDoor(front) {
+  const hinge = doorHinge(front, DOOR_WIDTH);
+  const part = (...piece) => movingDoorPart(hinge, ...piece);
   const panelW = DOOR_WIDTH - .060;
   part(darkWood, DOOR_WIDTH * .5, DOOR_HEIGHT * .5, 0, panelW, DOOR_HEIGHT - .036, .104);
   const plank = panelW / 7;
@@ -188,6 +203,113 @@ function entryDoor(front) {
   box(front, stone[1], 0, FLOOR_LEVEL - .08, .235, DOOR_WIDTH + .12, .158, .88);
   box(front, stone[2], 0, FLOOR_LEVEL - .191, .597, DOOR_WIDTH + .16, .158, .48);
   return hinge;
+}
+
+function boardWithOpening(parent, material, w, h, depth, opening) {
+  const face = new T.Shape();
+  face.moveTo(-w / 2, -h / 2);
+  face.lineTo(w / 2, -h / 2);
+  face.lineTo(w / 2, h / 2);
+  face.lineTo(-w / 2, h / 2);
+  face.closePath();
+  face.holes.push(opening);
+  const board = new T.Mesh(new T.ExtrudeGeometry(face, { depth, bevelEnabled: false }), material);
+  board.castShadow = board.receiveShadow = true;
+  parent.add(board);
+  return board;
+}
+
+function privyDoor(front, { doorWidth: width, doorHeight: height }) {
+  const hinge = doorHinge(front, width);
+  const panel = width - .045;
+  const crescent = new T.Path();
+  crescent.moveTo(.066, .69);
+  crescent.quadraticCurveTo(-.143, .680, -.098, .553);
+  crescent.quadraticCurveTo(-.072, .451, .062, .478);
+  crescent.quadraticCurveTo(-.024, .532, -.021, .602);
+  crescent.quadraticCurveTo(-.013, .659, .066, .69);
+  const board = boardWithOpening(hinge, wood, panel, height - .037, .084, crescent);
+  board.position.set(width / 2, height / 2, -.042);
+  const part = (...piece) => movingDoorPart(hinge, ...piece);
+  for (const seam of [-.3, -.1, .1, .3]) {
+    part(darkWood, width / 2 + seam * panel, height / 2, .043, .011, height - .052, .012);
+  }
+  for (const y of [.35, 1.34]) {
+    part(darkWood, width / 2, y, -.065, panel - .06, .122, .057);
+    part(iron, .15, y, .050, .254, .059, .034);
+  }
+  for (const side of [-1, 1]) {
+    part(iron, width - .148, .965, side * .057, .072, .165, .034);
+    part(iron, width - .148, .968, side * .090, .126, .038, .049);
+    box(front, trim, side * (width / 2 + .039), FLOOR_LEVEL + height / 2, .028, .083, height + .06, .24);
+  }
+  box(front, trim, 0, FLOOR_LEVEL + height + .052, .06, width + .15, .10, .24);
+  box(front, stone[1], 0, FLOOR_LEVEL - .079, .21, width + .12, .158, .54);
+  return hinge;
+}
+
+function woodlandOuthouse(scene, house, roof) {
+  const { x, z, w, d, h, yaw, doorWidth, doorHeight } = house;
+  const parent = new T.Group();
+  parent.position.set(x, house.baseY, z);
+  parent.rotation.y = yaw;
+  scene.add(parent);
+  const rise = .37;
+  const slope = rise / d;
+  box(parent, footings, 0, -.095, 0, w + .025, .60, d + .025);
+  box(parent, darkWood, 0, FLOOR_LEVEL - .066, 0, w - .018, .132, d - .014);
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 10; i++) {
+      const pz = ((i + .5) / 10 - .5) * d;
+      const top = h - rise / 2 + pz * slope;
+      box(parent, i % 3 === 1 ? darkWood : wood, side * w / 2, (FLOOR_LEVEL + top) / 2, pz,
+        .127, top - FLOOR_LEVEL, d / 10 - .004);
+    }
+    const width = (w - doorWidth) / 2;
+    box(parent, wood, side * (doorWidth / 2 + width / 2), (FLOOR_LEVEL + h) / 2, d / 2,
+      width, h - FLOOR_LEVEL, .14);
+    for (const end of [-1, 1]) {
+      const top = end === 1 ? h : h - rise;
+      box(parent, darkWood, side * w / 2, (FLOOR_LEVEL + top) / 2, end * d / 2, .151, top - FLOOR_LEVEL, .164);
+    }
+  }
+  for (let i = 0; i < 9; i++) {
+    const back = h - rise;
+    box(parent, i % 3 === 1 ? darkWood : wood, ((i + .5) / 9 - .5) * w,
+      (FLOOR_LEVEL + back) / 2, -d / 2, w / 9 - .004, back - FLOOR_LEVEL, .139);
+  }
+  const lintel = FLOOR_LEVEL + doorHeight;
+  box(parent, wood, 0, (lintel + h) / 2, d / 2, doorWidth, h - lintel, .14);
+  box(parent, roof, 0, h - rise / 2 + .068, 0, w + .47, .134, d + .58, -Math.atan(slope));
+  box(parent, darkWood, 0, h + slope * .24, d / 2 + .26, w + .49, .16, .106);
+
+  const seat = house.room.furnishings[0];
+  const hole = new T.Path();
+  hole.absellipse(0, 0, .162, .137, 0, 2 * Math.PI, true);
+  const plank = boardWithOpening(parent, smoothWood, seat.w, seat.d, .062, hole);
+  plank.position.set(seat.x, FLOOR_LEVEL + seat.h - .062, seat.z);
+  plank.rotation.x = -Math.PI / 2;
+  box(parent, darkWood, seat.x, FLOOR_LEVEL + (seat.h - .062) / 2, seat.z + seat.d / 2 - .054,
+    seat.w, seat.h - .062, .108);
+  box(parent, darkness, seat.x, FLOOR_LEVEL + .013, seat.z, .48, .024, .41);
+  const front = wall(parent, 0, d / 2, 0);
+  wallLantern(front, { x: .76, y: FLOOR_LEVEL + 1.66, intensity: 8, range: 5 });
+  return { house, hinge: privyDoor(front, house), residents: house.room.residents };
+}
+
+function wallLantern(front, { x = -1.33, y = FLOOR_LEVEL + 2.14, intensity = 26, range = 8 } = {}) {
+  const z = .44;
+  box(front, darkWood, x, y + .39, .27, .14, .11, .40);
+  box(front, iron, x, y + .24, z, .034, .24, .034);
+  box(front, iron, x, y + .145, z, .24, .065, .24);
+  box(front, glass[1], x, y, z, .18, .26, .18);
+  box(front, iron, x, y - .151, z, .23, .055, .23);
+  for (const dx of [-.097, .097]) for (const dz of [-.097, .097]) {
+    box(front, iron, x + dx, y, z + dz, .018, .29, .018);
+  }
+  const light = new T.PointLight('#ffad60', intensity, range, 2);
+  light.position.set(x, y - .11, z + .19);
+  front.add(light);
 }
 
 function dormer(parent, direction, wallHeight, houseWidth, rise, roof) {
@@ -211,7 +333,7 @@ function dormer(parent, direction, wallHeight, houseWidth, rise, roof) {
 }
 
 function homestead(scene, house, roof, furnishings) {
-  const { x, z, w, d, h, yaw, style } = house;
+  const { x, z, w, d, h, yaw, style, woodland } = house;
   const parent = new T.Group();
   scene.add(parent);
   parent.position.set(x, house.baseY, z);
@@ -219,7 +341,7 @@ function homestead(scene, house, roof, furnishings) {
   const rise = w * [.365, .45, .391][style];
   const roofAngle = Math.atan(rise / (w / 2));
   const roofWidth = (w / 2 + .62) / Math.cos(roofAngle);
-  gable(parent, plaster[style], w, d, h, rise);
+  gable(parent, woodland ? darkWood : plaster[style], w, d, h, rise);
 
   for (const sign of [-1, 1]) {
     const roofX = sign * (w / 4 + .19);
@@ -233,25 +355,26 @@ function homestead(scene, house, roof, furnishings) {
     buildWall(side, d, h, style, [
       { x: -d * .23, y: h * .53, w: .74, h: .84, light: (style + 1) % 3 },
       { x: d * .23, y: h * .48, w: .72, h: .81, light: style },
-    ]);
+    ], { woodland });
   }
   box(parent, trim, 0, h + rise + .085, 0, .24, .22, d + 1.48);
   if (style) dormer(parent, x < 0 ? 1 : -1, h, w, rise, roof);
   const front = wall(parent, 0, d / 2, 0);
   const back = wall(parent, 0, -d / 2, Math.PI);
+  const paneHeight = woodland ? .74 : 1;
   const panes = [
-    { x: -w * .25, y: h * .55, w: style === 1 ? 1.04 : .87, h: 1, light: style },
-    { x: w * .25, y: h * .53, w: .89, h: 1, light: (style + 1) % 3 },
+    { x: -w * (woodland ? .29 : .25), y: h * .55, w: woodland ? .66 : style === 1 ? 1.04 : .87, h: paneHeight, light: style },
+    { x: w * .25, y: h * .53, w: woodland ? .67 : .89, h: paneHeight, light: (style + 1) % 3 },
   ];
-  buildWall(front, w, h, style, panes, true);
-  buildWall(back, w, h, style, panes);
+  buildWall(front, w, h, style, panes, { entry: true, woodland });
+  buildWall(back, w, h, style, panes, { woodland });
   for (const end of [front, back]) {
     for (const side of [-1, 1]) {
       diagonal(end, wood, side * w * .29, h + .13, side * w * .085, h + rise * .67, .095, .13);
     }
     box(end, wood, 0, h + rise * .43, .09, .18, rise * .82, .14);
     diagonal(end, trim, -w * .31, h + .17, w * .31, h + .17, .1);
-    frontWindow(end, 0, h + rise * .32, .105, .86, .90, style);
+    if (!woodland) frontWindow(end, 0, h + rise * .32, .105, .86, .90, style);
   }
 
   const chimneyX = w * .24;
@@ -261,7 +384,26 @@ function homestead(scene, house, roof, furnishings) {
   box(parent, stone[2], chimneyX, chimneyTop, chimneyZ, 1.04, .16, 1.10);
   box(parent, darkness, chimneyX, chimneyTop + .105, chimneyZ, .61, .02, .66);
   const hinge = entryDoor(front);
-  return { hinge, ...furnishRoom(parent, house, box, furnishings) };
+  if (woodland) wallLantern(front);
+  const residents = house.room.residents.map((resident, index) => createVillager(parent, house, resident, index));
+  const room = { house, hinge, residents, ...furnishRoom(parent, house, box, furnishings) };
+  if (!residents.length) return room;
+  const keeper = createDoorKeeper(house);
+  const atHome = residents[keeper.index];
+  const { seatHeight, ...stand } = house.room.residents[keeper.index];
+  const walking = seatHeight ? createVillager(parent, house, stand, keeper.index) : atHome;
+  if (walking !== atHome) walking.root.visible = false;
+  return {
+    ...room, keeper,
+    poseKeeper(seconds) {
+      const frame = keeper.pose;
+      if (walking !== atHome) {
+        walking.root.visible = Boolean(frame);
+        atHome.root.visible = !frame;
+      }
+      walking.standAt(seconds, frame);
+    },
+  };
 }
 
 function pavement(scene) {
@@ -403,8 +545,13 @@ export function createVillage(scene, surfaces) {
   texture.rotation = Math.PI / 2;
   const roof = surface(tint('#c5c9cd'), texture, .051);
   roof.roughness = .68;
+  const woodlandRoof = roof.clone();
+  woodlandRoof.color.set('#a0aa8c');
   const furnishings = roomMaterials(surfaces);
-  const rooms = new Map(HOUSES.map((house) => [house.id, homestead(scene, house, roof, furnishings)]));
+  const rooms = new Map(HOUSES.map((house) => [
+    house.id, homestead(scene, house, house.woodland ? woodlandRoof : roof, furnishings),
+  ]));
+  rooms.set(WOODLAND_OUTHOUSE.id, woodlandOuthouse(scene, WOODLAND_OUTHOUSE, woodlandRoof));
   villageWell(scene, roof);
   pavement(scene);
   lamps(scene);

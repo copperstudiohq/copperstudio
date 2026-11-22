@@ -4,6 +4,7 @@
 export const WATER_LEVEL = -15;
 export const SEABED_LEVEL = -280;
 export const EYE_HEIGHT = 36;
+export const PLAYER_RADIUS = 5;
 export const BLUE_OCEAN_START_X = 1100;
 export const BLUE_OCEAN_DEPTH_METERS = 100;
 export const BLUE_OCEAN_FLOOR = WATER_LEVEL - BLUE_OCEAN_DEPTH_METERS * 25;

@@ -1,4 +1,12 @@
 import {WorldBarnacleRenderer} from './world-barnacle-renderer.js';
+import {JellyfishSpiresRenderer} from './jellyfish-spires-renderer.js';
+import {SpiresSubmarineRenderer} from './submarine-renderer.js';
+import {JELLYFISH_SPIRES} from './jellyfish-spires-data.js';
+import {getJellyfishSpiresDiveLightGain} from './jellyfish-spires-lighting.js';
+import {GravelPebblesRenderer} from './gravel-pebbles.js';
+import {createGravelMaps,addGravelMask,applyGravelSurface,seabedGravelBlend} from './seabed-gravel.js';
+import {MarineTextureDetail,applyBasaltDetail} from './marine-texture-detail.js';
+import {setFirstPersonSubmerged} from './first-person-lighting.js';
 import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 import {WildlifeBroodRenderer} from './wildlife-brood-renderer.js';
 import {CaveSandWormRenderer} from './cave-sand-worm-renderer.js';
@@ -199,7 +207,7 @@ export function seabedGeometry() {
   geometry.addGroup(0, faces[0].length / 3, 0);
   geometry.addGroup(faces[0].length / 3, faces[1].length / 3, 1);
   indexed.dispose();
-  return projectSurfaceUVs(geometry);
+  return addGravelMask(projectSurfaceUVs(geometry));
 }
 
 /** Border faces follow the same authored polygon edges used by movement. */
@@ -312,9 +320,10 @@ export function glacierGeometry(floe,vertices){return createFloatingGlacierGeome
 
 /** First-person WebGL renderer. Physics and rendering share the same ice polygons. */
 export class Scene {
-  /** @param {HTMLCanvasElement} canvas */
-  constructor(canvas) {
+  /** @param {HTMLCanvasElement} canvas @param {{onInvalidate?:()=>void}} [options] */
+  constructor(canvas,{onInvalidate}={}) {
     this.canvas = canvas;
+    this.invalidate=typeof onInvalidate==='function'?onInvalidate:null;
     this.disposed = false;
     this.quality = browserQuality();
     this.renderDistance=loadRenderDistance(undefined,this.quality.mobile?40:80);
@@ -490,6 +499,8 @@ export class Scene {
   }
 
   addSeabed() {
+    this.gravelMaps??=createGravelMaps();
+    this.marineDetails??=new MarineTextureDetail({gravelMaps:this.gravelMaps,onReady:()=>{if(!this.disposed)this.invalidate?.();}});
     this.shellFieldMap??=createShellFieldTexture();
     this.shellFieldNormalMap??=createShellFieldNormalTexture();
     const floor = seabedGeometry();
@@ -500,6 +511,7 @@ export class Scene {
       material.vertexColors = true;
       applyTerrainSurface(material, this.materials, this.waterMaterial?.uniforms.time ?? { value: 0 });
       applyShellFieldSurface(material,this.shellFieldMap,this.shellFieldNormalMap,true);
+      applyGravelSurface(material,this.gravelMaps);
       applyWaterMedium(material);
     }
     this.seabedBatch = createSeabedBatch(floor);
@@ -545,9 +557,11 @@ export class Scene {
     const stoneGeometry=createSeabedStoneGeometry();
     stoneGeometry.setAttribute('shellFieldBlend',new THREE.InstancedBufferAttribute(
       Uint8Array.from(PREPARED_SEABED_STONES,stone=>Math.round(255*shellFieldBlend(stone.x,stone.y))),1,true));
+    stoneGeometry.setAttribute('gravelBlend',new THREE.InstancedBufferAttribute(
+      Uint8Array.from(PREPARED_SEABED_STONES,stone=>Math.round(255*seabedGravelBlend(stone.x,stone.y))),1,true));
     const rocks = new THREE.InstancedMesh(
       stoneGeometry,
-      applyShellFieldSurface(this.materials?.rock?.clone() ?? matte(0xd88945),this.shellFieldMap,this.shellFieldNormalMap),
+      applyGravelSurface(applyShellFieldSurface(this.materials?.rock?.clone() ?? matte(0xd88945),this.shellFieldMap,this.shellFieldNormalMap),this.gravelMaps),
       PREPARED_SEABED_STONES.length,
     );
     rocks.name = "seabed-stones";
@@ -653,12 +667,20 @@ export class Scene {
     const boulderSand=new THREE.Mesh(createWorldRockSandGeometry(PREPARED_WORLD_ROCKS),boulderSandMaterial);
     boulderSand.name='underwater-boulder-sand';boulderSand.receiveShadow=true;this.scene.add(boulderSand);
     this.worldBarnacles=new WorldBarnacleRenderer(world,this.materials);this.scene.add(this.worldBarnacles.group);
+    this.jellyfishSpires=new JellyfishSpiresRenderer(world,{material:this.materials.rock,decorateMaterial:material=>{
+      material.normalMap=null;
+      applyBasaltDetail(material,this.marineDetails.basaltMaps);applyWaterMedium(material);return material;
+    }});this.scene.add(this.jellyfishSpires.group);
+    this.spiresSubmarine=new SpiresSubmarineRenderer(this.materials);this.scene.add(this.spiresSubmarine.group);
+    this.gravelPebbles=new GravelPebblesRenderer(world,{mobile:this.quality?.mobile,decorateMaterial:material=>applyWaterMedium(material)});
+    this.scene.add(this.gravelPebbles.group);
     const cliffSurface={map:this.shellFieldMap,normalMap:this.shellFieldNormalMap};
     this.saltCave=new SaltCaveRenderer(this.materials,cliffSurface);this.scene.add(this.saltCave.group);
     this.sulfuric=new SulfuricBiomeRenderer(this.materials,cliffSurface);this.scene.add(this.sulfuric.group);
     for(const region of['main','sulfur']){
       const geometry=createPerimeterGround(region),material=(region==='main'?this.materials?.sand:this.materials?.rock)?.clone()??matte(0xffffff);
       material.vertexColors=true;material.color.setHex(0xffffff);
+      if(region==='main'){addGravelMask(geometry);applyGravelSurface(material,this.gravelMaps);applyWaterMedium(material);}
       if(region==='sulfur')material.map=null;
       const collar=new THREE.Mesh(geometry,material);collar.name=`perimeter-${region}-ground`;collar.receiveShadow=true;this.scene.add(collar);
       if(region==='main'&&this.causticsMaterial){const caustics=new THREE.Mesh(geometry.clone(),this.causticsMaterial);caustics.name='perimeter-main-caustics';caustics.position.y=.012;caustics.renderOrder=1;this.scene.add(caustics);}
@@ -714,7 +736,7 @@ export class Scene {
     const staticInstances=[...(this.worldRocks?.meshes??[]),...Object.values(this.flora?.tubes??{}),this.flora?.ridges,
       this.scene.getObjectByName('seabed-stones'),this.scene.getObjectByName('ice-island-underside-spikes'),...(this.sulfuric?.instances??[])].filter(Boolean);
     this.instanceRenderDistance=new InstanceRenderDistance(staticInstances);
-    this.distanceGroups=[this.shuttle,this.largeGlacierWreck?.group,this.basinMerchCargo?.group,this.crobanMango?.group,
+    this.distanceGroups=[this.shuttle,this.largeGlacierWreck?.group,this.spiresSubmarine?.group,this.basinMerchCargo?.group,this.crobanMango?.group,
       ...(this.heatLights??[]).map(light=>light.parent),...(this.parts?.values()??[])].filter(group=>group&&group!==this.scene).map(group=>{
       group.updateWorldMatrix(true,true);return{group,bounds:new THREE.Box3().setFromObject(group,true)};
     });
@@ -1343,6 +1365,7 @@ export class Scene {
   draw(world, time, dt, moving) {
     if (this.disposed || this.contextLost) return;
     if (!this.worldReady) this.addWorld(world);
+    this.marineDetails?.update(world.player,this.renderDistance??80);
     for(const entry of this.distanceGroups??[]){if(entry.hidden){entry.group.visible=true;entry.hidden=false;}}
     if (dt > 0 && !this.reducedMotion) this.clock += dt;
     const animation = this.clock;
@@ -1350,6 +1373,7 @@ export class Scene {
     const caveSection=saltSection??getBasinCave(world.player.x,world.player.y,world.player.z+EYE_HEIGHT);
     const activeWaterLevel=basinWaterLevel(world.player);
     const underwater = world.player.z+EYE_HEIGHT<activeWaterLevel;
+    setFirstPersonSubmerged(underwater);
     const saltSurfaceAir=Boolean(saltSection&&!underwater&&world.player.z+EYE_HEIGHT>(getSulfuricGround(world.player.x,world.player.y)??Infinity));
     const caveAir=Boolean(caveSection&&!underwater&&!saltSurfaceAir);
     const biome = getWorldBiome(world, world.player.x, world.player.y, underwater);
@@ -1451,6 +1475,16 @@ export class Scene {
     this.diveLight.color.setHex(saltSection&&!saltSurfaceAir?0xffdda0:0xc4e4ff);
     this.diveLight.intensity = caveAir ? 18 : underwater ? (inDeepWater ? 30 + 150 * (1 - sunlight) : 58) : 0;
     this.diveLight.intensity=THREE.MathUtils.lerp(this.diveLight.intensity,35,shellLight);
+    if(underwater&&biome==='jellyfish-spires'){
+      const p=world.player,last=this.spireLightSample;
+      this.camera.getWorldDirection(this.diveDirection);
+      if(!last||Math.hypot(p.x-last.x,p.y-last.y,p.z-last.z)>30||Math.abs(this.yaw-last.yaw)+Math.abs(this.pitch-last.pitch)>.04||world.elapsed-last.time>.25)
+        this.spireLightSample={x:p.x,y:p.y,z:p.z,time:world.elapsed,yaw:this.yaw,pitch:this.pitch,
+          gain:getJellyfishSpiresDiveLightGain(p,{x:this.diveDirection.x,y:this.diveDirection.z,z:this.diveDirection.y})};
+      const targetGain=this.spireLightSample.gain;
+      this.spireLightGain=dt>0?THREE.MathUtils.lerp(this.spireLightGain??targetGain,targetGain,1-Math.exp(-dt*8)):targetGain;
+      this.diveLight.intensity*=this.spireLightGain;
+    }
     if(saltSection&&!saltSurfaceAir)this.diveLight.intensity=28;
     this.diveLight.position.copy(this.camera.position);
     this.camera.getWorldDirection(this.diveDirection);
@@ -1480,6 +1514,8 @@ export class Scene {
     this.flora?.update(animation, this.reducedMotion, this.camera.position,this.quality);
     this.forest?.update(world, animation, this.reducedMotion, this.camera.position, this.quality);
     this.sulfuric?.update(this.camera.position,animation,this.reducedMotion,world.elapsed);
+    this.jellyfishSpires?.update(world,this.camera.position,this.renderDistance??80);
+    this.gravelPebbles?.update(this.camera.position,this.quality,this.renderDistance??80);
     this.seaweed?.update(animation, this.reducedMotion, this.camera.position, this.quality);
     this.arcticGardens?.update(animation, this.reducedMotion, this.camera.position, this.quality);
     this.plants?.update(animation, this.reducedMotion, this.camera.position, this.quality,world);
@@ -1590,6 +1626,9 @@ export class Scene {
       return result;
     };
     fillPolygon(half(false),'#99bfc315');fillPolygon(half(true),'#102e6399');
+    fillPolygon(JELLYFISH_SPIRES.boundary,'#595b778c');
+    const spireLabel=point((JELLYFISH_SPIRES.minX+JELLYFISH_SPIRES.maxX)/2,(JELLYFISH_SPIRES.minY+JELLYFISH_SPIRES.maxY)/2);
+    context.font='7px sans-serif';context.textAlign='center';context.fillStyle='#d4b3ed';context.fillText('JELLYFISH SPIRES',spireLabel.x,spireLabel.y);
     context.beginPath();SHELL_FIELD.boundary.forEach((vertex,index)=>{
       const p=point(vertex.x,vertex.y);index?context.lineTo(p.x,p.y):context.moveTo(p.x,p.y);
     });
@@ -1767,8 +1806,12 @@ export class Scene {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    const managedTextures=new Set(this.marineDetails?.ownedTextures??[]);
+    this.marineDetails?.dispose();this.marineDetails=null;
+    this.jellyfishSpires?.dispose();this.jellyfishSpires=null;
+    this.gravelPebbles?.dispose();this.gravelPebbles=null;
     this.staticRenderDistance?.dispose();this.instanceRenderDistance?.dispose();
-    for (const name of ["heldItems", "salvage", "playerBases", "driftIce", "worldRocks", "worldBarnacles", "saltCave", "caveWorms", "sandWorms", "sulfurLizards", "sulfuric", "crobanMango", "basinMerchCargo", "largeGlacierWreck", "copperCargo", "basinDetails", "woodlons", "basinCaves", "penguinIslandNests", "penguinEggs", "penguins", "hogwongs", "wildlifeBroods", "tundra", "redFish", "tuskjawSharks", "voidFish", "frostHounds", "arcticGardens", "jellyfish", "conceptSky", "forest", "treeStalkers", "seaweed", "plants", "underwaterFx", "crabColony", "fauna", "squids", "flora", "blizzard"]) {
+    for (const name of ["heldItems", "salvage", "playerBases", "driftIce", "worldRocks", "worldBarnacles", "spiresSubmarine", "saltCave", "caveWorms", "sandWorms", "sulfurLizards", "sulfuric", "crobanMango", "basinMerchCargo", "largeGlacierWreck", "copperCargo", "basinDetails", "woodlons", "basinCaves", "penguinIslandNests", "penguinEggs", "penguins", "hogwongs", "wildlifeBroods", "tundra", "redFish", "tuskjawSharks", "voidFish", "frostHounds", "arcticGardens", "jellyfish", "conceptSky", "forest", "treeStalkers", "seaweed", "plants", "underwaterFx", "crabColony", "fauna", "squids", "flora", "blizzard"]) {
       const owner = this[name], group = owner?.group;
       owner?.dispose(); group?.removeFromParent(); this[name] = null;
     }
@@ -1788,6 +1831,7 @@ export class Scene {
     );
     const materialTextures = (material) => Object.values(material).filter((value) => value?.isTexture);
     const sharedTextures = new Set([
+      ...managedTextures,
       ...Object.values(this.materials ?? {}).filter((value) => value?.isTexture),
       ...[...shared].flatMap(materialTextures),
     ]);

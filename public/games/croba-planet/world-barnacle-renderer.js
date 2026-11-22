@@ -6,7 +6,7 @@ import {updateInstancedWindBounds} from './render-visibility.js';
 
 const UP=new THREE.Vector3(0,1,0),LIMIT=160,RANGE=38;
 const COLORS=Object.freeze({'arctic':0xd8e5ed,'blue-ocean':0xb8b4d7,'shell-field':0xf4dcc0,
- 'blue-kelp-forest':0x9cc8dc,'orange-grass-field':0xe3be79,'cliff-biome':0xc5d6dc});
+ 'blue-kelp-forest':0x9cc8dc,'orange-grass-field':0xe3be79,'cliff-biome':0xc5d6dc,'jellyfish-spires':0xccc0e2});
 
 /** One shared nearby batch for submerged colonies. The existing private
  * Salt Cave batch keeps its own water treatment and wall colonies. */

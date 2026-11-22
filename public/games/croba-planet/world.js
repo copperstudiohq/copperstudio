@@ -34,6 +34,7 @@ import {initializeSurvival,nearbyEdiblePlant,harvestLeaf,nearbyPenguinEgg,takePe
 import {getIceSurfaceHeight,highestIceAt} from './ice-surface.js';
 import {
   EYE_HEIGHT,
+  PLAYER_RADIUS,
   SEABED_LEVEL,
   WATER_LEVEL,
   getIceDepth,
@@ -49,6 +50,8 @@ import { updateCrabMovement } from "./crab-movement.js";
 import { updateFauna } from "./fauna.js";
 import {groundCentipedeStart} from './centipede.js';
 import { getSeabedHeight } from "./seabed.js";
+import {getJellyfishSpiresCollision} from './jellyfish-spires.js';
+import {submarineBlocksPlayer} from './submarine-player.js';
 import { getIceSpikeCollision } from "./ice-spikes.js";
 import { resolveSquidMovement, resolveSquidBodies } from "./squid-collision.js";
 import { updateSquids } from "./squid-physics.js";
@@ -74,7 +77,6 @@ const JUMP_DURATION = 0.8;
 const SWIM_SPEED = 110;
 const VERTICAL_SPEED = 90;
 const DEEP_VERTICAL_SPEED = 300;
-const PLAYER_RADIUS = 5;
 const LEDGE_REACH = 14;
 const INTERACTION_RADIUS = 65;
 const FOREST_FALL_GRAVITY = 400;
@@ -449,6 +451,7 @@ function outsideSeabed(world, player, x, y, z) {
   const passable = (fraction) => {
     const px = player.x + dx * fraction, py = player.y + dy * fraction;
     if (groundHeight(world, px, py) > z + distance * fraction * 0.65 + 0.001) return false;
+    if (blockingOceanStructure(px,py,z)) return false;
     // Stay a full player radius outside a vertical coastal wall. The submerged
     // beach itself still supports ordinary feet-on-sand swimming and entry.
     if (getForestHeight(world, px, py) === null) for (const height of [5, EYE_HEIGHT / 2, EYE_HEIGHT - 5]) {
@@ -469,6 +472,12 @@ function outsideSeabed(world, player, x, y, z) {
     y = player.y + dy * safe;
   }
   return { x, y, z: Math.max(z, groundHeight(world, x, y)) };
+}
+
+/** Test the swimmer's body against actual volcanic rock and submarine metal. */
+function blockingOceanStructure(x,y,z){
+  return submarineBlocksPlayer(x,y,z)||[PLAYER_RADIUS,EYE_HEIGHT/2,EYE_HEIGHT-PLAYER_RADIUS].some(height=>
+    getJellyfishSpiresCollision({x,y,z:z+height},PLAYER_RADIUS)?.penetration>.001);
 }
 
 /** @param {World} world @param {Input} input @param {number} dx @param {number} dy @param {number} delta */
@@ -503,6 +512,11 @@ function swim(world, input, dx, dy, delta) {
       else safe = middle;
     }
     z = safe;
+  }
+  if(z!==player.z&&blockingOceanStructure(player.x,player.y,z)){
+    let safe=player.z,blocked=z;
+    for(let i=0;i<16;i++){const middle=(safe+blocked)/2;if(blockingOceanStructure(player.x,player.y,middle))blocked=middle;else safe=middle;}
+    z=safe;
   }
   const clear = outsideIce(world, x, y, z);
   Object.assign(player, outsideSeabed(world, player, clear.x, clear.y, z));
@@ -651,6 +665,7 @@ export function updateWorld(world, input, dt, options = {}) {
       ? "Violet Spruce Forest biome. Purple woodland, sheltered clearings, and a trail through the hills."
       : biome === 'salt-cave' ? 'Salt Cave. Hot sulfur seeps cloud the mineral halls. Avoid bubbling ground. The cliff and geyser shaft remain your exits.'
       : biome === 'sulfuric-land' ? 'Sulfuric Land. Vast mineral hills, geyser ponds and a burrowing armored sand worm. The southern arch returns to Shell Field.'
+      : biome === 'jellyfish-spires' ? 'Jellyfish Spires. Deep volcanic towers rise from charcoal gravel. Purple lantern jellies drift beside barnacle-covered stone.'
       : biome === "blue-ocean"
       ? "Blue ocean biome. Dark water, orange cliffs, and Gold Rock Bugs below the waves."
       : biome === 'shell-field' ? 'Shell Field. A long pale-stone shelf slopes into the deep ocean, with schools of red and gray fish.'

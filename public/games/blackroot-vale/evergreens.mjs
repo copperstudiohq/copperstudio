@@ -1,5 +1,5 @@
 import * as T from './vendor/three.module.js';
-import { FIELD_LINE, groundHeight, seeded, trailDistance } from './layout.mjs';
+import { FIELD_LINE, groundHeight, houseContains, seeded, trailDistance, WOODLAND_HOUSE } from './layout.mjs';
 import { repeatSurface } from './surfaces.mjs';
 
 const TAU = 2 * Math.PI;
@@ -29,6 +29,7 @@ function treeLocations(random) {
         || trailDistance(px, pz) < 2.35) continue;
       const density = .36 + .18 * Math.sin(z * .064 + x * .09) + .15 * Math.cos(x * .071 - z * .122);
       if (random() > density || spots.some((point) => Math.abs(px - point.x) < 1.5 && Math.abs(pz - point.z) < 1.5)) continue;
+      if (houseContains(px, pz, WOODLAND_HOUSE, 3.1)) continue;
       spots.push({ x: px, z: pz });
     }
   }

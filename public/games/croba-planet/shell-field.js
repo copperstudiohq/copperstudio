@@ -38,7 +38,7 @@ export function shellFieldBlend(x,y){
   return t*t*(3-2*t);
 }
 
-export function isOceanBiome(biome){return biome==='blue-ocean'||biome==='shell-field';}
+export function isOceanBiome(biome){return biome==='blue-ocean'||biome==='shell-field'||biome==='jellyfish-spires';}
 
 /** Pale stone clearings leave about 80% of the floor covered in squid armor. */
 export const SHELL_FIELD_STONE_PATCHES=Object.freeze([

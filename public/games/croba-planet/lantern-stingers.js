@@ -1,5 +1,6 @@
 import { EYE_HEIGHT, WATER_LEVEL } from './terrain.js';
 import { closestSquidSegments } from './squid-collision.js';
+import { getLanternMotion } from './lantern-motion.js';
 
 export const LANTERN_ARMS = 6;
 export const LANTERN_LINKS = 7;
@@ -9,10 +10,10 @@ export const LANTERN_STING_INTERVAL = 1.25;
 /** Authoritative waving tentacle centerline, in simulation coordinates (Z up).
  * Rendering and stinger contacts share every bend, including motion phase. */
 export function lanternTentaclePoint(fish, arm, joint, target = {}, reducedMotion = false) {
-  const t = reducedMotion ? 0 : fish.motionTime ?? 0;
+  const motion = getLanternMotion(fish,reducedMotion), t = motion.armTime, phase = motion.armPhase;
   const angle = arm*Math.PI*2/LANTERN_ARMS, w = joint/LANTERN_LINKS, r = fish.headRadius;
-  target.x = fish.x+Math.cos(angle)*r*.72+Math.sin(t*.8+angle+joint*.48)*r*.30*w;
-  target.y = fish.y+Math.sin(angle)*r*.72+Math.cos(t*.65+angle+joint*.5)*r*.26*w;
+  target.x = fish.x+Math.cos(angle)*r*.72+Math.sin(t*.8+phase+angle+joint*.48)*r*.30*w*motion.armAmplitude;
+  target.y = fish.y+Math.sin(angle)*r*.72+Math.cos(t*.65+phase+angle+joint*.5)*r*.26*w*motion.armAmplitude;
   target.z = fish.z-r*.18-fish.tentacleLength*w;
   return target;
 }

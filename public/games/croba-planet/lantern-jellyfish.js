@@ -4,6 +4,8 @@ import {lanternTentaclePoint} from './lantern-stingers.js';
 import {WATER_LEVEL,BLUE_OCEAN_START_X} from './terrain.js';
 import {getSeabedHeight} from './seabed.js';
 import {getForestHeight} from './forest-terrain.js';
+import {preparedLanternDriftClearsSpires} from './jellyfish-spires-life.js';
+import {getLanternMotion} from './lantern-motion.js';
 
 const SCALE=25,ARMS=6,LINKS=7,UP=new THREE.Vector3(0,1,0);
 const finite=p=>p&&[p.x,p.y,p.z].every(Number.isFinite);
@@ -21,8 +23,10 @@ export function updateLanternJellyfish(world,dt) {
     const floor=Math.max(getSeabedHeight(x,y),getForestHeight(world,x,y)??-Infinity);
     const minZ=floor+fish.tentacleLength+fish.headRadius,maxZ=WATER_LEVEL-fish.headRadius*2;
     if(x<BLUE_OCEAN_START_X+fish.headRadius||minZ>maxZ)continue;
+    const z=Math.max(minZ,Math.min(maxZ,fish.homeZ+(Math.sin(t*.55+p)-Math.sin(p))*8));
+    if(fish.habitat==='jellyfish-spires'&&!preparedLanternDriftClearsSpires(fish,x,y,z))continue;
     fish.px=fish.x;fish.py=fish.y;fish.pz=fish.z;
-    fish.x=x;fish.y=y;fish.z=Math.max(minZ,Math.min(maxZ,fish.homeZ+(Math.sin(t*.55+p)-Math.sin(p))*8));
+    fish.x=x;fish.y=y;fish.z=z;
   }
 }
 
@@ -87,10 +91,9 @@ export class LanternJellyfishRenderer {
       .sort((a,b)=>a.distance-b.distance).slice(0,budget);
     ordered.forEach(({fish})=>{
       const index=count++;
-      const r=fish.headRadius/SCALE,t=reducedMotion?0:fish.motionTime??0;
-      const pulse=Math.sin(t*1.4+fish.phase),width=r*(1+pulse*(reducedMotion ? .015 : .06));
+      const r=fish.headRadius/SCALE,motion=getLanternMotion(fish,reducedMotion),width=r*motion.widthScale;
       this.a.set(fish.x/SCALE,fish.z/SCALE,fish.y/SCALE);
-      this.pose(this.batches.bell,index,this.a,[width,r*(.72-pulse*.05),width]);
+      this.pose(this.batches.bell,index,this.a,[width,r*motion.heightScale,width]);
       this.a.y-=r*.18;this.pose(this.batches.rim,index,this.a,[width,width,width]);
       this.a.y+=r*.05;this.pose(this.batches.core,index,this.a,[r*.26,r*.55,r*.26]);
       const point=(arm,j,target)=>{

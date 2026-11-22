@@ -17,7 +17,7 @@ export const THRONE_ROOM = {
   seat: -21.34,
   armrestX: .68,
   dais: { front: -19.22, halfWidth: 2.35, steps: 3, rise: .18, tread: .39 },
-  riders: [{ x: -3.74, z: -18.00, yaw: .21 }, { x: 3.74, z: -18.00, yaw: -.21 }],
+  riders: [{ x: -3.74, z: -18.00, yaw: .21 }, { x: 3.74, z: -18.00, yaw: -.40, plagueMask: true }],
 };
 export const TOWER_STAIRS = [
   { x0: -5.73, x1: -3.04, from: 4.35, to: -3.63, base: 0 },
@@ -39,7 +39,7 @@ function throneWalkHeight(x, z, height) {
   const { entryEnd, entryHalf, halfWidth, back, riders, dais, seat } = THRONE_ROOM;
   const width = z >= entryEnd - PLAYER_RADIUS ? entryHalf : halfWidth;
   if (Math.abs(x) > width - PLAYER_RADIUS || z < back + PLAYER_RADIUS) return null;
-  if (riders.some((rider) => Math.hypot(x - rider.x, (z - rider.z) * .56) < .83)) return null;
+  if (riders.some((rider) => Math.hypot(x - rider.x, z - rider.z) < PLAYER_RADIUS + .48)) return null;
   if (Math.abs(x) < 1.42 && z < seat + .78 && z > seat - 1.0) return null;
   const level = Math.abs(x) < dais.halfWidth
     ? Math.max(0, Math.min(dais.steps, Math.ceil((dais.front - z) / dais.tread))) : 0;

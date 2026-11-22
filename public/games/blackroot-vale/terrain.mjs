@@ -1,5 +1,5 @@
 import * as T from './vendor/three.module.js';
-import { FIELD_LINE, groundHeight, MAIN_TRAIL, SIDE_TRAILS, seeded, WORLD_HALF } from './layout.mjs';
+import { FIELD_LINE, groundHeight, MAIN_TRAIL, SIDE_TRAILS, seeded, trailDistance, WORLD_HALF } from './layout.mjs';
 import { repeatSurface } from './surfaces.mjs';
 
 function land(scene, soil, barren) {
@@ -58,6 +58,20 @@ function land(scene, soil, barren) {
   scene.add(terrain);
 }
 
+const mainRoad = [MAIN_TRAIL];
+const trailRise = (isMain) => isMain ? .101 : .065;
+const pavingAmount = (z) => T.MathUtils.smoothstep(z, -34, -12) * (1 - T.MathUtils.smoothstep(z, 39, 68));
+const trailWidth = (town, isMain) => isMain ? 1.57 + 1.56 * town : 1 + .67 * town;
+
+export function trailElevation(x, z) {
+  const town = pavingAmount(z);
+  const lift = (roads, isMain) => {
+    const width = trailWidth(town, isMain);
+    return trailRise(isMain) * (1 - T.MathUtils.smoothstep(trailDistance(x, z, roads), width - .28, width + .19));
+  };
+  return Math.max(lift(mainRoad, true), lift(SIDE_TRAILS, false));
+}
+
 function trail(scene, road, isMain, material) {
   const curve = new T.CatmullRomCurve3(road.map(([x, z]) => new T.Vector3(x, 0, z)));
   const segments = Math.ceil(curve.getLength() / .55);
@@ -75,13 +89,13 @@ function trail(scene, road, isMain, material) {
   for (let i = 0; i <= segments; i++) {
     curve.getPointAt(i / segments, center);
     curve.getTangentAt(i / segments, tangent);
-    const town = T.MathUtils.smoothstep(center.z, -34, -12) * (1 - T.MathUtils.smoothstep(center.z, 39, 68));
-    const width = (isMain ? 1.57 + 1.56 * town : 1 + .67 * town) + .18 * Math.sin(i * .25);
+    const town = pavingAmount(center.z);
+    const width = trailWidth(town, isMain) + .18 * Math.sin(i * .25);
     for (const cross of [-1, -.63, 0, .63, 1]) {
       const displacement = (width + random() * .30) * cross;
       const x = center.x - tangent.z * displacement;
       const z = center.z + tangent.x * displacement;
-      positions.push(x, groundHeight(x, z) + .065 + (isMain ? .036 : 0), z);
+      positions.push(x, groundHeight(x, z) + trailRise(isMain), z);
       uvs.push((x + WORLD_HALF) / (WORLD_HALF * 2), (WORLD_HALF - z) / (WORLD_HALF * 2));
       const edge = Math.abs(cross);
       blending.push(town * (1 - edge ** 4 * .74), 1 - edge ** 4);

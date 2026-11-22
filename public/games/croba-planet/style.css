@@ -136,7 +136,7 @@ button:disabled {
   gap: 11px;
   text-decoration: none;
   color: var(--ink);
-  font-family: "Space Grotesk", "DM Sans", sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 1.2px;
@@ -248,7 +248,7 @@ button:disabled {
   background: var(--accent);
 }
 h1 {
-  font-family: "Space Grotesk", "DM Sans", sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-weight: 500;
   line-height: 0.97;
   font-size: 91px;
@@ -802,6 +802,7 @@ kbd {
 }
 .map-legend .forest-dot { background: #c393e9; border-radius: 1px; width: 6px; height: 6px; }
 .map-legend .shell-field-dot { background:#e0bda5; border-radius:1px; width:6px; height:6px; }
+.map-legend .jellyfish-spires-dot { background:#bba2d2; }
 .map-tip {
   margin: -5px 19px 17px;
   color: #a1bac1;
@@ -846,7 +847,7 @@ kbd {
   backdrop-filter: blur(9px);
 }
 .menu h2 {
-  font-family: "Space Grotesk", "DM Sans", sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-size: 33px;
   line-height: 1.15;
   font-weight: 400;
@@ -1703,7 +1704,7 @@ kbd {
 .worm-encounter .encounter-iris::after { content: ""; position: absolute; inset: 0; background: #000; opacity: var(--feeding-darkness,0); }
 .worm-encounter .encounter-panel { align-self: end; margin-bottom: calc(20px + env(safe-area-inset-bottom)); border-color: #d1ac6577; opacity: calc(1 - var(--feeding-darkness,0) * .92); }
 .worm-encounter .encounter-tag { color: #e2bf76; }
-.encounter-panel h2 { font: 500 clamp(26px,4vw,44px)/1.15 "Space Grotesk", "DM Sans", sans-serif; letter-spacing: 1px; margin: 16px 0 10px; }
+.encounter-panel h2 { font: 500 clamp(26px,4vw,44px)/1.15 "Space Grotesk",sans-serif; letter-spacing: 1px; margin: 16px 0 10px; }
 .encounter-panel p { margin: 0; font-size: 15px; line-height: 1.5; color: #e9dfce; }
 #encounter-copy { display: block; margin-top: 15px; font-size: 11px; line-height: 1.6; color: #aec2c7; }
 .squid-encounter.reduced-motion .encounter-iris { background: #01050cd9; transition: none; }
@@ -1727,7 +1728,7 @@ kbd {
 .loading-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(0deg, #041723f2, #04172322 65%, #04172333); }
 .loading-copy { padding: clamp(28px, 6vw, 90px); padding-bottom: max(70px, env(safe-area-inset-bottom)); }
 .loading-eyebrow, .loading-credit { font-size: 10px; letter-spacing: .2em; }
-.loading-copy h1 { margin: 16px 0 22px; font-family: var(--display, "Space Grotesk", "DM Sans", sans-serif); font-size: clamp(38px, 7vw, 90px); line-height: 1; letter-spacing: -.06em; }
+.loading-copy h1 { margin: 16px 0 22px; font-family: var(--display, 'Space Grotesk', sans-serif); font-size: clamp(38px, 7vw, 90px); line-height: 1; letter-spacing: -.06em; }
 .loading-copy h1 span { font-weight: 400; color: #b2e2ec; }
 .loading-copy p { font-size: 14px; margin: 0 0 15px; color: #c3dfe7; }
 .loading-copy progress { display: block; width: min(220px, 65vw); height: 4px; accent-color: #a9e4ed; }

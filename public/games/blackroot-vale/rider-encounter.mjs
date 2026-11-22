@@ -170,6 +170,41 @@ export function createRiderHunt(canRide) {
     get frame() {
       return { x: position.x, z: position.z, yaw, age, cycle, pace, swing: strike === null ? null : strike / STRIKE_DURATION };
     },
+    snapshot() {
+      if (!this.active) return { stage: 'idle' };
+      return {
+        stage, health, x: position.x, z: position.z, yaw, distance, age, cycle, pace,
+        strike, hitFor, recovery, shelteredFor, huntFor, endOfRoadFor, retreatFor,
+        joinIndex: join ? points.indexOf(join.point) : -1,
+      };
+    },
+    restore(saved) {
+      this.reset();
+      if (!['approach', 'hunt', 'depart'].includes(saved?.stage)
+        || !Number.isInteger(saved.health) || saved.health < 1 || saved.health > RIDER_MAX_HEALTH
+        || ![saved.x, saved.z, saved.yaw].every(Number.isFinite) || Math.hypot(saved.x, saved.z) > 280) return;
+      const time = (value, maximum) => Number.isFinite(value) ? Math.min(maximum, Math.max(0, value)) : 0;
+      stage = saved.stage;
+      health = saved.health;
+      position.set(saved.x, 0, saved.z);
+      yaw = saved.yaw;
+      distance = time(saved.distance, length);
+      age = time(saved.age, 180);
+      cycle = time(saved.cycle, 300);
+      pace = time(saved.pace, 1);
+      strike = saved.strike === null ? null : time(saved.strike, STRIKE_DURATION);
+      hitFor = time(saved.hitFor, .9);
+      recovery = time(saved.recovery, .68);
+      shelteredFor = time(saved.shelteredFor, 6.5);
+      huntFor = time(saved.huntFor, 44);
+      endOfRoadFor = time(saved.endOfRoadFor, 13);
+      retreatFor = time(saved.retreatFor, 8);
+      const index = saved.joinIndex;
+      join = Number.isInteger(index) && points[index] ? { point: points[index], distance: index * length / (points.length - 1) } : null;
+      pathTarget = null;
+      path = [];
+      planIn = 0;
+    },
     start() {
       if (stage !== 'idle') return;
       stage = 'approach';
@@ -250,6 +285,18 @@ export function createRiderEncounter(scene, { wake, random = Math.random, earth,
     get attacking() { return hunt.attacking; },
     get struck() { return hunt.struck; },
     get active() { return hunt.active; },
+    snapshot() {
+      return { hunt: hunt.snapshot(), remaining: timer === null ? remaining : Math.max(0, due - performance.now()) };
+    },
+    restore(saved) {
+      if (timer !== null) clearTimeout(timer);
+      timer = null;
+      eligible = false;
+      remaining = Number.isFinite(saved?.remaining) ? Math.max(0, Math.min(285_000, saved.remaining)) : riderDelay(true, random);
+      hunt.restore(saved?.hunt);
+      if (hunt.active) pose();
+      else actor.hide();
+    },
     setEligible(value) {
       if (value === eligible) return;
       eligible = value;

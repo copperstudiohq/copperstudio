@@ -2,6 +2,7 @@ import {getSaltCave} from './salt-cave.js';
 import {CLIFF_CANYON_GRID as CLIFF_REGION} from './cliff-canyon-data.js';
 import {isSulfuricLand,confineSulfuricWorld} from './sulfuric-biome.js';
 import {isShellField} from './shell-field.js';
+import {isJellyfishSpires} from './jellyfish-spires.js';
 import { highestIceAt } from './ice-surface.js';
 import { getArcticGarden } from './arctic-gardens.js';
 import { createFlora } from "./flora.js";
@@ -21,9 +22,10 @@ export function getBiome(x) {
 /** The forest is a separate surface biome with its own exact prepared boundary.
  * Submerged coastal water keeps the blue ocean's dive rules.
  * @param {object} world @param {number} x @param {number} y
- * @param {boolean} [underwater] @returns {'arctic'|'blue-ocean'|'shell-field'|'salt-cave'|'sulfuric-land'|'purple-forest'|'blue-kelp-forest'|'orange-grass-field'|'iceberg-tundra'|'cliff-biome'}
+ * @param {boolean} [underwater] @returns {'arctic'|'blue-ocean'|'jellyfish-spires'|'shell-field'|'salt-cave'|'sulfuric-land'|'purple-forest'|'blue-kelp-forest'|'orange-grass-field'|'iceberg-tundra'|'cliff-biome'}
  */
 export function getWorldBiome(world, x, y, underwater = false) {
+  if(underwater&&isJellyfishSpires(x,y))return 'jellyfish-spires';
   if(world.player&&x===world.player.x&&y===world.player.y&&getSaltCave(x,y,world.player.z))return 'salt-cave';
   if(isSulfuricLand(x,y))return 'sulfuric-land';
   if(underwater&&x>=CLIFF_REGION.minX&&x<=CLIFF_REGION.maxX&&y>=CLIFF_REGION.minY&&y<=CLIFF_REGION.maxY)return 'cliff-biome';

@@ -1,5 +1,5 @@
 import * as T from './vendor/three.module.js';
-import { FLOOR_LEVEL, WALL_THICKNESS } from './house-plan.mjs';
+import { CHILD_FOOTREST_HEIGHT, FLOOR_LEVEL, MEAL_SEAT_HEIGHT, WALL_THICKNESS } from './house-plan.mjs';
 import { seeded } from './layout.mjs';
 import { repeatSurface } from './surfaces.mjs';
 
@@ -12,6 +12,12 @@ const flameGeometry = new T.LatheGeometry([
   new T.Vector2(.23, .70), new T.Vector2(.027, 1), new T.Vector2(0, 1.03),
 ], 7);
 const logGeometry = new T.CylinderGeometry(.42, .50, 1, 8);
+const mealBowl = new T.LatheGeometry([
+  new T.Vector2(0, 0), new T.Vector2(.075, 0), new T.Vector2(.114, .033), new T.Vector2(.142, .080),
+  new T.Vector2(.132, .080), new T.Vector2(.104, .039), new T.Vector2(.062, .012), new T.Vector2(0, .012),
+], 20);
+const brothSurface = new T.CylinderGeometry(.121, .101, .017, 20);
+const loaf = new T.SphereGeometry(1, 14, 9);
 
 const finish = (color, map = null, bump = 0) => new T.MeshStandardMaterial({
   color, map, bumpMap: bump ? map : null, bumpScale: bump, roughness: .91,
@@ -32,6 +38,8 @@ export function roomMaterials(surfaces) {
     cream: finish('#bfb199'),
     metal: finish('#4f453a'),
     brass: finish('#8f6941'),
+    broth: finish('#ae6b3e'),
+    bread: finish('#b87d44'),
     bottles: ['#7d8c63', '#ac744f', '#62776f'].map((color) => finish(color)),
     flame: [glow('#d74e12', 1.08), glow('#ff9c37', 1.62), glow('#ffd283', 2.02)],
     cloth: new Map(),
@@ -52,10 +60,10 @@ function mountedMesh(parent, geometry, material, x, y, z, sx, sy, sz, rotation =
   return mesh;
 }
 
-function candles(parent, box, m, x, y, z, height = .19) {
-  box(parent, m.brass, x, y + .018, z, .18, .036, .18);
-  box(parent, m.cream, x, y + height / 2 + .026, z, .055, height, .056);
-  mountedMesh(parent, flameGeometry, m.flame[2], x, y + height + .026, z, .055, .098, .055, -.12);
+function candles(parent, box, m, x, y, z, height = .14) {
+  box(parent, m.brass, x, y + .010, z, .12, .020, .12);
+  box(parent, m.cream, x, y + height / 2 + .017, z, .038, height, .038);
+  mountedMesh(parent, flameGeometry, m.flame[2], x, y + height + .017, z, .033, .059, .033, -.12);
 }
 
 function roomShell(parent, house, box, materials, accent) {
@@ -85,138 +93,188 @@ function roomShell(parent, house, box, materials, accent) {
 
 function rug(parent, box, m, accent, x, z, w, d) {
   const cloth = clothMaterial(m, accent);
-  const y = FLOOR_LEVEL + .014;
-  box(parent, cloth, x, y, z, w, .025, d);
+  const y = FLOOR_LEVEL + .006;
+  box(parent, cloth, x, y, z, w, .011, d);
   for (const sign of [-1, 1]) {
-    box(parent, m.brass, x + sign * (w / 2 - .085), y + .014, z, .035, .006, d - .12);
-    box(parent, m.brass, x, y + .014, z + sign * (d / 2 - .102), w - .14, .006, .041);
+    box(parent, m.brass, x + sign * (w / 2 - .085), y + .006, z, .035, .004, d - .12);
+    box(parent, m.brass, x, y + .006, z + sign * (d / 2 - .102), w - .14, .004, .041);
     for (let i = 0; i < 17; i++) {
-      box(parent, m.cream, x - w * .46 + i * w * .056, y - .003, z + sign * (d / 2 + .04), .022, .014, .10);
+      box(parent, m.cream, x - w * .46 + i * w * .056, y - .003, z + sign * (d / 2 + .04), .016, .006, .09);
     }
   }
   for (const shift of [-d * .24, 0, d * .24]) {
-    box(parent, m.brass, x, y + .014, z + shift, .31, .006, .31, 0, Math.PI / 4);
-    box(parent, cloth, x, y + .019, z + shift, .16, .006, .16, 0, Math.PI / 4);
+    box(parent, m.brass, x, y + .006, z + shift, .31, .004, .31, 0, Math.PI / 4);
+    box(parent, cloth, x, y + .009, z + shift, .16, .004, .16, 0, Math.PI / 4);
   }
 }
 
 function hearth(parent, box, m, item, ceiling, random) {
-  const { x, z, w, d } = item;
+  const { x, z, w, d, h } = item;
   const y = FLOOR_LEVEL;
   const face = z + d / 2;
-  box(parent, m.stone, x, y + .105, z, w, .21, d);
-  box(parent, m.soot, x, y + .64, z - d * .34, w - .48, .95, .17);
+  box(parent, m.stone, x, y + .065, z, w, .13, d);
+  box(parent, m.soot, x, y + .56, z - d * .34, w - .42, .89, .15);
   for (const side of [-1, 1]) {
     for (let row = 0; row < 4; row++) {
-      box(parent, m.stone, x + side * (.69 + row % 2 * .055), y + .28 + row * .228, z,
-        .39, .215, d - .10 + (row % 2) * .052);
+      box(parent, m.stone, x + side * (.61 + row % 2 * .026), y + .224 + row * .188, z,
+        .31, .18, d - .10 + (row % 2) * .042);
     }
   }
-  box(parent, m.stone, x, y + 1.21, z, w - .13, .28, d - .025);
-  box(parent, m.wood, x, y + 1.393, z + .019, w + .06, .11, d + .06);
-  box(parent, m.stone, x, (y + 1.46 + ceiling) / 2, z - .14, w * .67, ceiling - (y + 1.46), d * .69);
+  box(parent, m.stone, x, y + h - .15, z, w - .10, .21, d - .025);
+  box(parent, m.wood, x, y + h - .039, z, w, .078, d);
+  box(parent, m.stone, x, (y + h + ceiling) / 2, z - .11, w * .67, ceiling - (y + h), d * .69);
   for (let log = 0; log < 3; log++) {
-    mountedMesh(parent, logGeometry, m.edge, x + (log - 1) * .21, y + .219, face - .29 - log * .08,
-      .13, .70, .13, Math.PI / 2 + (log - 1) * .27);
+    mountedMesh(parent, logGeometry, m.edge, x + (log - 1) * .165, y + .159, face - .28 - log * .06,
+      .10, .49, .10, Math.PI / 2 + (log - 1) * .27);
   }
   for (let flame = 0; flame < 9; flame++) {
-    const width = .13 + random() * .17;
-    mountedMesh(parent, flameGeometry, m.flame[flame % m.flame.length], x + (random() - .5) * .76,
-      y + .23 + random() * .09, face - .28 - random() * .24, width, .23 + random() * .33, width, (random() - .5) * .47);
+    const width = .10 + random() * .14;
+    mountedMesh(parent, flameGeometry, m.flame[flame % m.flame.length], x + (random() - .5) * .64,
+      y + .16 + random() * .08, face - .24 - random() * .20, width, .18 + random() * .27, width, (random() - .5) * .47);
   }
-  candles(parent, box, m, x + .64, y + 1.449, z + .13, .13);
+  candles(parent, box, m, x + w * .31, y + h, z + .12, .10);
+}
+
+function stool(parent, box, m, x, z, height, width) {
+  const thickness = .043;
+  box(parent, m.wood, x, FLOOR_LEVEL + height - thickness / 2, z, width, thickness, width);
+  for (const sideX of [-1, 1]) for (const sideZ of [-1, 1]) {
+    const leg = height - thickness;
+    box(parent, m.edge, x + sideX * (width / 2 - .054), FLOOR_LEVEL + leg / 2, z + sideZ * (width / 2 - .054), .047, leg, .047);
+  }
 }
 
 function table(parent, box, m, item, accent, house) {
-  const { x, z, w, d } = item;
+  const { x, z, w, d, h } = item;
   const y = FLOOR_LEVEL;
-  const top = y + .835;
+  const top = y + h;
+  const thickness = .056;
+  const legs = h - thickness;
   for (const a of [-1, 1]) for (const b of [-1, 1]) {
-    box(parent, m.edge, x + a * (w / 2 - .15), y + .365, z + b * (d / 2 - .15), .12, .73, .12);
+    box(parent, m.edge, x + a * (w / 2 - .107), y + legs / 2, z + b * (d / 2 - .135), .084, legs, .084);
   }
-  box(parent, m.wood, x, top - .049, z, w, .098, d);
-  box(parent, clothMaterial(m, accent), x, top + .008, z + .10, .35, .015, d - .17);
-  candles(parent, box, m, x - .28, top, z - d * .28, .21);
+  box(parent, m.wood, x, top - thickness / 2, z, w, thickness, d);
+  box(parent, clothMaterial(m, accent), x, top + .004, z + .035, .29, .008, d - .15);
+  candles(parent, box, m, x - w * .29, top, z - d * .28);
   for (const [i, side] of [-1, 1].entries()) {
-    mountedMesh(parent, potGeometry, m.bottles[i], x + side * .29, top, z + side * d * .20, .19, i ? .21 : .13, .19);
+    mountedMesh(parent, potGeometry, m.bottles[i], x + side * w * .29, top, z + side * d * .19, .16, i ? .185 : .105, .16);
   }
-  if (house.id === 'apothecary') {
-    box(parent, m.cream, x + .17, top + .026, z + .42, .29, .041, .33, 0, .18);
+  const seat = house.room.mealSeat;
+  if (seat) {
+    const bowlX = x + seat.side * (w / 2 - .13);
+    mountedMesh(parent, mealBowl, m.edge, bowlX, top, seat.z + .030, .75, .75, .75).name = 'Blub’s meal bowl';
+    stool(parent, box, m, seat.x, seat.z, MEAL_SEAT_HEIGHT, .35);
+  }
+  for (const diner of house.room.residents) {
+    if (!diner.seatHeight) continue;
+    stool(parent, box, m, diner.x, diner.z, diner.seatHeight, diner.child ? .33 : .39);
+    const dx = Math.sin(diner.yaw);
+    const dz = Math.cos(diner.yaw);
+    const bowlX = diner.x + .75 * dx;
+    const bowlZ = diner.z + .75 * dz;
+    mountedMesh(parent, mealBowl, m.cream, bowlX, top + .005, bowlZ, .73, .73, .73).name = 'Family stew bowl';
+    mountedMesh(parent, brothSurface, m.broth, bowlX, top + .042, bowlZ, .73, .73, .73);
+    if (diner.child) {
+      const restX = diner.x + .32 * dx;
+      const restZ = diner.z + .32 * dz;
+      box(parent, m.edge, restX, y + CHILD_FOOTREST_HEIGHT - .024, restZ, .24, .048, .30);
+      box(parent, m.wood, restX, y + .061, restZ, .16, .122, .18);
+    }
+  }
+  if (house.room.residents.length > 1) {
+    box(parent, m.edge, x, top + .031, z - .029, .30, .032, .27, 0, -.20);
+    for (const [dx, dz, scale] of [[-.082, -.045, 1], [.063, .043, .79]]) {
+      mountedMesh(parent, loaf, m.bread, x + dx, top + .093, z + dz, .083 * scale, .047 * scale, .064 * scale);
+    }
   }
 }
 
 function seating(parent, box, m, item, accent) {
-  const { kind, x, z, w, d } = item;
+  const { kind, x, z, w, d, h } = item;
   const y = FLOOR_LEVEL;
+  const mattress = kind === 'bed' ? .15 : .036;
+  const board = kind === 'bed' ? .11 : .058;
+  const legs = h - mattress - board;
   for (const a of [-1, 1]) for (const b of [-1, 1]) {
-    box(parent, m.edge, x + a * (w / 2 - .11), y + .23, z + b * (d / 2 - .12), .13, .46, .14);
+    box(parent, m.edge, x + a * (w / 2 - .075), y + legs / 2, z + b * (d / 2 - .10), .087, legs, .092);
   }
-  box(parent, m.wood, x, y + .43, z, w, .16, d);
+  box(parent, m.wood, x, y + legs + board / 2, z, w, board, d);
   if (kind === 'bed') {
-    box(parent, m.edge, x, y + .73, z - d / 2 + .08, w, .56, .15);
-    box(parent, m.cream, x, y + .552, z + .065, w - .10, .20, d - .22);
-    box(parent, clothMaterial(m, accent), x, y + .682, z + .31, w - .09, .076, d * .62);
-    box(parent, m.brass, x, y + .725, z + d * .32, w - .10, .012, .028);
-    box(parent, m.cream, x, y + .709, z - d * .31, w * .61, .121, .31, 0, .02);
+    box(parent, m.edge, x, y + .64, z - d / 2 + .041, w, .59, .082);
+    box(parent, m.cream, x, y + h - mattress / 2, z + .012, w - .054, mattress, d - .126);
+    box(parent, clothMaterial(m, accent), x, y + h + .015, z + d * .119, w - .041, .033, d * .675);
+    box(parent, m.brass, x, y + h + .034, z + d * .33, w - .054, .006, .024);
+    box(parent, m.cream, x, y + h + .043, z - d * .347, w * .55, .086, .275, 0, .025);
   } else {
-    box(parent, m.edge, x + w * .41, y + .79, z, .13, .57, d);
-    box(parent, clothMaterial(m, accent), x - .06, y + .537, z, w * .69, .07, d - .18);
+    const alongWall = kind === 'bench';
+    const backX = alongWall ? x + Math.sign(x) * (w / 2 - .034) : x;
+    const backZ = alongWall ? z : z - d / 2 + .034;
+    box(parent, m.edge, backX, y + h + .205, backZ, alongWall ? .068 : w, .47, alongWall ? d : .068);
+    box(parent, clothMaterial(m, accent), x, y + h - mattress / 2, z, w - .105, mattress, d - .105);
   }
 }
 
 function shelf(parent, box, m, item) {
-  const { x, z, w, d } = item;
+  const { x, z, w, d, h } = item;
   const y = FLOOR_LEVEL;
   for (const side of [-1, 1]) {
-    box(parent, m.edge, x + side * (w / 2 - .044), y + .91, z, .087, 1.82, d);
+    box(parent, m.edge, x + side * (w / 2 - .022), y + h / 2, z, .045, h, d);
   }
   for (let level = 0; level < 4; level++) {
-    const height = y + .14 + level * .50;
-    box(parent, m.wood, x, height, z, w, .077, d);
+    const height = y + .12 + level * .414;
+    box(parent, m.wood, x, height, z, w, .038, d);
     for (const side of [-1, 1]) {
-      mountedMesh(parent, potGeometry, m.bottles[(level + Number(side > 0)) % 3], x + side * .235,
-        height + .04, z + .039, .23, .20 + level % 2 * .10, .23);
+      mountedMesh(parent, potGeometry, m.bottles[(level + Number(side > 0)) % 3], x + side * w * .24,
+        height + .020, z + .020, .176, .15 + level % 2 * .096, .176);
     }
   }
 }
 
 function tradeFurniture(parent, box, m, item, accent) {
-  const { kind, x, z, w, d } = item;
+  const { kind, x, z, w, d, h } = item;
   const y = FLOOR_LEVEL;
   if (kind === 'woodpile') {
     for (let row = 0; row < 3; row++) for (let i = 0; i < 4 - row; i++) {
-      const log = mountedMesh(parent, logGeometry, m.wood, x + (i - (3 - row) / 2) * .244,
-        y + .115 + row * .17, z, .24, d * (.82 + i * .04), .24);
+      const diameter = h * .41;
+      const log = mountedMesh(parent, logGeometry, m.wood, x + (i - (3 - row) / 2) * w * .197,
+        y + diameter * .5 + row * (h - diameter) / 2, z, diameter, d * (.79 + i * .048), diameter);
       log.rotation.x = Math.PI / 2;
     }
     return;
   }
   if (kind === 'loom') {
     for (const side of [-1, 1]) {
-      box(parent, m.edge, x + side * .56, y + .85, z, .14, 1.7, .22);
-      box(parent, m.wood, x + side * .56, y + .07, z, .18, .14, d);
+      box(parent, m.edge, x + side * (w / 2 - .058), y + h / 2, z, .115, h, .17);
+      box(parent, m.wood, x + side * (w / 2 - .073), y + .045, z, .143, .089, d);
     }
-    for (const height of [.53, 1.49]) box(parent, m.wood, x, y + height, z, 1.13, .11, .14);
+    for (const height of [.52, h - .16]) box(parent, m.wood, x, y + height, z, w - .13, .095, .127);
     for (let i = 0; i < 18; i++) box(parent, m.cream, x + (i - 8.5) * .052, y + 1.03, z + .055, .009, .91, .012);
     box(parent, clothMaterial(m, accent), x, y + .82, z + .066, .9, .53, .013);
     return;
   }
   if (kind === 'desk' || kind === 'workbench') {
-    for (const side of [-1, 1]) box(parent, m.edge, x + side * .52, y + .386, z, .14, .77, d - .10);
-    box(parent, m.wood, x, y + .80, z, w, .12, d);
+    const top = kind === 'desk' ? .052 : .069;
+    const legs = h - top;
+    for (const side of [-1, 1]) box(parent, m.edge, x + side * (w / 2 - .116), y + legs / 2, z, .10, legs, d - .11);
+    box(parent, m.wood, x, y + h - top / 2, z, w, top, d);
     for (let i = 0; i < 4; i++) {
-      mountedMesh(parent, potGeometry, m.bottles[i % 3], x - .46 + i * .27, y + .86, z - .13, .16, .17 + i % 2 * .11, .16);
+      mountedMesh(parent, potGeometry, m.bottles[i % 3], x + w * (-.37 + i * .223),
+        y + h, z - .14, .135, .115 + i % 2 * .083, .135);
     }
-    box(parent, m.cream, x + .22, y + .884, z + .14, .36, .025, .28, 0, -.09);
+    box(parent, m.cream, x + w * .185, y + h + .014, z + .11, .30, .027, .219, 0, -.09);
     return;
   }
-  const height = kind === 'settle' ? .47 : .57;
-  box(parent, m.wood, x, y + height / 2, z, w, height, d);
-  box(parent, m.edge, x, y + height, z, w + .04, .085, d + .04);
-  for (const side of [-1, 1]) box(parent, m.edge, x + side * .47, y + height / 2, z + d / 2 + .012, .075, height, .029);
-  if (kind === 'chest') box(parent, m.brass, x, y + height * .70, z + d / 2 + .033, .11, .13, .045);
-  if (kind === 'crates') box(parent, m.wood, x - .28, y + height + .25, z, .54, .41, d * .81, 0, -.13);
-  if (kind === 'settle') box(parent, clothMaterial(m, accent), x, y + height + .07, z, w - .17, .08, d - .12);
+  if (kind === 'crates') {
+    for (const side of [-1, 1]) box(parent, m.wood, x + side * w * .259, y + h / 2, z, w * .478, h, d);
+    box(parent, m.edge, x - w * .218, y + h + .143, z, w * .435, .286, d * .75, 0, -.08);
+    return;
+  }
+  box(parent, m.wood, x, y + (h - .056) / 2, z, w - .014, h - .056, d - .02);
+  box(parent, m.edge, x, y + h - .029, z, w, .058, d);
+  for (const side of [-1, 1]) {
+    box(parent, m.edge, x + side * w * .384, y + h * .462, z + d / 2 - .005, .059, h * .916, .011);
+  }
+  box(parent, m.brass, x, y + h * .70, z + d / 2 + .006, .08, .095, .015);
 }
 
 export function furnishRoom(parent, house, box, materials) {
@@ -228,15 +286,17 @@ export function furnishRoom(parent, house, box, materials) {
       case 'hearth': hearth(parent, box, materials, item, Math.min(house.h - .17, 3.62), random); break;
       case 'table': table(parent, box, materials, item, accent, house); break;
       case 'bench':
+      case 'settle':
       case 'bed': seating(parent, box, materials, item, accent); break;
       case 'shelf': shelf(parent, box, materials, item); break;
+      case 'stool': stool(parent, box, materials, item.x, item.z, item.h, item.w); break;
       default: tradeFurniture(parent, box, materials, item, accent);
     }
   }
   const fireplace = furnishings[0];
   const dining = furnishings[1];
   return {
-    hearth: parent.localToWorld(new T.Vector3(fireplace.x, FLOOR_LEVEL + .76, fireplace.z + .70)),
-    lamp: parent.localToWorld(new T.Vector3(dining.x - .28, FLOOR_LEVEL + 1.23, dining.z - dining.d * .28)),
+    hearth: parent.localToWorld(new T.Vector3(fireplace.x, FLOOR_LEVEL + .64, fireplace.z + .54)),
+    lamp: parent.localToWorld(new T.Vector3(dining.x - dining.w * .29, FLOOR_LEVEL + dining.h + .33, dining.z - dining.d * .28)),
   };
 }

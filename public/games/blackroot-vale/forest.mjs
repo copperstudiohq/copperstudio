@@ -1,5 +1,5 @@
 import * as T from './vendor/three.module.js';
-import { groundHeight, HOUSES, houseContains, seeded, trailDistance } from './layout.mjs';
+import { groundHeight, houseContains, seeded, STRUCTURES, trailDistance } from './layout.mjs';
 
 import { createEvergreens } from './evergreens.mjs';
 import { repeatSurface } from './surfaces.mjs';
@@ -48,7 +48,7 @@ function plants(scene, random) {
   while (placed < brush.count) {
     const z = 36 - random() * 245;
     const x = (random() - .5) * (z < -30 ? 135 : 63);
-    if (trailDistance(x, z) < (z < -30 ? 1.75 : 2.9) || HOUSES.some((house) => houseContains(x, z, house, .17))) continue;
+    if (trailDistance(x, z) < (z < -30 ? 1.75 : 2.9) || STRUCTURES.some((house) => houseContains(x, z, house, .17))) continue;
     const size = .35 + random() ** 2 * 2.5;
     setInstance(brush, placed, x, groundHeight(x, z) - .016, z, size, size, size, random() * TAU,
       color.setHSL(.20 + random() * .14, .19 + random() * .27, .21 + random() * .26));
@@ -79,7 +79,7 @@ function rocks(scene, random, earth) {
   while (places.length < instances.count) {
     const x = (random() - .5) * 159;
     const z = 32 - random() * 250;
-    if (trailDistance(x, z) < 2.8 || HOUSES.some((house) => houseContains(x, z, house, 1.4))) continue;
+    if (trailDistance(x, z) < 2.8 || STRUCTURES.some((house) => houseContains(x, z, house, 1.4))) continue;
     places.push({ x, z, size: .25 + random() ** 2 * 1.37 });
   }
   for (const [i, { x, z, size }] of places.entries()) {

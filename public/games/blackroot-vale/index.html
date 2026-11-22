@@ -38,6 +38,22 @@
             <label class="sound-mute"><input type="checkbox" id="sound-mute"> Mute sound</label>
           </div>
         </details>
+        <details class="save-menu" id="save-menu" hidden>
+          <summary>Save</summary>
+          <div class="save-panel">
+            <button type="button" id="save-manual">Save game</button>
+            <div class="save-slot">
+              <button type="button" id="load-manual" aria-describedby="manual-info" disabled>Load manual save</button>
+              <span id="manual-info">No save yet</span>
+            </div>
+            <div class="save-slot">
+              <button type="button" id="load-auto" aria-describedby="auto-info" disabled>Load autosave</button>
+              <span id="auto-info">No save yet</span>
+            </div>
+            <button type="button" id="new-game">New game</button>
+            <p id="save-message" class="save-message" role="status"></p>
+          </div>
+        </details>
       </div>
     </header>
 
@@ -57,6 +73,7 @@
     </button>
     <div class="hud-bottom">
       <section class="place" aria-label="Current location">
+        <p id="blub-activity" class="blub-activity" role="status" hidden></p>
         <p class="place-kicker"><span aria-hidden="true"></span> <span id="place-kicker">The southern edge</span></p>
         <h2 id="place-name" aria-live="polite">Thornwick Village</h2>
       </section>

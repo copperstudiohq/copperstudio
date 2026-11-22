@@ -1,7 +1,7 @@
 import * as T from './vendor/three.module.js';
 import { buildHorse, horseArmor } from './horse.mjs';
 import { groundHeight } from './layout.mjs';
-import { drapeMantle, dressTorso, sewnSleeve } from './rider-garment.mjs';
+import { drapeMantle, drapeStandingMantle, dressTorso, sewnSleeve } from './rider-garment.mjs';
 
 export const RIDER_NAME = 'The Opsing Rider';
 
@@ -32,6 +32,16 @@ const straps = finish('#1d1b22', .76);
 const iron = finish('#626165', .53, { metalness: .38 });
 const ironEdge = finish('#827b74', .52, { metalness: .49 });
 const steel = finish('#b9c4ca', .33, { metalness: .62 });
+const maskLeather = finish('#ac8e70', .86);
+const hatLeather = finish('#41362e', .86);
+const hatBand = finish('#2d251e', .91);
+const hatShape = new T.LatheGeometry([
+  new T.Vector2(0, -.018), new T.Vector2(.15, -.018), new T.Vector2(.29, -.033),
+  new T.Vector2(.342, -.015), new T.Vector2(.348, -.005), new T.Vector2(.29, .003),
+  new T.Vector2(.168, .020), new T.Vector2(.149, .141), new T.Vector2(.136, .163),
+  new T.Vector2(.100, .169), new T.Vector2(0, .169),
+], 48);
+const hatRibbon = new T.CylinderGeometry(.158, .166, .037, 40, 1, true);
 
 function mesh(parent, geometry, material, x, y, z, sx, sy, sz) {
   const piece = new T.Mesh(geometry, material);
@@ -224,7 +234,7 @@ function createLeg(body, x, front, gallopPhase, walkPhase, surface) {
   };
 }
 
-function groundShadow(root) {
+function groundShadow(root, width = 1.9, depth = 3.35) {
   const length = 24;
   const pixels = new Uint8Array(length * length * 4);
   for (let y = 0; y < length; y++) for (let x = 0; x < length; x++) {
@@ -234,12 +244,103 @@ function groundShadow(root) {
   const texture = new T.DataTexture(pixels, length, length);
   texture.magFilter = T.LinearFilter;
   texture.needsUpdate = true;
-  const shadow = new T.Mesh(new T.PlaneGeometry(1.9, 3.35), new T.MeshBasicMaterial({
+  const shadow = new T.Mesh(new T.PlaneGeometry(width, depth), new T.MeshBasicMaterial({
     map: texture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
   }));
   shadow.position.y = .051;
   shadow.rotation.x = -Math.PI / 2;
   root.add(shadow);
+}
+
+function buildPlagueMask(parent) {
+  const mask = new T.Group();
+  mask.name = 'Plague doctor mask';
+  parent.add(mask);
+
+  const face = new T.Shape().moveTo(0, .121)
+    .quadraticCurveTo(.101, .123, .115, .061).quadraticCurveTo(.136, -.020, .079, -.074)
+    .quadraticCurveTo(.025, -.112, 0, -.111).quadraticCurveTo(-.025, -.112, -.079, -.074)
+    .quadraticCurveTo(-.136, -.020, -.115, .061).quadraticCurveTo(-.101, .123, 0, .121);
+  for (const side of [-1, 1]) {
+    const eye = new T.Path();
+    eye.absellipse(side * .066, .062, .032, .021, 0, TAU, true, side * .24);
+    face.holes.push(eye);
+  }
+  const shell = new T.ExtrudeGeometry(face, { depth: .026, bevelEnabled: true, bevelSize: .004, bevelThickness: .004, bevelSegments: 2 });
+  const positions = shell.getAttribute('position');
+  for (let i = 0; i < positions.count; i++) {
+    const temple = positions.getX(i) / .118;
+    positions.setZ(i, positions.getZ(i) - .048 * temple ** 2);
+  }
+  shell.computeVertexNormals();
+  mesh(mask, shell, maskLeather, 0, 2.292, .095, 1, 1, 1).name = 'Plain mask shell';
+  const profile = [
+    [.083, 2.252, .090, .074], [.133, 2.255, .095, .076], [.182, 2.254, .082, .071],
+    [.239, 2.241, .068, .059], [.294, 2.220, .050, .046], [.348, 2.191, .032, .034],
+    [.397, 2.157, .016, .022], [.434, 2.135, .004, .007], [.442, 2.132, 0, 0],
+  ];
+  const sides = 32;
+  const vertices = [];
+  const triangles = [];
+  for (const [ring, [z, y, width, height]] of profile.entries()) {
+    for (let side = 0; side < sides; side++) {
+      const angle = TAU * side / sides;
+      const x = width * Math.sin(angle);
+      vertices.push(x, y + height * Math.cos(angle), z);
+      if (ring === profile.length - 1) continue;
+      const a = ring * sides + side;
+      const b = ring * sides + (side + 1) % sides;
+      triangles.push(a, a + sides, b, b, a + sides, b + sides);
+    }
+  }
+  const curvedBeak = new T.BufferGeometry();
+  curvedBeak.setAttribute('position', new T.Float32BufferAttribute(vertices, 3));
+  curvedBeak.setIndex(triangles);
+  curvedBeak.computeVertexNormals();
+  const beak = new T.Mesh(curvedBeak, maskLeather);
+  beak.name = 'Hooked leather beak';
+  mask.add(beak);
+
+  const hat = new T.Group();
+  hat.name = 'Wide-brimmed plague hat';
+  hat.position.set(0, 2.468, -.028);
+  hat.rotation.set(.055, 0, -.065);
+  parent.add(hat);
+  mesh(hat, hatShape, hatLeather, 0, 0, 0, 1, 1, .88);
+  mesh(hat, hatRibbon, hatBand, 0, .037, 0, 1, 1, .89);
+}
+
+export function createStandingRider(scene, { x, z, yaw, plagueMask = false }, floor) {
+  const root = new T.Group();
+  root.name = RIDER_NAME;
+  root.position.set(x, floor, z);
+  root.rotation.y = yaw;
+  scene.add(root);
+  groundShadow(root, 1.35, 1.25);
+  dressTorso(root, { onFoot: true });
+  drapeStandingMantle(root);
+  if (plagueMask) buildPlagueMask(root);
+
+  for (const side of [-1, 1]) {
+    const bootX = side * .171;
+    oval(root, leather, bootX, .177, -.004, .068, .169, .081);
+    oval(root, scuffedLeather, bootX, .082, .100, .076, .061, .169).name = 'Standing rider boot';
+    oval(root, straps, bootX, .028, .109, .079, .028, .166);
+
+    const wrist = [side * .317, 1.25, .133];
+    sewnSleeve(root, [side * .205, 2.058, -.057], [side * .325, 1.64, -.092], wrist);
+    const hand = new T.Group();
+    const cuff = [side * .182, 1.846, .351];
+    buildGauntlet(hand, side, cuff);
+    hand.rotation.x = 1.12;
+    hand.position.set(...wrist).sub(new T.Vector3(...cuff).applyQuaternion(hand.quaternion));
+    root.add(hand);
+  }
+  const sword = buildSword(root);
+  sword.position.set(.300, 1.154, .169);
+  sword.rotation.set(Math.PI - .12, -.14, .065);
+  sword.visible = true;
+  return root;
 }
 
 export function createRider(scene, earth, surface = groundHeight) {

@@ -72,7 +72,7 @@ function fabric(parent, rows, columns, point, { name, closed = false, liningFrom
   return shape;
 }
 
-export function dressTorso(torso) {
+export function dressTorso(torso, { onFoot = false } = {}) {
   const hood = [
     [-.275, 2.403, .003, .004], [-.226, 2.384, .103, .120],
     [-.154, 2.329, .152, .176], [-.060, 2.304, .173, .192],
@@ -100,13 +100,22 @@ export function dressTorso(torso) {
     [2.00, .288, .214, -.103], [2.08, .268, .186, -.099], [2.14, .199, .154, -.105],
     [2.18, .143, .134, -.115], [2.22, .126, .106, -.117],
   ];
+  if (onFoot) {
+    tunic.splice(0, 4,
+      [.098, .42, .294, -.088], [.26, .41, .297, -.086], [.50, .378, .277, -.078],
+      [.76, .321, .240, -.066], [1.03, .264, .199, -.061], [1.29, .233, .170, -.064],
+      [1.49, .228, .166, -.078], [1.70, .251, .192, -.091]);
+  }
   fabric(torso, tunic.length, 42, (row, u, t) => {
     const [y, width, depth, z] = tunic[row];
-    const a = TAU * u;
+    const slit = onFoot ? .25 * (1 - T.MathUtils.smoothstep(y, .1, .88)) : 0;
+    const a = slit + (TAU - 2 * slit) * u;
     const fold = 1 + (.11 * Math.sin(6 * a + 2.6 * t) + .046 * Math.cos(11 * a - 2.0 * t)) * (1 - .61 * t);
-    return [width * fold * Math.sin(a), y + .018 * Math.cos(3 * a + 5 * t), z + depth * fold * Math.cos(a)];
-  }, { name: 'Loose riding robe', closed: true });
+    const hem = onFoot ? .029 * Math.sin(8 * a + .6) * (1 - t) ** 4 : 0;
+    return [width * fold * Math.sin(a), y + .018 * Math.cos(3 * a + 5 * t) + hem, z + depth * fold * Math.cos(a)];
+  }, { name: onFoot ? 'Standing rider robe' : 'Loose riding robe', closed: !onFoot });
 
+  if (onFoot) return;
   for (const side of [-1, 1]) {
     fabric(torso, 16, 24, (_row, u, t) => {
       const fall = Math.sin(Math.PI * u) ** .72;
@@ -120,6 +129,21 @@ export function dressTorso(torso) {
       ];
     }, { name: 'Split robe panel' });
   }
+}
+
+export function drapeStandingMantle(parent) {
+  fabric(parent, 25, 40, (_row, u, t) => {
+    const wing = 2 * u - 1;
+    const edge = Math.abs(wing);
+    const pleat = Math.sin(4.5 * TAU * u + .9 * t) * .043 * Math.sin(t * Math.PI * .82);
+    const spread = .23 + .33 * (1 - Math.exp(-t * 3.7));
+    return [
+      spread * wing + .030 * Math.sin(6 * t) * t,
+      2.12 - 1.85 * t - edge ** 2 * .13 * (1 - t)
+        + (.048 * Math.sin(34 * u) + .028 * Math.cos(61 * u)) * t ** 5,
+      -.118 - .40 * (1 - Math.exp(-t * 4.8)) + .15 * edge ** 2 + pleat,
+    ];
+  }, { name: 'Standing wool mantle' });
 }
 
 export function sewnSleeve(parent, shoulder, elbow, cuff) {

@@ -15,8 +15,10 @@ import {
 } from "./world.js";
 import { Scene } from "./scene.js";
 import { getBestiaryEntries,selectBestiaryEntries } from "./bestiary.js";
-import { playAdultScreech } from "./squid-audio.js";
+import { playAdultChase as playAdultScreech } from "./squid-chase-audio.js";
 import { createForestAudio } from "./forest-audio.js";
+import { createWaterAudio } from './water-audio.js';
+import {JELLYFISH_SPIRES} from './jellyfish-spires-data.js';
 import { createSandWormAudio } from './sand-worm-audio.js';
 import {createRegionMusic} from './region-music.js';
 import {createRegionalAmbientNoise} from './regional-ambient-noise.js';
@@ -40,7 +42,8 @@ function element(id) {
 try {
   const world = createWorld();
   element("sector-size").textContent = `${world.platforms.length} ICE ISLANDS`;
-  const scene = new Scene(element("world"));
+  let sceneDirty = true;
+  const scene = new Scene(element("world"),{onInvalidate:()=>{sceneDirty=true;}});
   scene.canvas.tabIndex = 0;
   const look = createLookState();
   const simulationClock=createSimulationClock();
@@ -63,7 +66,6 @@ try {
   let loadingComplete = false;
   let paused = false;
   let graphicsLost = false;
-  let sceneDirty = true;
   const renderDistanceControls=[...document.querySelectorAll('[data-render-distance]')];
   const syncRenderDistance=()=>{for(const control of renderDistanceControls)control.value=String(scene.renderDistance);};
   syncRenderDistance();
@@ -84,6 +86,7 @@ try {
   let adultCallAvailable = true;
   let forestAudio = null;
   let forestAudioAvailable = true;
+  let waterAudio = null, waterAudioAvailable = true;
   let sandWormAudio=null,sandWormAudioAvailable=true;
   const regionMusic=createRegionMusic();
   const regionalAmbientNoise=createRegionalAmbientNoise();
@@ -186,6 +189,7 @@ try {
     if (paused) releaseLook();
     if (paused) stopAdultCall();
     if (paused) stopForestAudio();
+    if (paused) stopWaterAudio();
     if (paused) stopSandWormAudio();
     if (paused) regionMusic.stop();
     if (paused) regionalAmbientNoise.stop();
@@ -380,7 +384,7 @@ try {
     if(graphicsLost||document.hidden)return;
     started=false;hasSession=false;scene.playing=false;
     releaseLook();clearInput();simulationClock.reset();
-    stopAdultCall();stopForestAudio();stopSandWormAudio();regionMusic.reset();regionalAmbientNoise.reset();
+    stopAdultCall();stopForestAudio();stopWaterAudio();stopSandWormAudio();regionMusic.reset();regionalAmbientNoise.reset();
     menu.close();bestiary.close();expeditionUI?.close();
     document.body.classList.remove('playing');
     element('intro').classList.add('hidden');element('main-menu-backdrop').classList.add('hidden');
@@ -393,6 +397,7 @@ try {
     element("graphics-notice").classList.add("hidden");
     stopAdultCall();
     stopForestAudio();
+    stopWaterAudio();
     stopSandWormAudio();
     regionMusic.reset();
     regionalAmbientNoise.reset();
@@ -435,6 +440,29 @@ try {
   function stopForestAudio() {
     forestAudio?.stop();
     forestAudio = null;
+  }
+
+  function stopWaterAudio() {
+    waterAudio?.stop();
+    waterAudio = null;
+  }
+
+  function updateWaterAudio(dt) {
+    const eligible = started && !paused && soundEnabled && waterAudioAvailable && audio?.state === 'running';
+    if (!eligible) { stopWaterAudio(); return; }
+    try {
+      if (!waterAudio) {
+        const session = createWaterAudio(audio);
+        if (session) {
+          waterAudio = session;
+          session.ended.then(() => { if (waterAudio === session) waterAudio = null; });
+        }
+      }
+      waterAudio?.update(world, dt, {ducked: Boolean(adultCall || activeEncounter())});
+    } catch (error) {
+      stopWaterAudio(); waterAudioAvailable = false;
+      console.warn('Croba Planet: water sounds could not play.', error);
+    }
   }
 
   function stopSandWormAudio(){sandWormAudio?.stop();sandWormAudio=null;}
@@ -545,6 +573,7 @@ try {
       } else {
         stopAdultCall();
         stopForestAudio();
+        stopWaterAudio();
         stopSandWormAudio();
         regionMusic.stop();
         regionalAmbientNoise.stop();
@@ -597,7 +626,7 @@ try {
     const saltCave=world.biome==='salt-cave';
     const sulfuric=world.biome==='sulfuric-land';
     const blueOcean = !forest && !sulfuric && !saltCave && (world.biome === "blue-ocean" || world.player.x >= BLUE_OCEAN_START_X);
-    const biomeName = saltCave?'SALT CAVE':sulfuric?'SULFURIC LAND':forest ? "VIOLET SPRUCE FOREST" : world.biome==='shell-field' ? 'SHELL FIELD' : blueOcean ? "BLUE OCEAN"
+    const biomeName = saltCave?'SALT CAVE':sulfuric?'SULFURIC LAND':forest ? "VIOLET SPRUCE FOREST" : world.biome==='jellyfish-spires'?'JELLYFISH SPIRES':world.biome==='shell-field' ? 'SHELL FIELD' : blueOcean ? "BLUE OCEAN"
       : world.biome === "blue-kelp-forest" ? "BLUE KELP FOREST"
       : world.biome === "orange-grass-field" ? "ORANGE GRASS FIELD"
       : world.biome === "iceberg-tundra" ? "ICY BASIN" : world.biome === "cliff-biome" ? "CLIFF BIOME" : "ARCTIC";
@@ -609,7 +638,7 @@ try {
     document.body.classList.toggle("purple-forest", forest);
     document.body.classList.toggle("blue-ocean", blueOcean);
     element("ocean-depth").classList.toggle("hidden", !blueOcean);
-    element("ocean-depth").textContent = ` / ${world.biome==='shell-field'?40:BLUE_OCEAN_DEPTH_METERS} m`;
+    element("ocean-depth").textContent = ` / ${world.biome==='jellyfish-spires'?JELLYFISH_SPIRES.maxDepthMeters:world.biome==='shell-field'?40:BLUE_OCEAN_DEPTH_METERS} m`;
     element("dive-mode").classList.toggle("hidden", !blueOcean);
     const health = Math.max(0, Math.min(100, Math.round(world.player.health ?? 100)));
     element("health-value").textContent = `${health}%`;
@@ -711,7 +740,7 @@ try {
   expeditionUI=setupExpeditionUI({world,look,document,window,
     pause(){menu.close();bestiary.close();setPaused(true);},
     resume(){setPaused(false);sceneDirty=true;focusGame();},
-    load(){openingPlayer.cancel();stopAdultCall();stopForestAudio();stopSandWormAudio();regionMusic.stop();regionalAmbientNoise.stop();scene.resetView();setPaused(false);startGame();lastHudUpdate=-1;},
+    load(){openingPlayer.cancel();stopAdultCall();stopForestAudio();stopWaterAudio();stopSandWormAudio();regionMusic.stop();regionalAmbientNoise.stop();scene.resetView();setPaused(false);startGame();lastHudUpdate=-1;},
     isPlaying:()=>started,isEncounter:()=>Boolean(activeEncounter()),
     changed(){sceneDirty=true;lastHudUpdate=-1;}
   });
@@ -1059,6 +1088,7 @@ try {
     updateEncounter();
     updateAdultCall();
     updateForestAudio(dt);
+    updateWaterAudio(dt);
     updateSandWormAudio();
     regionMusic.update(world,dt,{started,paused,soundEnabled,contextRunning:audio?.state==='running',ducked:Boolean(adultCall)||Boolean(activeEncounter())});
     regionalAmbientNoise.update(world,dt,{started,paused,soundEnabled,contextRunning:audio?.state==='running',ducked:Boolean(adultCall)||Boolean(activeEncounter())});
@@ -1107,6 +1137,7 @@ try {
       }
       stopAdultCall();
       stopForestAudio();
+      stopWaterAudio();
       stopSandWormAudio();
       regionMusic.dispose();
       regionalAmbientNoise.dispose();

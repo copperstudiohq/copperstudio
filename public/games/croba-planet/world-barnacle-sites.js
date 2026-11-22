@@ -4,6 +4,8 @@ import {getIceSurfaceHeight,highestIceAt} from './ice-surface.js';
 import {getSulfuricGround} from './sulfuric-biome.js';
 import {getWorldBiome} from './biomes.js';
 import {getIceSection,pointInPolygon,WATER_LEVEL} from './terrain.js';
+import {PREPARED_SPIRE_BARNACLES} from './prepared-jelly-spires-life-data.js';
+import {sampleJellyfishSpireSurface} from './jellyfish-spires.js';
 
 /** Authored underwater colony centers. Individual shells use the fixed offset pattern,
  * not random generation; every new expedition receives the same colonies. */
@@ -18,11 +20,18 @@ const COLONIES=Object.freeze([
 ].map(Object.freeze));
 const OFFSETS=Object.freeze([[0,0],[-8,2],[8,-3],[-3,9],[5,-10],[-15,-5],[15,5],[-10,13],[13,-12],[-18,7],[18,-6],[-2,-17],[3,17]].map(Object.freeze));
 
-/** Exact terrain height plus an upward surface normal in render axes (Y up).
+/** Exact terrain or rock-face support, with surface normal in render axes (Y up).
  * Snow is drawn .006 metres above the physical ice top in Scene. */
 export function getWorldBarnacleSurface(world,site){
  const {source,x,y}=site;
  if(!Number.isFinite(x)||!Number.isFinite(y))return null;
+ if(source==='jelly-spire'){
+  try{
+   const p=sampleJellyfishSpireSurface(site.spireId,site.triangleIndex,site.u,site.v);
+   if(Math.hypot(p.x-x,p.y-y)>.01)return null;
+   return{z:p.z,normal:{x:p.normal.x,y:p.normal.z,z:p.normal.y}};
+  }catch(error){if(error instanceof RangeError)return null;throw error;}
+ }
  const ice=source==='ice'?(site.platformId?(world.platforms??[]).find(p=>p.id===site.platformId):highestIceAt(world.platforms??[],x,y)):null;
  const height=(x,y)=>source==='seabed'?getSeabedHeight(x,y):source==='forest'?getForestHeight(world,x,y):source==='sulfur'?getSulfuricGround(x,y):ice?getIceSurfaceHeight(ice,x,y)+.15:null;
  const z=height(x,y);if(!Number.isFinite(z))return null;
@@ -48,5 +57,11 @@ export function createWorldBarnacleSites(world){
   }
  };
  for(const [biome,source,x,y]of COLONIES)addColony(biome,source,x,y);
+ for(const anchor of PREPARED_SPIRE_BARNACLES){
+  const p=sampleJellyfishSpireSurface(anchor.spireId,anchor.triangleIndex,anchor.u,anchor.v);
+  const site={...anchor,biome:'jellyfish-spires',source:'jelly-spire',x:p.x,y:p.y};
+  const surface=getWorldBarnacleSurface(world,site);
+  if(surface&&surface.z<=WATER_LEVEL-12)sites.push({...site,...surface});
+ }
  return sites;
 }

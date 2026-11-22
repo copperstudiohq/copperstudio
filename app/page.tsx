@@ -8,10 +8,10 @@ const games = [
     number: "01", shortName: "Croba Planet", name: "Croba Planet", label: "Beyond the familiar", genre: "Alien exploration",
     description: [
       "Your spaceship lies broken on an alien glacier, and the only way to understand this world is to step outside. Cross windblown ice islands, swim beneath their spiked undersides, and follow blue coral and glowing plants into a deep cobalt ocean. Beyond the frozen coast, the Violet Spruce Forest offers a completely different landscape to explore.",
-      "This is a first-person expedition built around curiosity and survival. Watch your suit’s warmth and integrity, plan each dive around your oxygen, and use your map to learn the way back. Peaceful young Crobonic Squid share the water with armored alien wildlife, while a giant ice centipede and a forest stalker make some discoveries more dangerous than others.",
+      "This is a first-person expedition built around curiosity and survival. Watch your suit’s warmth and integrity, plan each dive around your oxygen, and use your map to learn the way back. Explore Jellyfish Spires, a deep volcanic basin of fractured stone, glowing jellies and charcoal gravel, or swim through a broken alien submarine. Young Crobonic Squid share the water with armored wildlife, while giant hunters make some discoveries more dangerous than others.",
     ],
     highlights: [
-      { title: "Go deeper", text: "Descend into a 100-metre ocean basin, with a dive light to guide you through the dark." },
+      { title: "Go deeper", text: "Dive through the blue ocean into the 170-metre Jellyfish Spires basin, with a lamp to light the rocks and drifting jellies." },
       { title: "Keep a field log", text: "Find three discoveries, record wildlife in your bestiary, and identify alien plants in your field guide." },
       { title: "Find your way back", text: "Reach the surface for air, recover near heat beacons, and let your rescue tether bring you home if your suit fails." },
     ],
@@ -80,12 +80,12 @@ const games = [
     number: "05", shortName: "Mosswake Creek", name: "Rain & Copper: Mosswake Creek", label: "Build. Break. Make it rain.", genre: "2D sandbox & creek defense",
     description: [
       "Return to Mosswake’s birch-lined pond, with its copper-roofed hut, dock, and wandering ducks. Paint falling copper and sand, pour flowing water, build basalt dams, and chip the landscape apart pixel by pixel. Explore five connected areas, change the rain, and experiment with creatures, scenery, and the spreading Tri.",
-      "Choose day, night, or an automatic sky cycle, and place Tri Portals that wake after dark. For a different challenge, enter Creek Watch as a faceless figure in a copper robe. Travel all five areas, collect copper, and hire guards at the recruiting camps. Guards fill both banks evenly, gather coins across the map by day, bring them back to you, and return before night. Train veterans, fortify the banks, and protect the tower through endless raids. From night 40, Tri Flyers can land on guards and turn them into pink, hunched enemies; Ichor Sprayers approach from both sides. Save 100 copper to enlarge the tower and step into its compact, windowless dining room, with wooden walls, a long red-clothed table and four chairs you can sit on. Save your watch in named slots in this browser; your Sandbox edits stay in the current tab.",
+      "Enter Creek Watch as a faceless figure in a copper robe. Hire archers and hammer-carrying builders at the tents: guards gather and deliver copper, while your builder orders keep repairing and upgrading existing walls at the normal prices. Turn reinforced walls into 200-copper towers with raised archer platforms. Arrows arc under gravity, and moving targets can dodge them. Survive endless raids, including infectious Tri Flyers from night 40 and Ichor Sprayers from both sides. Spend 100 copper to enlarge the signal tower and visit its wooden dining room, with a long red-clothed table and four usable copper chairs. Named saves keep your watch, builder orders and paid work; Sandbox edits last for the tab.",
     ],
     highlights: [
       { title: "Build and break", text: "Pour materials, shape the water, place scenery, and chip away individual pixels with a brush as small as one pixel." },
       { title: "After dark", text: "Control the sky, let the Tri spread, and place portals that release Tri Blobs at night." },
-      { title: "Hold the creek", text: "Recruit guards, train veterans, and defend the bridge through endless nights. Save your watch to return later." },
+      { title: "Hold the creek", text: "Command builders, train archers and upgrade wall towers. Save the watch, including paid repairs and work already underway." },
     ],
     image: "/images/mosswake-creek-gameplay.webp",
     alt: "Pixel art gameplay of Mosswake Creek with a copper-roofed fishing hut, birch trees, ducks, and a pond above layers of sand and copper ore",
@@ -97,13 +97,13 @@ const games = [
   {
     number: "06", shortName: "Blackroot Vale", name: "Blackroot Vale", label: "Follow the lights. Watch the road.", genre: "Dark-fantasy exploration",
     description: [
-      "Lanterns glow through the windows of Thornwick, a moonlit village at the edge of an enormous evergreen forest. Step inside seven furnished houses, wander the road into Blackroot Forest, or cross the South Field’s cracked earth and dead scrub to study the ruined tower on the distant ridge. Explore this first-person world with keyboard or touch, moving between its quiet rooms and open landscapes at your own pace.",
-      "Quiet does not always mean safe. The Opsing Rider sometimes approaches from the tower; watch for his warning and shelter inside a house until he leaves. Three sword strikes send you to The Under Neath, where Blub — the son of a goblin and an orc — shares your cell. Open the gate, help him escape the spear-wielding guards, and find a way through the branching halls, tower and Ashen Battlefield back to Thornwick. Visit the four-eyed ruler’s throne room, discover his painted history, and catch up with Blub outside so he can follow your journey. His goblin voice plays from the game’s own audio, with subtitles that remain visible while muted.",
+      "Lanterns glow through the windows of Thornwick, a moonlit village at the edge of an enormous evergreen forest. Step inside seven furnished houses, meet households with human and creature ancestry, and follow the forest trail to Pine Hollow Cabin and its gloved resident. Cross the barren South Field to study the ruined tower, or explore the rooms and open landscapes with keyboard or touch.",
+      "The Opsing Rider sometimes approaches from the tower; watch for his warning and shelter in a house. Three sword strikes send you to The Under Neath, where Blub — the son of a goblin and an orc — shares your cell. Help him escape the guards and return through the tower and Ashen Battlefield. Reunite outside and he follows your journey, stopping for meals that help him recover and give him clean village clothes. Explore the four-eyed ruler’s throne room and painted history. A manual save and autosave now preserve the adventure in this browser, including your location, doors, the Rider and Blub’s progress.",
     ],
     highlights: [
       { title: "Explore by lantern light", text: "Visit seven furnished village houses, a towering evergreen forest and the barren South Field. Landmark buttons help you find your way between hunts." },
       { title: "Escape The Under Neath", text: "Shelter from the mounted Rider, or find your way out of the cells and branching halls while avoiding the tower guards’ spears." },
-      { title: "Find a companion", text: "Talk to Blub, open his cell and meet him outside. Once you reunite, he follows through doors and between landmarks." },
+      { title: "Return to your journey", text: "Follow Blub’s escape and recovery, save manually, or resume the latest local autosave when you return." },
     ],
     image: "/games/blackroot-vale/art/village.webp",
     alt: "A moonlit medieval village beside an enormous evergreen forest, with wet cobblestones, slate roofs and warm lantern-lit windows",

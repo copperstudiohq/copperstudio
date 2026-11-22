@@ -1,5 +1,5 @@
 import * as T from './vendor/three.module.js';
-import { createRider } from './rider.mjs';
+import { createStandingRider } from './rider.mjs';
 import { repeatSurface } from './surfaces.mjs';
 import { THRONE_LORD_EYE_Y, THRONE_LORD_HEIGHT_SCALE, throneLord } from './throne-lord.mjs';
 import { hangPainting } from './tower-paintings.mjs';
@@ -184,11 +184,13 @@ export function addThroneRoom(scene, surfaces, towerWall) {
     flame(scene, -2.63, floorY, -13.15), flame(scene, 2.63, floorY, -13.15),
     flame(scene, -2.67, floorY, -19.61, true), flame(scene, 2.67, floorY, -19.61, true),
   ];
-  const attendants = riders.map((position) => ({ position, actor: createRider(scene, surfaces.barren, () => floorY) }));
-  const riderCover = riders.flatMap(({ x, z }) => [
-    new T.Box3(new T.Vector3(x - .45, floorY + .70, z - 1.24), new T.Vector3(x + .45, floorY + 1.99, z + 1.28)),
-    new T.Box3(new T.Vector3(x - .30, floorY + 1.73, z - .40), new T.Vector3(x + .30, floorY + 3.12, z + .30)),
-  ]);
+  const riderCover = riders.flatMap((position) => {
+    const rider = createStandingRider(scene, position, floorY);
+    rider.updateMatrixWorld(true);
+    return ['Standing rider robe', 'Hood and folded face opening'].map(
+      (name) => new T.Box3().setFromObject(rider.getObjectByName(name), true),
+    );
+  });
   const eye = new T.Vector3(0, raised + THRONE_LORD_EYE_Y, seat + .16);
   const target = new T.Vector3();
   const direction = new T.Vector3();
@@ -217,9 +219,6 @@ export function addThroneRoom(scene, surfaces, towerWall) {
     lord(time, elapsed, visiblePlayer(player, standingHeight), motionHold > 0);
     if (player && player.z >= -3) return;
     for (const update of fire) update(time);
-    for (const [index, { position, actor }] of attendants.entries()) {
-      actor.pose(position.x, position.z, position.yaw, time, { cycle: time * .31 + index * .42, pace: 0, armed: true });
-    }
   }
   animate(0);
   return animate;

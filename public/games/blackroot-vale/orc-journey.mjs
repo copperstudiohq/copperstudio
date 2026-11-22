@@ -3,6 +3,7 @@ import { BATTLEFIELD_EXIT, BATTLEFIELD_SPAWN, battlefieldHeight, canWalkBattlefi
 import { canWalkDungeon, dungeonFloor, DUNGEON_STAIRS, PRISONER } from './dungeon-plan.mjs';
 import { walkSurface } from './layout.mjs';
 import { companionArrival, createOrcCompanion } from './orc-companion.mjs';
+import { createOrcMeals } from './orc-meals.mjs';
 import { SERVICE_DOOR, TOWER_SPAWN, towerWalkHeight } from './tower-plan.mjs';
 
 export const PRISONER_NAME = 'Blub';
@@ -29,9 +30,10 @@ const speed = { dungeon: 3.9, tower: 4.15, battlefield: 5.0, village: 1.48 };
 const wrongTurn = [2.43, -3.18];
 const tiredRoute = [...routes.tower.slice(0, 3), [2.43, -5.78], wrongTurn, [2.43, -5.78], ...routes.tower.slice(3)];
 
-export function createOrcJourney(mayWalkVillage, random = Math.random, mayFollowWorld = mayWalkVillage) {
+export function createOrcJourney(mayWalkVillage, random = Math.random, mayFollowWorld = mayWalkVillage, openMealDoor) {
   const position = { ...spawns.cell };
   const companion = createOrcCompanion();
+  const meals = openMealDoor && createOrcMeals(mayFollowWorld, openMealDoor);
   const followSurfaces = {
     battlefield: { canWalk: canWalkBattlefield, heightAt: battlefieldHeight },
     village: { canWalk: mayFollowWorld, heightAt: walkSurface },
@@ -46,6 +48,10 @@ export function createOrcJourney(mayWalkVillage, random = Math.random, mayFollow
   let talkedVillage = 0;
   let caughtBefore = false;
   let tired = false;
+
+  function routeForArea() {
+    return area === 'tower' && tired ? tiredRoute : routes[area];
+  }
 
   function enter(next) {
     area = next;
@@ -62,10 +68,44 @@ export function createOrcJourney(mayWalkVillage, random = Math.random, mayFollow
     get active() { return area !== 'cell'; },
     get following() { return following; },
     get stride() { return strides; },
-    get walking() { return following ? companion.walking : area !== 'cell' && pause <= 0; },
-    get running() { return following ? companion.running : area !== 'cell' && area !== 'village'; },
+    get walking() {
+      return meals?.active ? meals.walking : following ? companion.walking : area !== 'cell' && pause <= 0;
+    },
+    get running() {
+      return !meals?.active && (following ? companion.running : area !== 'cell' && area !== 'village');
+    },
+    get mealActivity() { return meals?.activity ?? null; },
+    get eating() { return meals?.eating ?? null; },
+    get recovery() { return meals?.recovery ?? 0; },
+    snapshot() {
+      return {
+        area, following, position: { ...position }, waypoint, pause, strides, tired, caughtBefore,
+        talkedCell, talkedField, talkedVillage, meals: meals?.snapshot() ?? null,
+      };
+    },
+    restore(saved) {
+      const spot = saved?.position;
+      const valid = (saved?.area === 'cell' || Object.hasOwn(routes, saved?.area))
+        && [spot?.x, spot?.y, spot?.z, spot?.yaw].every(Number.isFinite)
+        && Math.hypot(spot.x, spot.z) < 281 && Math.abs(spot.y) < 24;
+      const count = (value) => Number.isSafeInteger(value) && value >= 0 ? value : 0;
+      companion.reset();
+      enter(valid ? saved.area : 'cell');
+      following = valid && (area === 'village' || area === 'battlefield') && saved.following === true;
+      tired = valid && saved.tired === true;
+      caughtBefore = valid && saved.caughtBefore === true;
+      waypoint = Math.min(count(saved?.waypoint), (routeForArea()?.length ?? 1) - 1);
+      pause = Math.min(3, Math.max(0, Number.isFinite(saved?.pause) ? saved.pause : 0));
+      strides = Number.isFinite(saved?.strides) && saved.strides >= 0 ? saved.strides : 0;
+      talkedCell = count(saved?.talkedCell) % cellLines.length;
+      talkedField = count(saved?.talkedField) % fieldLines.length;
+      talkedVillage = count(saved?.talkedVillage) % villageLines.length;
+      if (valid) Object.assign(position, { x: spot.x, y: spot.y, z: spot.z, yaw: spot.yaw });
+      meals?.restore(valid ? saved.meals : null, area === 'village' ? position : null);
+    },
     travelWith(next, player) {
       if (!following || !followSurfaces[next]) return;
+      meals?.interrupt();
       const { canWalk, heightAt } = followSurfaces[next];
       enter(next);
       companion.reset();
@@ -101,8 +141,17 @@ export function createOrcJourney(mayWalkVillage, random = Math.random, mayFollow
     advance(elapsed, gateOpen, player) {
       if (area === 'cell') return null;
       const surface = followSurfaces[area];
+      if (surface && player?.area === area) following = true;
+      if (area === 'village' && meals) {
+        const wasVisiting = meals.active;
+        const walked = meals.advance(elapsed, position);
+        if (wasVisiting !== meals.active) companion.reset();
+        if (walked !== null) {
+          strides += walked;
+          return null;
+        }
+      }
       if (surface && (following || player?.area === area)) {
-        following = true;
         strides += companion.advance(elapsed, position, player?.area === area ? player : null, surface.canWalk, surface.heightAt);
         return null;
       }
@@ -110,7 +159,7 @@ export function createOrcJourney(mayWalkVillage, random = Math.random, mayFollow
         pause = Math.max(0, pause - elapsed);
         return null;
       }
-      const route = area === 'tower' && tired ? tiredRoute : routes[area];
+      const route = routeForArea();
       const [targetX, targetZ] = route[waypoint];
       const dx = targetX - position.x;
       const dz = targetZ - position.z;

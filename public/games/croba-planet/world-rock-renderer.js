@@ -1,5 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import {createWorldRockGeometry,getWorldRockPose} from './world-rock-geometry.js';
+import {BLUE_OCEAN_START_X} from './terrain.js';
+import {shellFieldBlend} from './shell-field.js';
 
 const HABITATS=Object.freeze({cold:'cold',forest:'forest',marine:'marine',sulfur:'forest',warm:'forest'});
 const TINTS=Object.freeze({cold:[0xd3d9dc,0xe4e2da,0xc9d2d8],forest:[0xe5d1b9,0xd2c2ac,0xf0dcc5],marine:[0xc9d1d2,0xd9d0c2,0xd1c8be]});
@@ -32,6 +34,7 @@ export class WorldRockRenderer{
     material=materials.rock?.clone()??new THREE.MeshStandardMaterial({color:0xd88945,roughness:.9,metalness:.01});
     material.name=`world-rock-${habitat}`;material.vertexColors=true;material.transparent=false;material.opacity=1;material.depthWrite=true;
     material.roughness=Math.max(.84,material.roughness??.9);material.metalness=Math.min(.04,material.metalness??.01);
+    if(habitat==='marine'){material.map=null;material.color.setHex(0xffffff);}
     surfaces.set(habitat,material);this.materials.push(material);
    }
    const mesh=new THREE.InstancedMesh(geometry,material,entries.length);mesh.name=`world-rocks-${habitat}-${style}`;
@@ -39,7 +42,9 @@ export class WorldRockRenderer{
    for(const [index,rock]of entries.entries()){
     getWorldRockPose(rock,pose);mesh.setMatrixAt(index,pose.matrix);
     const id=String(rock.id),hash=Array.from(id).reduce((value,ch)=>(Math.imul(value,31)+ch.charCodeAt(0))>>>0,0);
-    mesh.setColorAt(index,color.setHex(TINTS[habitat][hash%3]).multiplyScalar(.96+(hash%9)*.007));
+    color.setHex(TINTS[habitat][hash%3]);
+    if(habitat==='marine'&&rock.x>=BLUE_OCEAN_START_X)color.lerp(new THREE.Color(0x626a73),1-shellFieldBlend(rock.x,rock.y));
+    mesh.setColorAt(index,color.multiplyScalar(.96+(hash%9)*.007));
    }
    mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
    mesh.receiveShadow=true;mesh.castShadow=false;mesh.computeBoundingBox();mesh.computeBoundingSphere();

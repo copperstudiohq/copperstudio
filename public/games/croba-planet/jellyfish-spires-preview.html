@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jellyfish Spires · Croba Planet</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#041323;color:#e5f1f8;font:16px system-ui,sans-serif}canvas{display:block;width:100vw;height:100vh}header{position:fixed;z-index:2;top:0;left:0;right:0;padding:20px 24px;background:linear-gradient(#061523e8,transparent)}h1{font-size:24px;margin:0 0 6px}p{margin:5px 0;color:#aac6d7}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}button,a{font:inherit;border:1px solid #6b7a9c;color:#e6d9ff;background:#12233de6;padding:10px 14px;border-radius:8px;text-decoration:none;cursor:pointer}button:focus-visible,a:focus-visible{outline:2px solid #f5c28b;outline-offset:3px}footer{position:fixed;bottom:0;left:0;right:0;padding:18px 24px;background:linear-gradient(transparent,#061523ec);pointer-events:none}#error{color:#ffb7a7}#details{font-size:13px;max-width:680px;line-height:1.5}@media(max-width:600px){header,footer{padding:14px}h1{font-size:21px}.controls{gap:6px}button,a{padding:9px 11px;font-size:14px}}</style></head>
+<body><header><h1>CROBA PLANET · Jellyfish Spires</h1><p>A deep volcanic basin beyond the eastern Blue Ocean border.</p><div class="controls"><button id="view">Next viewpoint</button><button id="step">Move the jellyfish</button><button id="animate" aria-pressed="false">Animate</button><a href="./">Play Croba</a></div></header><canvas id="world" aria-label="First-person view inside the Jellyfish Spires biome"></canvas><footer><p id="status" role="status">Preparing Jellyfish Spires…</p><p id="details">Actual game terrain, materials and creatures. Movement starts paused to keep the preview light.</p><p id="error" role="alert"></p></footer>
+<script type="module">
+import {Scene} from './scene.js';
+import {createWorld} from './world.js';
+import {getSeabedHeight} from './seabed.js';
+import {JELLYFISH_SPIRES_SPIRES} from './jellyfish-spires-data.js';
+import {updateLanternJellyfish} from './lantern-jellyfish.js';
+import {EYE_HEIGHT,WATER_LEVEL} from './terrain.js';
+import {getJellyfishSpiresCollision} from './jellyfish-spires.js';
+import {SPIRES_SUBMARINE_PREVIEWS} from './jelly-spires-submarine.js';
+const requestedView=new URLSearchParams(location.search).get('view');
+const submarineView=SPIRES_SUBMARINE_PREVIEWS.findIndex(view=>view.id===requestedView);
+let scene,world,index=submarineView>=0?5+submarineView:requestedView==='gravel'?4:requestedView==='colonies'?3:requestedView==='ridges'?2:0,time=0,animating=false,frameId=0,lastFrame=0;
+const status=document.querySelector('#status'),button=document.querySelector('#animate');
+function draw(dt=0){scene.draw(world,time,dt,false);status.textContent=`JELLYFISH SPIRES · ${((WATER_LEVEL-world.player.z-EYE_HEIGHT)/25).toFixed(1)} m deep · ${animating?'Live movement':'Paused preview'}`;document.querySelector('#details').textContent='Volcanic ridges, gray gravel, purple lantern jellyfish and an old broken submarine. Next viewpoint explores the basin, barnacles and the flooded wreck. Animation pauses when this page is hidden.';}
+function viewpoint(){
+  const slot=index%(5+SPIRES_SUBMARINE_PREVIEWS.length);
+  if(slot>=5){const view=SPIRES_SUBMARINE_PREVIEWS[slot-5];Object.assign(world.player,view.player,{swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(view.look.yaw,view.look.pitch);draw();return;}
+  const target=JELLYFISH_SPIRES_SPIRES[[8,16,24,0,0][slot]],baseAngle=[1.1,.3,-.9,2.1,0][slot];let pose;
+  if(slot===4){const x=14500,y=-4450;Object.assign(world.player,{x,y,z:getSeabedHeight(x,y)+8,swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(Math.PI/2,-.65);draw();return;}
+  if(slot===0||slot===2){Object.assign(world.player,slot===0?{x:14500,y:-4450,z:-2737.3359261}:{x:11700,y:-6200,z:-3418.0995331},{swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(Math.PI,-.2186689459);draw();return;}
+  if(slot===3){Object.assign(world.player,{x:14512.7380613,y:-4591.3576603,z:-3751.6923134,swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(1.3221577874,-.0431915552);draw();return;}
+  for(let attempt=0;attempt<32;attempt++){
+    const angle=baseAngle+attempt*.28,distance=[1000,450,780,500][slot]+attempt*18;
+    const x=target.x+Math.cos(angle)*distance,y=target.y+Math.sin(angle)*distance,z=getSeabedHeight(x,y)+[300,100,520,180][slot];
+    if([5,EYE_HEIGHT/2,EYE_HEIGHT].every(height=>!getJellyfishSpiresCollision({x,y,z:z+height},30))){pose={x,y,z};break;}
+  }
+  if(!pose)throw new Error('This viewpoint has no clear camera position.');
+  Object.assign(world.player,pose,{swimming:true,underwater:true});world.biome='jellyfish-spires';
+  const dx=target.x-pose.x,dy=target.y-pose.y,dz=target.z+target.height*.42-pose.z-EYE_HEIGHT;
+  scene.setLook(Math.atan2(dx,-dy),Math.atan2(dz,Math.hypot(dx,dy)));draw();
+}
+function advance(seconds=1){for(let i=0;i<Math.round(seconds*30);i++){updateLanternJellyfish(world,1/30);time+=1/30;world.elapsed=time;}draw(seconds);}
+function loop(now){if(!animating||document.hidden)return;if(now-lastFrame>=1000/15){lastFrame=now;advance(1/15);}frameId=requestAnimationFrame(loop);}
+function stop(){animating=false;cancelAnimationFrame(frameId);button.textContent='Animate';button.setAttribute('aria-pressed','false');if(scene&&world)draw();}
+document.querySelector('#view').onclick=()=>{index++;viewpoint();};document.querySelector('#step').onclick=()=>advance();
+button.onclick=()=>{if(animating){stop();return;}animating=true;button.textContent='Pause movement';button.setAttribute('aria-pressed','true');lastFrame=0;frameId=requestAnimationFrame(loop);};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});window.addEventListener('resize',()=>{if(scene&&world){scene.resize();draw();}});window.addEventListener('pagehide',()=>{stop();scene?.dispose();},{once:true});
+try{world=createWorld();scene=new Scene(document.querySelector('#world'),{onInvalidate:()=>{if(scene&&world&&!animating&&!document.hidden)draw();}});scene.setRenderDistance(80);viewpoint();}catch(error){status.textContent='The preview could not start.';document.querySelector('#error').textContent=error.message;console.error('Croba Jellyfish Spires preview:',error);}
+</script></body></html>

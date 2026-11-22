@@ -17,7 +17,7 @@ export const ZONES = {
   field: 'South Field',
 };
 
-export const HOUSES = [
+export const VILLAGE_HOUSES = [
   { id: 'woodcutter', name: 'Woodcutter’s Cottage', x: -9.8, z: 20, w: 9, d: 7, h: 3.8, yaw: 0.88, style: 0 },
   { id: 'weaver', name: 'Weaver’s House', x: 10.6, z: 16, w: 9.7, d: 8, h: 4.3, yaw: -0.58, style: 1 },
   { id: 'common', name: 'Common House', x: -16.3, z: 5.5, w: 10.2, d: 7.3, h: 4.9, yaw: 0.72, style: 2 },
@@ -25,7 +25,23 @@ export const HOUSES = [
   { id: 'hunter', name: 'Hunter’s Lodge', x: -11, z: -12.6, w: 8.2, d: 6.9, h: 3.7, yaw: 0.59, style: 1 },
   { id: 'keeper', name: 'Keeper’s House', x: 9.9, z: -15.4, w: 8, d: 7.2, h: 5.9, yaw: -0.43, style: 2 },
   { id: 'croft', name: 'Croft House', x: 23.2, z: -9.5, w: 7, d: 6.4, h: 3.6, yaw: -0.79, style: 0 },
-].map((house) => ({ ...house, baseY: foundationY(house), room: roomPlan(house) }));
+].map(planHouse);
+export const WOODLAND_HOUSE = planHouse({
+  id: 'woodland', name: 'Pine Hollow Cabin', x: -46.5, z: -218,
+  w: 7.2, d: 6.2, h: 3.30, yaw: .90, style: 0, woodland: true,
+});
+export const HOUSES = [...VILLAGE_HOUSES, WOODLAND_HOUSE];
+const privyPlacement = houseToWorld(5.45, 2.20, WOODLAND_HOUSE);
+const privy = {
+  ...privyPlacement, id: 'woodland-outhouse', name: 'Pine Hollow Outhouse',
+  w: 1.92, d: 2.24, h: 2.63, yaw: WOODLAND_HOUSE.yaw, doorWidth: 1.18, doorHeight: 2.13, doorOutward: true,
+  room: {
+    residents: [],
+    furnishings: [{ kind: 'privy-seat', x: 0, z: -.74, w: 1.64, d: .48, h: .46 }],
+  },
+};
+export const WOODLAND_OUTHOUSE = { ...privy, baseY: foundationY(privy) };
+export const STRUCTURES = [...HOUSES, WOODLAND_OUTHOUSE];
 export const WELL = { x: -4.1, z: -1.5, radius: 1.6 };
 export const LAMPS = [[-3.9, 23], [4.1, 13.2], [-4.8, 6], [3.5, -2], [-3.6, -14], [3.5, -28]];
 export const FENCES = [
@@ -33,16 +49,22 @@ export const FENCES = [
   [[-19, -17], [-7, -20]], [[5.4, -22], [25, -15]],
 ];
 
+const woodlandFork = [-18, -206];
 export const MAIN_TRAIL = [
   [2, 73], [0, 43], [0, 26], [0.5, 12], [0.5, -1], [-0.5, -16], [0.2, -32],
   [-1, -48], [-4, -62], [-6, -77], [-12, -91], [-10, -113], [-2, -134],
-  [-10, -157], [-24, -181], [-18, -206], [-1, -229], [15, -250],
+  [-10, -157], [-24, -181], woodlandFork, [-1, -229], [15, -250],
+];
+const cabinEntry = houseToWorld(0, WOODLAND_HOUSE.d / 2 + .76, WOODLAND_HOUSE);
+export const WOODLAND_TRAIL = [
+  woodlandFork, [-26, -205.5], [-33.5, -207.9], [-39.8, -212.1], [cabinEntry.x, cabinEntry.z],
 ];
 export const SIDE_TRAILS = [
   [[-4, -62], [5, -70], [16, -77], [22, -87], [29, -99], [31, -120], [26, -150], [16, -168], [-10, -157]],
   [[-12, -91], [-21, -98], [-34, -102], [-49, -113], [-50, -131], [-33, -150], [-14, -148], [-2, -134]],
   [[0.5, 12], [7, 8], [16, 4], [25, -3], [28, -12]],
   [[0.5, -1], [-6, -3], [-12, -1], [-22, 4], [-27, 13]],
+  WOODLAND_TRAIL,
 ];
 
 export function seeded(seed) {
@@ -87,7 +109,7 @@ export function houseContains(x, z, house, pad = 0) {
 }
 
 export function houseAt(x, z) {
-  return HOUSES.find((house) => houseContains(x, z, house, -.04));
+  return STRUCTURES.find((house) => houseContains(x, z, house, -.04));
 }
 
 function foundationY(house) {
@@ -101,13 +123,17 @@ function foundationY(house) {
   return height;
 }
 
+function planHouse(house) {
+  return { ...house, baseY: foundationY(house), room: roomPlan(house) };
+}
+
 export function walkSurface(x, z) {
   const house = houseAt(x, z);
   return house ? house.baseY + FLOOR_LEVEL : groundHeight(x, z);
 }
 
 export function doorwayAt(x, z) {
-  return HOUSES.find((house) => {
+  return STRUCTURES.find((house) => {
     const local = worldToHouse(x, z, house);
     return Math.abs(local.x) < 1.20 && Math.abs(local.z - house.d / 2) < 2.35;
   });
@@ -116,7 +142,7 @@ export function doorwayAt(x, z) {
 export function canStand(x, z, obstacles = [], openDoors) {
   const radius = PLAYER_RADIUS;
   if (Math.hypot(x, z) > WORLD_HALF - 12) return false;
-  if (HOUSES.some((house) => blocksPlayer(worldToHouse(x, z, house), house, openDoors?.has(house.id), house.room.furnishings))) return false;
+  if (STRUCTURES.some((house) => blocksPlayer(worldToHouse(x, z, house), house, openDoors?.has(house.id), house.room.furnishings))) return false;
   if (Math.hypot(x - WELL.x, z - WELL.z) < WELL.radius + radius) return false;
   if (LAMPS.some(([lx, lz]) => Math.hypot(x - lx, z - lz) < radius + .09)) return false;
   if (FENCES.some(([start, end]) => segmentDistance(x, z, start, end) < radius + .08)) return false;

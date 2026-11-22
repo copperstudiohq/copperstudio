@@ -1,6 +1,7 @@
 import * as THREE from "./vendor/three.module.js";
 import { WATER_LEVEL, BLUE_OCEAN_START_X } from "./terrain.js";
-import { getSeabedHeight, SEABED_GRID } from "./seabed.js";
+import { getSeabedHeight, SEABED_GRID, SEABED_RENDER_BOUNDS } from "./seabed.js";
+import {JELLYFISH_SPIRES} from './jellyfish-spires-data.js';
 import { getForestHeight } from "./forest-terrain.js";
 import { getPlatformVertices, pointInPolygon } from "./terrain.js";
 import {WATER_OPTICS,waterOpticsVec3} from './water-optics.js';
@@ -21,12 +22,13 @@ function random(seed) {
 
 /** Small visual depth/light field, sampled from the actual seabed and solid surface islands. */
 export function createWaterField(world) {
-  const { minX, minY, maxX, maxY } = SEABED_GRID;
+  const { minX, minY, maxX, maxY } = SEABED_RENDER_BOUNDS;
   // Keep the shared RGBA lighting field below its 0.31 MiB budget as the
   // prepared map grows. Physical terrain retains its original 50-unit grid.
-  const scale=Math.min(1,Math.sqrt(79000/(SEABED_GRID.columns*SEABED_GRID.rows)));
-  const columns=Math.max(2,Math.floor((SEABED_GRID.columns-1)*scale)+1);
-  const rows=Math.max(2,Math.floor((SEABED_GRID.rows-1)*scale)+1);
+  const sourceColumns=(maxX-minX)/SEABED_GRID.step+1,sourceRows=(maxY-minY)/SEABED_GRID.step+1;
+  const scale=Math.min(1,Math.sqrt(79000/(sourceColumns*sourceRows)));
+  const columns=Math.max(2,Math.floor((sourceColumns-1)*scale)+1);
+  const rows=Math.max(2,Math.floor((sourceRows-1)*scale)+1);
   const stepX=(maxX-minX)/(columns-1),stepY=(maxY-minY)/(rows-1);
   const bytes = new Uint8Array(columns * rows * 4);
   const ice = (world.platforms ?? []).map((floe) => ({ floe, vertices: getPlatformVertices(floe) }));
@@ -37,14 +39,14 @@ export function createWaterField(world) {
     const covered = ground > WATER_LEVEL || ice.some(({ floe, vertices }) =>
       Math.abs(x - floe.x) < floe.rx && Math.abs(y - floe.y) < floe.ry && pointInPolygon(vertices, x, y));
     const index = (row * columns + column) * 4;
-    bytes[index] = Math.round(Math.min(1, Math.max(0, (WATER_LEVEL - ground) / (SCALE * 100))) * 255);
+    bytes[index] = Math.round(Math.min(1, Math.max(0, (WATER_LEVEL - ground) / (SCALE * JELLYFISH_SPIRES.maxDepthMeters))) * 255);
     bytes[index + 1] = covered ? 0 : 255;
     bytes[index + 2] = x >= BLUE_OCEAN_START_X || forest !== null ? 255 : 0;
     bytes[index + 3] = 255;
   }
   const texture = new THREE.DataTexture(bytes, columns, rows, THREE.RGBAFormat);
   texture.magFilter = texture.minFilter = THREE.LinearFilter; texture.generateMipmaps = false; texture.needsUpdate = true;
-  return { texture, bounds: new THREE.Vector4(minX / SCALE, minY / SCALE,
+  return { texture, maxDepthMeters:JELLYFISH_SPIRES.maxDepthMeters, bounds: new THREE.Vector4(minX / SCALE, minY / SCALE,
     (maxX-minX) / SCALE, (maxY-minY) / SCALE) };
 }
 
@@ -55,7 +57,7 @@ export function createOceanMaterial(fogColor) {
       time: { value: 0 }, fogColor: { value: fogColor }, underwater: { value: 0 }, viewerDepth: { value: 0 },
       blueOceanStart: { value: BLUE_OCEAN_START_X / SCALE },
       blueSurfaceColor: { value: new THREE.Color(0x082b43) }, blueHorizonColor: { value: new THREE.Color(0x4a7189) },
-      waterField: { value: null }, fieldBounds: { value: new THREE.Vector4() }, fieldReady: { value: 0 },
+      waterField: { value: null }, fieldBounds: { value: new THREE.Vector4() }, fieldReady: { value: 0 }, fieldDepth:{value:JELLYFISH_SPIRES.maxDepthMeters},
     },
     vertexShader: `varying vec3 vWorld; varying float vDepth; uniform float time;
       void main(){vec4 world=modelMatrix*vec4(position,1.);
@@ -63,7 +65,7 @@ export function createOceanMaterial(fogColor) {
         vWorld=world.xyz;vec4 view=viewMatrix*world;vDepth=-view.z;gl_Position=projectionMatrix*view;}`,
     fragmentShader: `${NOISE}
       varying vec3 vWorld;varying float vDepth;
-      uniform float time,underwater,viewerDepth,blueOceanStart,fieldReady;
+      uniform float time,underwater,viewerDepth,blueOceanStart,fieldReady,fieldDepth;
       uniform vec3 fogColor,blueSurfaceColor,blueHorizonColor;uniform sampler2D waterField;uniform vec4 fieldBounds;
       void main(){
         vec2 p=vWorld.xz;
@@ -81,7 +83,7 @@ export function createOceanMaterial(fogColor) {
         vec3 sky=mix(vec3(.30,.47,.57),blueHorizonColor*1.6+.12,blue);
         sky=mix(sky*.67,sky,clamp(reflection.y*.8+.3,0.,1.));
         float glitter=pow(max(dot(reflection,normalize(vec3(-.28,.92,-.28))),0.),180.)*(1.+capillary*.22);
-        float depth=mix(mix(11.,100.,blue),field.r*100.,fieldReady);
+        float depth=mix(mix(11.,100.,blue),field.r*fieldDepth,fieldReady);
         float nearShore=fieldReady*(1.-smoothstep(1.5,9.,depth));
         vec3 absorption=exp(-${waterOpticsVec3(WATER_OPTICS.surfaceAbsorption)}*depth/max(facing,.22));
         vec3 bottom=mix(vec3(.08,.22,.24),vec3(.035,.17,.23),blue)*absorption;

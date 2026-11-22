@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three.module.js';
+import {applyFirstPersonLighting} from './first-person-lighting.js';
 
 /** Small rigid supplies share a consistent grip at their local origin. Details
  * are baked into a few material batches, never one draw per screw or finger. */
@@ -16,7 +17,7 @@ export class SupplyMeshBuilder {
  link(kind,a,b,r,c,r2=r){const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),d=end.clone().sub(start),q=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.clone().normalize());const e=new THREE.Euler().setFromQuaternion(q);return this.add(kind,new THREE.CylinderGeometry(r2,r,d.length(),10,1),start.add(end).multiplyScalar(.5).toArray(),[1,1,1],[e.x,e.y,e.z],c);}
  finish(name,{firstPerson=false}={}){
   const group=new THREE.Group();group.name=name;const palette={metal:{roughness:.56,metalness:.74},grip:{roughness:.91,metalness:.02},skin:{roughness:.70,metalness:0},rubber:{roughness:.78,metalness:0},lens:{roughness:.20,metalness:.44,emissive:0x064c63,emissiveIntensity:.35},leaf:{roughness:.85,metalness:0,side:THREE.DoubleSide}};
-  for(const [kind,data]of this.parts){const geometry=new THREE.BufferGeometry();for(const [key,size]of [['position',3],['normal',3],['uv',2],['color',3]])geometry.setAttribute(key,new THREE.Float32BufferAttribute(data[key],size));geometry.computeBoundingBox();geometry.computeBoundingSphere();const material=new THREE.MeshStandardMaterial({vertexColors:true,...palette[kind],fog:!firstPerson});if(firstPerson){material.userData.firstPerson=true;material.depthTest=false;material.depthWrite=false;material.emissive??=new THREE.Color();if(kind!=='lens')material.emissive.setHex(0x17232a);material.emissiveIntensity=.28;}const mesh=new THREE.Mesh(geometry,material);mesh.name=`${name}-${kind}`;mesh.renderOrder=firstPerson?40:0;mesh.frustumCulled=!firstPerson;group.add(mesh);}
+  for(const [kind,data]of this.parts){const geometry=new THREE.BufferGeometry();for(const [key,size]of [['position',3],['normal',3],['uv',2],['color',3]])geometry.setAttribute(key,new THREE.Float32BufferAttribute(data[key],size));geometry.computeBoundingBox();geometry.computeBoundingSphere();const material=new THREE.MeshStandardMaterial({vertexColors:true,...palette[kind],fog:!firstPerson});if(firstPerson){material.userData.firstPerson=true;material.depthTest=false;material.depthWrite=false;material.emissive??=new THREE.Color();if(kind!=='lens')material.emissive.setHex(0x17232a);material.emissiveIntensity=.28;applyFirstPersonLighting(material);}const mesh=new THREE.Mesh(geometry,material);mesh.name=`${name}-${kind}`;mesh.renderOrder=firstPerson?40:0;mesh.frustumCulled=!firstPerson;group.add(mesh);}
   let disposed=false;group.dispose=()=>{if(disposed)return;disposed=true;group.removeFromParent();for(const mesh of group.children){mesh.geometry.dispose();mesh.material.dispose();}group.clear();};return group;
  }
 }

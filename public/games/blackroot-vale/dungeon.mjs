@@ -234,8 +234,18 @@ export function createDungeon(surfaces) {
     openCells,
     get gateOpen() { return openCells.has('gate'); },
     get opening() { return moving !== null; },
+    get openingGate() { return moving; },
     open(id = 'gate') {
       if (moving === null && gates.has(id) && !openCells.has(id)) moving = id;
+    },
+    restoreGates(ids, opening) {
+      this.reset();
+      for (const id of ids) {
+        if (!gates.has(id)) continue;
+        gates.get(id).rotation.y = Math.PI / 2;
+        openCells.add(id);
+      }
+      this.open(opening);
     },
     reset() {
       moving = null;

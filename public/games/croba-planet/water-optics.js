@@ -20,7 +20,7 @@ export function getWaterFogDensity(biome,depth=0,shellBlend=0,sulfuric=false){
  const d=Number.isFinite(depth)?Math.max(0,depth):0;
  const blend=Number.isFinite(shellBlend)?Math.max(0,Math.min(1,shellBlend)):0;
  if(sulfuric||biome==='salt-cave')return .08;
- const base=(biome==='blue-ocean'||biome==='shell-field') ? .041+.009*(1-Math.exp(-d/45))
+ const base=(biome==='blue-ocean'||biome==='shell-field'||biome==='jellyfish-spires') ? .041+.009*(1-Math.exp(-d/45))
   : biome==='blue-kelp-forest' ? .070 : biome==='orange-grass-field' ? .072 : biome==='cliff-biome' ? .064 : .062;
  return base+(.052-base)*blend;
 }
