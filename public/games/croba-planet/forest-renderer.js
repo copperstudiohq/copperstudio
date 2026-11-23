@@ -1,5 +1,6 @@
 import * as THREE from "./vendor/three.module.js";
 import {applyMossSurface} from './moss-surface.js';
+import {createForestRockGeometry} from './weathered-rock-geometry.js';
 import { updateInstancedWindBounds } from "./render-visibility.js";
 import { getForestHeight } from "./forest-terrain.js";
 import { WATER_LEVEL, WORLD_BOUNDS } from "./terrain.js";
@@ -480,7 +481,7 @@ export class ForestRenderer {
       ground: forestGroundGeometry(this.forest), needles: spruceNeedles(true), lowNeedles: spruceNeedles(false),
       distantNeedles: spruceNeedles("distant"),
       grass: grassGeometry(), fern: fernGeometry(), flower: flowerGeometry(), cone: coneGeometry(),
-      rock: new THREE.IcosahedronGeometry(1, 1),
+      rock: createForestRockGeometry(),
     };
     this.geometries.moss = mossGeometry(this.geometries.rock);
     const ground = new THREE.Mesh(this.geometries.ground, [this.materials.ground, this.materials.rock, this.materials.shore]);

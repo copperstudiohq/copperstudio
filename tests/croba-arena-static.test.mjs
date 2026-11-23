@@ -7,7 +7,7 @@ import { setupOctoDialogueSync } from '../public/games/tri-arena/octo-dialogue-s
 
 const publicRoot = fileURLToPath(new URL('../public/', import.meta.url));
 const gameRoot = game => resolve(publicRoot, 'games', game);
-const games = ['croba-planet', 'tri-arena', 'mosswake-creek', 'blackroot-vale'];
+const games = ['croba-planet', 'tri-arena', 'mosswake-creek', 'blackroot-vale', 'pond'];
 
 async function filesIn(directory) {
   const files = [];

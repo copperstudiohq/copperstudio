@@ -1,4 +1,4 @@
-export type OctoGame = '' | 'croba' | 'island' | 'cards' | 'arena' | 'sandbox';
+export type OctoGame = '' | 'croba' | 'island' | 'cards' | 'arena' | 'sandbox' | 'blackroot' | 'pond';
 
 export interface OctoMemory {
   turn: number;

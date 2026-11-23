@@ -1,27 +1,17 @@
 import * as THREE from './vendor/three.module.js';
+import {createWeatheredRockGeometry} from './weathered-rock-geometry.js';
 
 const SCALE=25;
 /** @typedef {{id:string,x:number,y:number,z:number,rx:number,ry:number,height:number,heading:number,style:number,habitat:string}} WorldRock */
 
-/** Three compact convex fracture shapes. Affine transforms retain the closed
- * dodecahedral hull; facets and offsets break up a repeated round silhouette.
+/** Three compact asymmetric convex fracture shapes, authored from uneven face
+ * planes rather than an affine regular polyhedron. Exact facets serve physics.
  * X/Z fit a unit circle and Y spans 0..1 before the shared authored pose.
  * @param {number} [style] @returns {THREE.BufferGeometry}
  */
 export function createWorldRockGeometry(style=0){
  if(!Number.isInteger(style)||style<0||style>2)throw new RangeError('World rock style must be 0, 1 or 2.');
- const geometry=new THREE.DodecahedronGeometry(1,0),p=geometry.attributes.position;
- const turn=new THREE.Euler(...[[.18,.31,.12],[.48,-.25,.22],[-.31,.62,-.18]][style]);
- const point=new THREE.Vector3(),shear=[.16,-.21,.09][style];
- let low=Infinity,high=-Infinity,radius=0;
- for(let i=0;i<p.count;i++){
-  point.fromBufferAttribute(p,i).applyEuler(turn);
-  point.x+=point.y*shear;point.z+=point.y*[.08,.13,-.17][style];
-  point.y+=point.x*[.07,-.08,.11][style];
-  p.setXYZ(i,point.x,point.y,point.z);low=Math.min(low,point.y);high=Math.max(high,point.y);radius=Math.max(radius,Math.hypot(point.x,point.z));
- }
- for(let i=0;i<p.count;i++)p.setXYZ(i,p.getX(i)/radius,(p.getY(i)-low)/(high-low),p.getZ(i)/radius);
- geometry.computeVertexNormals();
+ const geometry=createWeatheredRockGeometry(style),p=geometry.attributes.position;
  const normal=geometry.attributes.normal,uv=[],colors=[];
  for(let i=0;i<p.count;i++){
   const x=p.getX(i),y=p.getY(i),z=p.getZ(i),nx=Math.abs(normal.getX(i)),ny=Math.abs(normal.getY(i)),nz=Math.abs(normal.getZ(i));

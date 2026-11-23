@@ -32,7 +32,7 @@ test('Blackroot names and story aliases route to the sixth game with its own ove
 
 test('sixth-game ordinal selection preserves a pending gameplay question', () => {
   const memory = createOctoChat();
-  assert.equal(ask('List all games', memory).links.length, 6);
+  assert.equal(ask('List all games', memory).links.length, 7);
   assert.equal(ask('the sixth one', memory).links[0]?.href, blackrootUrl);
   assert.equal(memory.lastGame, 'blackroot');
   const pending = createOctoChat();

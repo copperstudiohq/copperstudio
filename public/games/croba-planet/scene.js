@@ -7,6 +7,7 @@ import {getJellyfishSpiresDiveLightGain} from './jellyfish-spires-lighting.js';
 import {GravelPebblesRenderer} from './gravel-pebbles.js';
 import {createGravelMaps,addGravelMask,applyGravelSurface,seabedGravelBlend} from './seabed-gravel.js';
 import {MarineTextureDetail,applyBasaltDetail} from './marine-texture-detail.js';
+import {MossTextureDetail,applyMossTexture} from './moss-texture.js';
 import {addNaturalSandMask,applyNaturalSandSurface} from './ocean-sand.js';
 import {createOceanCausticsMaterial} from './ocean-caustics.js';
 import {getUnderwaterLighting} from './underwater-lighting.js';
@@ -638,6 +639,8 @@ export class Scene {
     this.plants = new BiomePlantRenderer(world, this.quality);
     this.scene.add(this.plants.group);
     this.forest = new ForestRenderer(world, this.materials);
+    this.mossTexture??=new MossTextureDetail({resolution:this.quality?.mobile?256:512,onReady:()=>{if(!this.disposed)this.invalidate?.();}});
+    applyMossTexture(this.forest.materials.moss,this.mossTexture,'green');
     this.scene.add(this.forest.group);
     this.worldRocks=new WorldRockRenderer(this.scene,this.materials,PREPARED_WORLD_ROCKS);
     const boulderSandMaterial=this.materials.sand.clone();
@@ -651,7 +654,8 @@ export class Scene {
       applyBasaltDetail(material,this.marineDetails.basaltMaps);applyWaterMedium(material);return material;
     }});this.scene.add(this.jellyfishSpires.group);
     this.spiresSubmarine=new SpiresSubmarineRenderer(this.materials);this.scene.add(this.spiresSubmarine.group);
-    this.spiresGrowth=new SpiresMarineGrowthRenderer({materials:this.materials,mobile:this.quality?.mobile});this.scene.add(this.spiresGrowth.group);
+    this.spiresGrowth=new SpiresMarineGrowthRenderer({materials:this.materials,mobile:this.quality?.mobile,
+      decorateMaterial:material=>{if(material.name==='spires-moss')applyMossTexture(material,this.mossTexture,'purple');}});this.scene.add(this.spiresGrowth.group);
     this.gravelPebbles=new GravelPebblesRenderer(world,{mobile:this.quality?.mobile,decorateMaterial:material=>applyWaterMedium(material)});
     this.scene.add(this.gravelPebbles.group);
     const cliffSurface={map:this.shellFieldMap,normalMap:this.shellFieldNormalMap};
@@ -1360,6 +1364,7 @@ export class Scene {
     const sulfuricAir=(biome==='sulfuric-land'||saltSurfaceAir)&&!underwater;
     const blueOcean = !sulfuricAir&&(biome === "blue-ocean" || getBiome(world.player.x) === "blue-ocean");
     const forestAir = biome === "purple-forest";
+    if(forestAir||biome==='jellyfish-spires')this.mossTexture?.start();
     // Physical perimeter cliffs remain visible at the ocean surface as well.
     if(this.borderGroup)this.borderGroup.visible=true;
     const forestBlend = forestAir ? forestLightBlend(world.forest, world.player.x, world.player.y) : 0;
@@ -1778,7 +1783,8 @@ export class Scene {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    const managedTextures=new Set(this.marineDetails?.ownedTextures??[]);
+    const managedTextures=new Set([...(this.marineDetails?.ownedTextures??[]),...(this.mossTexture?.ownedTextures??[])]);
+    this.mossTexture?.dispose();this.mossTexture=null;
     this.marineDetails?.dispose();this.marineDetails=null;
     this.jellyfishSpires?.dispose();this.jellyfishSpires=null;
     this.gravelPebbles?.dispose();this.gravelPebbles=null;

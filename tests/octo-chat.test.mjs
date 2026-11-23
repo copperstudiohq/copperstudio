@@ -11,11 +11,12 @@ const URLS = {
   arena: 'https://copperstudio.nl/games/tri-arena/',
   sandbox: 'https://copperstudio.nl/games/mosswake-creek/',
   blackroot: 'https://copperstudio.nl/games/blackroot-vale/',
+  pond: 'https://copperstudio.nl/games/pond/',
 };
 const answer = (text, memory = createOctoChat()) => replyAsOcto(memory, text);
 const plain = reply => reply.reply.replace(/^Octo Nose: “|”$/g, '');
 
-test('all six games have explicit links and useful overviews', () => {
+test('all seven games have explicit links and useful overviews', () => {
   for (const [question, game, fact] of [
     ['Tell me about Croba Planet', 'croba', /100-metre ocean/],
     ['Tell me about Rain & Copper', 'island', /fish.*craft/],
@@ -23,6 +24,7 @@ test('all six games have explicit links and useful overviews', () => {
     ['Tell me about Tri Arena', 'arena', /Endless Waves.*Survival.*War Mode/],
     ['Tell me about Mosswake Creek', 'sandbox', /falling-sand.*endless/],
     ['Tell me about Blackroot Vale', 'blackroot', /dark-fantasy.*Thornwick.*Blub/],
+    ['Tell me about Pond', 'pond', /life-evolution sandbox.*solar system/],
   ]) {
     const reply = answer(question);
     assert.equal(reply.command, null);
@@ -107,9 +109,9 @@ test('original jokes, hood, home and friendly personality remain', () => {
   assert.doesNotMatch(answer('hello').reply, /^Octo Nose:|[“”]/);
 });
 
-test('site game selection returns all six safe known links', () => {
+test('site game selection returns all seven safe known links', () => {
   const reply = answer('Which game should I play?');
-  assert.equal(reply.links.length, 6);
+  assert.equal(reply.links.length, 7);
   assert.deepEqual(reply.links.map(link => link.href).sort(), Object.values(URLS).sort());
   assert.match(reply.reply, /fishing.*secret creature hands.*sword combat/);
   assert.match(OCTO_GREETING, /Octo Nose/);

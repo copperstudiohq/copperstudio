@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import {createWorldRockGeometry,getWorldRockPose} from './world-rock-geometry.js';
 
-const SCALE=25,LIFT=.006*SCALE,MIN_UP=.5,EPS=1e-7;
+const SCALE=25,LIFT=.006*SCALE,MIN_UP=.5,EPS=1e-7,BARY_EPS=1e-5;
 const prototypes=new Map(),surfaces=new WeakMap();
 const hash=id=>Array.from(String(id)).reduce((value,ch)=>(Math.imul(value,31)+ch.charCodeAt(0))>>>0,0);
 
@@ -42,7 +42,9 @@ function topAt(rock,x,y){
   const {a,b,c,normal,denominator}=face;if(normal.z<=EPS||Math.abs(denominator)<EPS)continue;
   const u=((b.y-c.y)*(x-c.x)+(c.x-b.x)*(y-c.y))/denominator;
   const v=((c.y-a.y)*(x-c.x)+(a.x-c.x)*(y-c.y))/denominator,w=1-u-v;
-  if(u< -EPS||v< -EPS||w< -EPS)continue;
+  // World-coordinate Float32 render vertices can cross an exact edge by a few
+  // millionths of a barycentric weight. Keep those shared boundary hits valid.
+  if(u< -BARY_EPS||v< -BARY_EPS||w< -BARY_EPS)continue;
   const z=a.z*u+b.z*v+c.z*w;if(!result||z>result.z)result={z,face};
  }
  return result;

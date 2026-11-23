@@ -5,6 +5,7 @@ import { ISOPOD_SPINE_Z, isopodLocalToWorld } from './isopod-frame.js';
 import { isopodAnatomy } from './isopod-anatomy.js';
 import { getIceSurface } from './ice-surface.js';
 import { PREPARED_SEABED_STONES, createSeabedStoneGeometry, getSeabedStonePose } from './seabed-stones.js';
+import { createForestRockGeometry } from './weathered-rock-geometry.js';
 import { PREPARED_WORLD_ROCKS } from './world-rock-data.js';
 import { createWorldRockGeometry, getWorldRockPose } from './world-rock-geometry.js';
 import { getPlatformVertices, getIceDepth, getIceScale, getIceSection, pointInPolygon,
@@ -148,7 +149,7 @@ function forestSurfaces(forest) {
     }
   }
   // Match the renderer's low-poly basalt, including its seeded rotation/width.
-  const prototype = new THREE.IcosahedronGeometry(1, 1), p = prototype.attributes.position;
+  const prototype = createForestRockGeometry(), p = prototype.attributes.position;
   for (const rock of forest.rocks ?? []) {
     if (rock.z - rock.height > WATER_LEVEL - 2) continue;
     let seed = rock.seed >>> 0;

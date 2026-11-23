@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Build a solar system, shape its planets, and watch life evolve from a pond to a land ecosystem.">
+  <meta name="theme-color" content="#0c0e17">
+  <title>Pond</title>
+  <link rel="icon" href="./orbit.png">
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="top-inner">
+      <a class="brand" href="./" aria-label="Pond home">
+        <span class="brand-symbol" aria-hidden="true"><i></i></span>
+        Pond
+      </a>
+      <nav class="steps" aria-label="Zoom level">
+        <button type="button" data-nav="system" aria-current="step"><span data-icon="orbit"></span> System</button>
+        <span class="step-divider" data-icon="chevron" aria-hidden="true"></span>
+        <button type="button" data-nav="surface" disabled><span data-icon="globe"></span> Planet</button>
+        <span class="step-divider" data-icon="chevron" aria-hidden="true"></span>
+        <button type="button" data-nav="pond" disabled><span data-icon="drop"></span> Pond</button>
+        <span class="step-divider" data-icon="chevron" aria-hidden="true"></span>
+        <button type="button" data-nav="land" disabled><span data-icon="sprout"></span> Land</button>
+      </nav>
+      <button type="button" id="open-saves" class="secondary save-button"><span data-icon="save"></span> <span>Save slots</span></button>
+    </div>
+  </header>
+
+  <main class="shell" id="main">
+    <div class="heading">
+      <div>
+        <div class="eyebrow" id="location"><span data-icon="orbit"></span> Solar system</div>
+        <h1 id="scene-title">Aurora System</h1>
+        <p id="scene-description">Build a home for life, one orbit at a time.</p>
+      </div>
+      <div class="day"><span data-icon="clock"></span><span id="day">Day 001</span></div>
+    </div>
+
+    <div class="workspace">
+      <section class="viewport" aria-label="Simulation viewport">
+        <div class="scene" id="scene-frame">
+          <canvas id="scene" tabindex="0" aria-label="Solar system map. Use arrow keys to move the cursor and Enter to interact." aria-describedby="interaction-hint">Explore using the buttons in the inspector.</canvas>
+          <div class="scene-top">
+            <span class="live"><i></i><span id="live-label">Simulation live</span></span>
+            <span id="view-label">Orbital view</span>
+          </div>
+          <div class="map-controls">
+            <button id="back" type="button" class="map-back" hidden><span data-icon="left"></span><span id="back-label">System</span></button>
+            <button id="reset-view" type="button" class="map-back" hidden><span data-icon="reset"></span>Reset view</button>
+            <div class="map-legend" id="map-legend"></div>
+          </div>
+          <div class="map-zoom" id="map-zoom" role="group" aria-label="Habitat zoom" hidden>
+            <button type="button" class="map-back" id="zoom-out" aria-label="Zoom out">−</button>
+            <button type="button" class="map-back" id="zoom-in" aria-label="Zoom in">+</button>
+            <span id="map-zoom-value">1×</span>
+          </div>
+        </div>
+        <div class="sim-bar">
+          <div class="interaction" id="interaction-hint"><span data-icon="pointer"></span><span>Click a planet to explore its surface.</span></div>
+          <div class="time-controls" aria-label="Simulation speed">
+            <button type="button" id="pause" title="Pause simulation" aria-label="Pause simulation" aria-pressed="false"><span data-icon="pause"></span></button>
+            <button type="button" id="step-forward" title="Advance one second" aria-label="Advance one second" hidden><span data-icon="chevron"></span></button>
+            <span class="time-divider"></span>
+            <button type="button" data-rate="1" aria-pressed="true">1×</button>
+            <button type="button" data-rate="4" aria-pressed="false">4×</button>
+            <button type="button" data-rate="16" aria-pressed="false">16×</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="inspector" aria-labelledby="inspector-title">
+        <div class="inspector-head">
+          <span id="inspector-icon" data-icon="sliders"></span>
+          <h2 id="inspector-title">System controls</h2>
+          <button type="button" id="toggle-inspector" aria-label="Hide controls" aria-controls="inspector-body" aria-expanded="true"><span data-icon="chevron"></span></button>
+        </div>
+        <div id="inspector-body"></div>
+      </aside>
+    </div>
+    <section class="summary" id="summary" aria-label="Simulation statistics"></section>
+  </main>
+
+  <dialog id="save-dialog" aria-labelledby="save-title">
+    <form method="dialog">
+      <div class="dialog-heading">
+        <div><h2 id="save-title">Save slots</h2><p>Systems are saved in this browser.</p></div>
+        <button type="submit" class="icon-button" aria-label="Close save slots"><span data-icon="close"></span></button>
+      </div>
+    </form>
+    <div class="field save-name"><label for="save-system-name">System name</label><input id="save-system-name" type="text" maxlength="40"></div>
+    <div id="save-slots"></div>
+    <details class="designer-options save-backups">
+      <summary>Backup files</summary>
+      <p>Download a copy to keep or reopen on another device.</p>
+      <div class="backup-actions">
+        <button id="download-backup" class="secondary" type="button">Download backup</button>
+        <button id="open-backup" class="secondary" type="button">Open backup</button>
+      </div>
+      <input id="backup-file" type="file" accept=".json,application/json" hidden>
+    </details>
+    <p id="save-feedback" class="slot-status" role="status" hidden></p>
+  </dialog>
+  <dialog id="lineage-dialog" aria-labelledby="lineage-title">
+    <form method="dialog" class="dialog-heading">
+      <h2 id="lineage-title" tabindex="-1">Lineage</h2>
+      <button type="submit" class="icon-button" aria-label="Close lineage"><span data-icon="close"></span></button>
+    </form>
+    <button type="button" id="lineage-back" class="secondary" hidden><span data-icon="left"></span>Back to descendant</button>
+    <div id="lineage-parents" class="lineage-parents" hidden></div>
+    <div id="lineage-organism" class="lineage-organism"></div>
+    <h3 class="lineage-trait-heading">Inherited traits</h3>
+    <dl id="lineage-traits"></dl>
+  </dialog>
+  <dialog id="history-dialog" aria-labelledby="history-title">
+    <form method="dialog" class="dialog-heading">
+      <h2 id="history-title">Population history</h2>
+      <button type="submit" class="icon-button" aria-label="Close population history"><span data-icon="close"></span></button>
+    </form>
+    <div id="history-modes" role="group" aria-label="History view">
+      <button type="button" class="secondary" data-history-mode="population" aria-pressed="true">Population</button>
+      <button type="button" class="secondary" data-history-mode="traits" aria-pressed="false">Inherited traits</button>
+    </div>
+    <div id="history-trait-controls" hidden>
+      <div class="field"><label for="history-trait">Average trait</label><select id="history-trait"></select></div>
+      <div id="history-compare-field" class="field" hidden><label for="history-compare">Compare planet</label><select id="history-compare"></select></div>
+      <div id="history-habitat-field" class="field" hidden><label for="history-habitat">Compare animals</label>
+        <select id="history-habitat"><option value="pond">Pond animals</option><option value="land">Land animals</option></select></div>
+    </div>
+    <div id="population-series" aria-label="Chart series" role="group"></div>
+    <canvas class="population-chart" role="img" aria-label="Population counts by day"></canvas>
+    <label class="population-time" for="population-sample">Sample day</label>
+    <input id="population-sample" type="range" min="0" max="0" value="0" step="1">
+    <div id="population-values" class="population-values"></div>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

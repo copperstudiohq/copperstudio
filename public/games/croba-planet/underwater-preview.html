@@ -13,10 +13,12 @@ import {getForestHeight} from './forest-terrain.js';
 const moss=PREPARED_SPIRES_MARINE_GROWTH.find(site=>site.id==='submarine-moss-1626');
 const views=[
   {id:'shallows',name:'Arctic shallows',x:1000,y:600,lift:16,yaw:-.45,pitch:-.30},
+  {id:'rocks',name:'Arctic seabed · uneven boulders',x:940,y:-60,lift:12,target:{x:758.794709,y:-254.660037,z:-240}},
   {id:'cliff',name:'Cliff Biome · sandy fissure',x:190,y:-15,lift:5,yaw:3.14,pitch:-.07},
   {id:'kelp',name:'Blue Kelp Forest · ravine',x:-4300,y:-4180,lift:9,yaw:2.49,pitch:-.08},
   {id:'deep',name:'Blue Ocean · deep gravel',x:5800,y:-2000,lift:8,yaw:.9,pitch:-.23},
   {id:'moss',name:'Crobon moss · flooded submarine',...SPIRES_SUBMARINE_PREVIEWS.find(view=>view.id==='submarine-inside').player,target:moss},
+  {id:'moss-close',name:'Crobon moss · surface close-up',x:13977.88896743281,y:-6078.943357026731,z:-3597.4680546919813,target:moss},
   {id:'forest',name:'Violet Spruce Forest · mossy rock',x:3551.421,y:1643.92,forest:true,target:{x:3551.421,y:1698.92,z:146.8}},
 ];
 let scene,world,time=0,frame=0,last=0,animating=false;

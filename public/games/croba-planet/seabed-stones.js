@@ -1,11 +1,12 @@
 import * as THREE from './vendor/three.module.js';
+import {createWeatheredRockGeometry} from './weathered-rock-geometry.js';
 import {PREPARED_SEABED_STONES as ORIGINAL_STONES} from './seabed-stone-data.js';
 import {SHELL_FIELD_STONES} from './shell-field-placements.js';
 export const PREPARED_SEABED_STONES=Object.freeze(ORIGINAL_STONES.map(stone=>SHELL_FIELD_STONES[stone.id]
   ?Object.freeze({...stone,...SHELL_FIELD_STONES[stone.id]}):stone));
 
 /** Rendering and climbing use the same exact low-poly stone prototype. */
-export function createSeabedStoneGeometry(){return new THREE.DodecahedronGeometry(1,0);}
+export function createSeabedStoneGeometry(){return createWeatheredRockGeometry(1,{centered:true});}
 
 /** Immutable authored pose; a reused Object3D avoids per-contact allocations.
  * @param {{x:number,y:number,z:number,radius:number,heading:number}} stone

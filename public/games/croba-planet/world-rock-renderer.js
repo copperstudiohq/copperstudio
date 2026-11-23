@@ -34,7 +34,7 @@ export class WorldRockRenderer{
     material=materials.rock?.clone()??new THREE.MeshStandardMaterial({color:0xd88945,roughness:.9,metalness:.01});
     material.name=`world-rock-${habitat}`;material.vertexColors=true;material.transparent=false;material.opacity=1;material.depthWrite=true;
     material.roughness=Math.max(.84,material.roughness??.9);material.metalness=Math.min(.04,material.metalness??.01);
-    if(habitat==='marine'){material.map=null;material.color.setHex(0xffffff);}
+    if(habitat==='marine')material.color.setHex(0xffffff);
     surfaces.set(habitat,material);this.materials.push(material);
    }
    const mesh=new THREE.InstancedMesh(geometry,material,entries.length);mesh.name=`world-rocks-${habitat}-${style}`;

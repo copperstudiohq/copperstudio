@@ -43,6 +43,8 @@ function detailTexture(bytes,width,height,name){
   return texture;
 }
 
+export {detailTexture as createMarineDetailTexture,loadPixels as loadMarinePixels};
+
 async function loadPixels(url,size,signal){
   const response=await fetch(url,{signal});
   if(!response.ok)throw new Error(`Texture request returned HTTP ${response.status}.`);
