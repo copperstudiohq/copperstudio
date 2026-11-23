@@ -46,6 +46,12 @@ class SubmarineMesh {
     this.add(part.material,part.id,source);
   }
   box(kind,name,position,size,color=PALETTE[kind],rotation=[0,0,0]){this.add(kind,name,new THREE.BoxGeometry(...size),color,position,rotation);}
+  strut(kind,name,start,end,radius,color=PALETTE[kind],segments=7){
+    const a=new THREE.Vector3().fromArray(start),b=new THREE.Vector3().fromArray(end),direction=b.clone().sub(a);
+    if(direction.lengthSq()<1e-8)return;
+    this.add(kind,name,new THREE.CylinderGeometry(radius,radius,direction.length(),segments),color,
+      a.add(b).multiplyScalar(.5).toArray(),rotationTo(direction.normalize()));
+  }
   finish(materials){
     const group=new THREE.Group();group.name='old-flooded-exploration-submarine';
     for(const[kind,batch]of this.batches){
@@ -61,19 +67,19 @@ class SubmarineMesh {
 /** Radial attachments sample the exact shared shell triangles. Missing sectors
  * return no hit, so cosmetic seams, rivets and portholes never span a breach.
  */
-function shellSampler(parts){
+function shellSampler(parts,inside=false){
   const shells=parts.filter(part=>part.kind==='hull-sector');
   const ray=new THREE.Ray(),a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),hit=new THREE.Vector3();
   return(angle,z)=>{
     ray.origin.set(0,0,z);ray.direction.set(Math.sin(angle),Math.cos(angle),0);
-    let distance=-Infinity,result=null;
+    let distance=inside?Infinity:-Infinity,result=null;
     for(const part of shells){
       if(z<part.bounds.minZ-.001||z>part.bounds.maxZ+.001)continue;
       for(let triangle=0;triangle<part.indices.length;triangle+=3){
         a.fromArray(part.vertices,part.indices[triangle]*3);b.fromArray(part.vertices,part.indices[triangle+1]*3);c.fromArray(part.vertices,part.indices[triangle+2]*3);
         if(!ray.intersectTriangle(a,b,c,false,hit))continue;
         const span=hit.distanceToSquared(ray.origin);
-        if(span>distance){distance=span;result={position:hit.clone(),normal:new THREE.Vector3().fromArray(part.normals,triangle)};}
+        if(inside?span<distance:span>distance){distance=span;result={position:hit.clone(),normal:new THREE.Vector3().fromArray(part.normals,triangle)};}
       }
     }
     return result;
@@ -129,6 +135,90 @@ function addEncrustation(builder,sample){
   }
 }
 
+/** Shallow controls are attached to actual inner hull faces. Their fittings are
+ * too small to obstruct a swimmer; substantial cabinets/bench/shelves above are
+ * shared solids with gameplay, rather than decorative collision-free boxes.
+ */
+function addInteriorFittings(builder,sample){
+  const mounted=(kind,name,geometry,color,surface,offset)=>{
+    const q=new THREE.Quaternion().setFromUnitVectors(point(0,0,1),surface.normal);
+    const position=new THREE.Vector3().fromArray(offset).applyQuaternion(q).add(surface.position);
+    builder.add(kind,name,geometry,color,position.toArray(),new THREE.Euler().setFromQuaternion(q).toArray().slice(0,3));
+  };
+  for(const [panelIndex,z] of [-8.9,-1.9,4.9].entries()){
+    const surface=sample(-Math.PI*.5,z);if(!surface)continue;
+    mounted('paint','interior-switch-panel',new THREE.BoxGeometry(.8,.7,.045),0x5d706d,surface,[0,.12,.045]);
+    for(let gauge=0;gauge<3;gauge++){
+      const x=(gauge-1)*.23,y=.26;
+      mounted('metal','analog-pressure-gauge-rim',new THREE.TorusGeometry(.086,.014,5,14),0x9a9c85,surface,[x,y,.082]);
+      mounted('paint','analog-pressure-gauge-dial',new THREE.CircleGeometry(.074,16),0xb6b6a0,surface,[x,y,.081]);
+      const angle=-.8+gauge*.6+panelIndex*.23;
+      const needle=new THREE.BoxGeometry(.008,.10,.004);needle.rotateZ(angle);
+      mounted('glass','frozen-pressure-gauge-needle',needle,0x253b36,surface,[x+.018*Math.sin(angle),y-.018*Math.cos(angle),.087]);
+    }
+    for(let toggle=0;toggle<4;toggle++){
+      mounted('glass','old-switch-recess',new THREE.BoxGeometry(.075,.12,.014),0x273b37,surface,[(toggle-1.5)*.16,-.04,.076]);
+      const lever=new THREE.CylinderGeometry(.011,.011,.075,5);lever.rotateX(.63);
+      mounted('metal','corroded-control-toggle',lever,0x929682,surface,[(toggle-1.5)*.16,-.025,.11]);
+    }
+    mounted('rust','panel-faded-warning-strip',new THREE.BoxGeometry(.56,.035,.006),0xa27648,surface,[0,-.15,.072]);
+  }
+
+  // Door furniture is thin and remains attached to the solid locker fronts.
+  for(const z of[-6.3,-4.3]){
+    builder.box('metal','locker-door-frame',[-1.509,-.535,z],[.026,1.36,1.24],0x475b56);
+    builder.box('paint','locker-recessed-door',[-1.489,-.535,z],[.025,1.25,1.12],0x718079);
+    builder.strut('rust','locker-pull-handle',[-1.445,-.65,z+.38],[-1.445,-.40,z+.38],.022,0x9a7952);
+    for(let louver=0;louver<5;louver++)builder.box('glass','locker-vent-slot',[-1.471,-.05-louver*.064,z],[.012,.022,.62],0x2f4540);
+  }
+  for(const z of[-.15,.6,1.35]){
+    builder.box('rust','shelf-box-lid',[-1.85,-.105,z],[.49,.025,.58],0x8b7353);
+    builder.box('metal','shelf-box-latch',[-1.61,-.27,z],[.025,.095,.065],0x9c9d88);
+  }
+  for(let slat=0;slat<4;slat++)builder.box('metal','bench-worn-seat-slat',[1.64+slat*.17,-.708,6.5],[.025,.012,2.79],0x9a9d8e);
+
+  // Bow instruments are bolted to the surviving slanted console top.
+  const consoleQ=new THREE.Quaternion().setFromEuler(new THREE.Euler(-.18,0,0));
+  const consoleNormal=UP.clone().applyQuaternion(consoleQ),consoleOrigin=point(-.8,.08,11.1).addScaledVector(consoleNormal,.05);
+  const consoleSurface={position:consoleOrigin,normal:consoleNormal};
+  for(const x of[-.30,0,.30]){
+    mounted('metal','bow-console-gauge-rim',new THREE.TorusGeometry(.104,.014,5,14),0x929886,consoleSurface,[x,0,.015]);
+    mounted('paint','bow-console-gauge-dial',new THREE.CircleGeometry(.09,16),0xb2b49f,consoleSurface,[x,0,.014]);
+    mounted('glass','bow-console-gauge-needle',new THREE.BoxGeometry(.008,.12,.004),0x294039,consoleSurface,[x,.02,.02]);
+  }
+
+  // Longitudinal pipes follow the shell, with a deliberate break across the
+  // missing starboard hull section. All valve wheels stay above the aisle.
+  for(const [angle,runs] of [[-.36*Math.PI,[[-10.4,11.6]]],[.36*Math.PI,[[-10.4,-3.35],[4.35,11.6]]],[-.10*Math.PI,[[-10.4,12.2]]]]){
+    for(const [start,end] of runs){
+      const a=sample(angle,start),b=sample(angle,end);if(!a||!b)continue;
+      const pa=a.position.clone().addScaledVector(a.normal,.065),pb=b.position.clone().addScaledVector(b.normal,.065);
+      builder.strut('metal','interior-longitudinal-pipe',pa.toArray(),pb.toArray(),.048,0x6c8076,8);
+      for(let z=start+.6;z<end;z+=2.8){
+        const surface=sample(angle,z);if(!surface)continue;
+        mounted('rust','pipe-wall-clamp',new THREE.BoxGeometry(.19,.08,.035),0x8d6947,surface,[0,0,.04]);
+      }
+    }
+  }
+  for(const z of[-7.9,6.1]){
+    const surface=sample(-.36*Math.PI,z);if(!surface)continue;
+    mounted('rust','interior-isolation-valve-wheel',new THREE.TorusGeometry(.14,.018,5,14),0x926847,surface,[0,0,.19]);
+    for(const angle of[0,Math.PI/3,Math.PI*2/3]){
+      const spoke=new THREE.BoxGeometry(.25,.015,.016);spoke.rotateZ(angle);
+      mounted('metal','valve-wheel-spoke',spoke,0x839182,surface,[0,0,.19]);
+    }
+    mounted('metal','valve-stem',new THREE.CylinderGeometry(.025,.025,.16,6).rotateX(Math.PI/2),0x6c8076,surface,[0,0,.12]);
+  }
+  for(const [angle,start,end] of [[-.23*Math.PI,-10.2,10.8],[.16*Math.PI,4.5,11.8]]){
+    const points=[];
+    for(let step=0;step<9;step++){
+      const z=start+(end-start)*step/8,surface=sample(angle,z);if(!surface)continue;
+      points.push(surface.position.clone().addScaledVector(surface.normal,.07+.09*Math.sin(step*Math.PI/2)**2));
+    }
+    if(points.length>2)builder.add('glass','slack-ceiling-control-cable',new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),24,.021,5,false),0x354d45);
+  }
+}
+
 function createMaterials(library,decorateMaterial){
   const sources={paint:library.whiteMetal??library.darkMetal,metal:library.darkMetal??library.whiteMetal,
     rust:library.orangeMetal??library.darkMetal,glass:library.darkMetal};
@@ -148,17 +238,18 @@ function createMaterials(library,decorateMaterial){
 
 /** A flooded industrial submarine built from the collision helper's exact
  * metal sectors, surviving deck, tower, fins and separate bent stern. Only
- * shallow seams, porthole rims and attached crusts are cosmetic additions.
+ * shallow seams, controls, wall pipes and attached crusts are cosmetic additions.
  * The caller owns four geometries/material clones; all texture maps are borrowed.
  */
 export function createSubmarineAnatomy(materialLibrary={}, {decorateMaterial}={}){
   const materials=createMaterials(materialLibrary,decorateMaterial),builder=new SubmarineMesh();
   for(const part of SPIRES_SUBMARINE_PARTS)builder.solid(part);
   const sample=shellSampler(SPIRES_SUBMARINE_PARTS);addShellFittings(builder,sample);addEncrustation(builder,sample);
+  addInteriorFittings(builder,shellSampler(SPIRES_SUBMARINE_PARTS,true));
   const group=builder.finish(materials);group.updateMatrixWorld(true);
   const bounds=new THREE.Box3().setFromObject(group);
   group.userData={design:'old flooded exploration submarine',surfaceBatches:group.children.length,
-    sharedSolidParts:SPIRES_SUBMARINE_PARTS.length,realHullOpenings:true,detachedStern:true,
+    sharedSolidParts:SPIRES_SUBMARINE_PARTS.length,realHullOpenings:true,detachedStern:true,floodedInterior:true,
     bounds:{min:bounds.min.toArray(),max:bounds.max.toArray()}};
   return group;
 }

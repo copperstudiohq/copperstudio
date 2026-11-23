@@ -155,12 +155,14 @@ export function applyTerrainSurface(material, library, clock) {
       varying vec3 vTerrainWorld,vTerrainNormal;varying float vSedimentAO;\n${shader.fragmentShader}`
       .replace("#include <map_fragment>", `
         float terrainMacro=waterNoise(vTerrainWorld.xz*.087);float terrainPatch=waterNoise(vTerrainWorld.xz*.31+17.3);
-        vec3 axis=abs(vTerrainNormal);vec2 mineralUV=axis.x>axis.y&&axis.x>axis.z?vTerrainWorld.zy:
-          axis.y>=axis.x&&axis.y>=axis.z?vTerrainWorld.xz:vTerrainWorld.xy;
+        vec3 axis=pow(abs(normalize(vTerrainNormal)),vec3(4.));axis/=max(dot(axis,vec3(1.)),.0001);
         vec2 sedimentUV=vTerrainWorld.xz*.73+vec2(terrainMacro*.33,terrainPatch*.27);
         float stoneMix=clamp((1.-abs(vTerrainNormal.y))*.95+(terrainMacro-.5)*.75,0.,1.);
         vec3 sediment=texture2D(sedimentMap,sedimentUV).rgb;
-        vec3 mineral=texture2D(mineralMap,mineralUV*.83+vec2(terrainPatch*.2)).rgb;
+        vec2 mineralOffset=vec2(terrainPatch*.2);
+        vec3 mineral=texture2D(mineralMap,vTerrainWorld.zy*.83+mineralOffset).rgb*axis.x
+          +texture2D(mineralMap,vTerrainWorld.xz*.83+mineralOffset).rgb*axis.y
+          +texture2D(mineralMap,vTerrainWorld.xy*.83+mineralOffset).rgb*axis.z;
         float abyssMud=(1.-smoothstep(-85.,-24.,vTerrainWorld.y))*(1.-stoneMix)*(.35+terrainPatch*.4);
         sediment=mix(sediment,texture2D(siltMap,sedimentUV*.61+9.2).rgb,abyssMud);
         diffuseColor.rgb*=mix(sediment,mineral,stoneMix)*(.76+terrainMacro*.28+terrainPatch*.14);`)

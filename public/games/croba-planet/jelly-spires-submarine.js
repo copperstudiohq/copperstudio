@@ -11,6 +11,7 @@ export const SPIRES_SUBMARINE = Object.freeze({
   rotationOrder: 'XYZ', lengthMeters: 42, beamMeters: 6, boundingRadius: 720,
   sideOpening: Object.freeze({ minZ: -3, maxZ: 4, minY: -1.47, maxY: 1.47 }),
 });
+export const SPIRES_SUBMARINE_INTERIOR = Object.freeze({floorY:-1.26,aisleHalfWidth:.9,minZ:-10.7,maxZ:9});
 
 function quaternion(pitch, yaw, roll) {
   const sx = Math.sin(pitch / 2), cx = Math.cos(pitch / 2);
@@ -103,6 +104,23 @@ box('port-dive-plane', 'rust', [-3.6, -.15, 9.5], [2.4, .13, 2.5], [.04, -.18, .
 box('starboard-broken-plane', 'rust', [3.2, -.12, 9.5], [1.35, .15, 2.3], [-.12, .2, -.12]);
 box('console-pedestal', 'metal', [-.8, -.6, 11], [1.15, 1.3, .75], [-.18, 0, 0]);
 box('console-dark-face', 'glass', [-.8, .08, 11.1], [1.1, .09, .8], [-.18, 0, 0]);
+
+// Furniture rests on the common surviving deck. The center aisle and the
+// starboard breach crossing stay clear; each substantial fitting is real metal
+// in both the model and the gameplay contact list.
+for(const[index,z]of[-6.3,-4.3].entries())
+  box(`equipment-locker-${index}`, 'paint', [-1.89,-.535,z], [.74,1.45,1.35]);
+for(const[index,y]of[-1.22,-.50,.26].entries())
+  box(`equipment-shelf-${index}`, 'metal', [-1.85,y,.6], [.80,.07,2.4]);
+for(const x of[-2.22,-1.52])for(const z of[-.53,1.73])
+  box(`equipment-shelf-post-${x}-${z}`, 'metal', [x,-.485,z], [.065,1.55,.065]);
+for(const[index,z]of[-.15,.6,1.35].entries())
+  box(`shelf-storage-box-${index}`, index===1?'rust':'paint', [-1.85,-.29,z], [.46,.35,.55]);
+box('starboard-bench-seat', 'paint', [1.9,-.77,6.5], [.75,.11,2.9]);
+box('starboard-bench-back', 'metal', [2.24,-.42,6.5], [.09,.72,2.9]);
+for(const x of[1.65,2.15])for(const z of[5.25,7.75])
+  box(`starboard-bench-leg-${x}-${z}`, 'metal', [x,-1.03,z], [.055,.46,.055]);
+box('forward-instrument-cabinet', 'metal', [1.65,-.66,10.2], [1.1,1.2,1.4]);
 
 // The severed aft section rests independently on the same gravel bank. Its
 // displaced port-side pose is baked into vertices, leaving the root transform

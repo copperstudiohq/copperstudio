@@ -11,8 +11,9 @@ export const WATER_OPTICS=Object.freeze({
  caveSurfaceOpacity:.96,sunlightDepth:24,causticDepth:18,
 });
 
-/** Denser coastal and vegetated water; blue ocean stays bluer but has limited
- * visibility too. Shell Field remains bright nearby while distant detail fades.
+/** Clearer daylight over open shallows; suspended ice and vegetation keep the
+ * Arctic denser. Even clear water obscures distant detail, and deeper ocean
+ * gains scattering rather than becoming an unlimited transparent view.
  * @param {string} biome @param {number} [depth] @param {number} [shellBlend]
  * @param {boolean} [sulfuric] @returns {number}
  */
@@ -20,9 +21,11 @@ export function getWaterFogDensity(biome,depth=0,shellBlend=0,sulfuric=false){
  const d=Number.isFinite(depth)?Math.max(0,depth):0;
  const blend=Number.isFinite(shellBlend)?Math.max(0,Math.min(1,shellBlend)):0;
  if(sulfuric||biome==='salt-cave')return .08;
- const base=(biome==='blue-ocean'||biome==='shell-field'||biome==='jellyfish-spires') ? .041+.009*(1-Math.exp(-d/45))
-  : biome==='blue-kelp-forest' ? .070 : biome==='orange-grass-field' ? .072 : biome==='cliff-biome' ? .064 : .062;
- return base+(.052-base)*blend;
+ const open=biome==='blue-ocean'||biome==='shell-field'||biome==='jellyfish-spires';
+ const base=open ? .026+.018*(1-Math.exp(-d/45))
+  : (biome==='blue-kelp-forest' ? .065 : biome==='orange-grass-field' ? .066 : biome==='cliff-biome' ? .060 : .059)
+    +.004*(1-Math.exp(-d/35));
+ return base+(.030-base)*blend;
 }
 
 /** Shader literals keep the surface and material medium on the same palette. */

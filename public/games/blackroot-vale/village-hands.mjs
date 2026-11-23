@@ -4,6 +4,7 @@ const ovalShape = new T.SphereGeometry(1, 12, 8);
 const nailShape = new T.ConeGeometry(1, 1, 8);
 const scaleShape = new T.IcosahedronGeometry(1, 0);
 const materials = (color) => new T.MeshStandardMaterial({ color, roughness: .9 });
+const gloveThread = materials('#ac8561');
 const shades = {
   woodcutter: { ancestry: 'dwarf', palm: '#b07f62', knuckle: '#96624d', tip: '#d0a481', width: 1.30, length: .80 },
   weaver: { ancestry: 'elf', palm: '#ccb5a2', knuckle: '#b99685', tip: '#f0d7b9', width: .79, length: 1.29 },
@@ -58,6 +59,13 @@ export function createVillagerHand(parent, houseId, side) {
   piece(hand, ovalShape, look.skin, -side * .043, -.004, .003, .019, .015, .029).rotation.y = -side * .49;
   if (look.gloves) {
     piece(hand, ovalShape, look.nails, 0, -.002, -.051, .047, .027, .024).name = 'Leather glove cuff';
+    for (let stitch = -2; stitch <= 2; stitch++) {
+      const x = stitch * .012;
+      const y = .025 - Math.abs(stitch) * .001;
+      const seam = piece(hand, ovalShape, gloveThread, x, y, -.048, .0046, .0018, .0018);
+      seam.name = 'Glove cuff stitches';
+      seam.rotation.y = -.28;
+    }
   } else {
     piece(hand, ovalShape, look.nails, -side * .054, .004, .017, .011, .004, .012).rotation.y = -side * .43;
   }

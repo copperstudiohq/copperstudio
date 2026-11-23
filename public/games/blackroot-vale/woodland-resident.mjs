@@ -29,8 +29,8 @@ const VISIT_INTERVAL = 120;
 
 export function woodlandDoorwayDuck(x, z) {
   const local = worldToHouse(x, z, outhouse);
-  const distance = Math.max(0, Math.abs(local.x) - .42, Math.abs(local.z) - outhouse.d / 2 - .45);
-  const t = Math.min(1, distance / .92);
+  const distance = Math.max(0, Math.abs(local.x) - .42, Math.abs(local.z) - outhouse.d / 2 - .74);
+  const t = Math.min(1, distance / .84);
   return 1 - t * t * (3 - 2 * t);
 }
 

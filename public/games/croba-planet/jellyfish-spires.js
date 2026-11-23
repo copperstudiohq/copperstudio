@@ -90,12 +90,13 @@ export function getJellyfishSpiresCollision(point, radius = 0) {
     for(let f=0;f<indices.length;f+=3){const a=indices[f]*3;
       const distance=n[f]*(point.x-p[a])+n[f+1]*(point.y-p[a+1])+n[f+2]*(point.z-p[a+2]);
       if(distance>maximum){maximum=distance;face=f;}
-      if(n[f+2]>-.95&&distance>exposedMaximum){exposedMaximum=distance;exposedFace=f;}
+      if(n[f+2]>=0&&distance>exposedMaximum){exposedMaximum=distance;exposedFace=f;}
     }
     if(maximum>radius)continue;
-    // The bottom cap is buried in the floor. An embedded swimmer must escape
-    // through an exposed rock face rather than be pushed below the seabed.
-    if(maximum<=0&&n[face+2]<-.95){maximum=exposedMaximum;face=exposedFace;}
+    // The bottom cap and lower buttress undersides are buried in the floor.
+    // Only embedded centers use a non-downward escape; ordinary contacts keep
+    // their real face normals, including overhangs approached from outside.
+    if(maximum<=0&&n[face+2]<0){maximum=exposedMaximum;face=exposedFace;}
     let nx=n[face],ny=n[face+1],nz=n[face+2],penetration,px,py,pz;
     if(maximum<=0){penetration=radius-maximum;px=point.x-nx*maximum;py=point.y-ny*maximum;pz=point.z-nz*maximum;}
     else {

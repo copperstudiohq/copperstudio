@@ -13,8 +13,15 @@ function ask(question, game, fact) {
 }
 
 test('Croba guide explains the new deep basin and swimmable submarine', () => {
-  assert.match(ask('How deep is Jellyfish Spires in Croba Planet?', 'croba', 'croba-jellyfish-spires'), /eastern Blue Ocean.*170 metres.*map and HUD/);
+  assert.match(ask('How deep is Jellyfish Spires in Croba Planet?', 'croba', 'croba-jellyfish-spires'), /eastern Blue Ocean.*154 metres.*marine gardens.*map and HUD/);
   assert.match(ask('Can I explore the broken submarine in Croba Planet?', 'croba', 'croba-submarine'), /swimmable interior.*Space ascends.*Shift descends.*oxygen/);
+});
+
+test('Blackroot guide distinguishes house inspections from hostile guards', () => {
+  const answer = ask('What do the village patrol guards do in Blackroot Vale?', 'blackroot', 'blackroot-village-patrol');
+  assert.match(answer, /two randomly chosen Thornwick houses.*escort waits outside/);
+  assert.match(answer, /do not damage or capture you or Blub.*Rider and tower guards remain dangerous/);
+  assert.match(answer, /loading restarts scheduling/);
 });
 
 test('Blackroot guide describes the cabin resident and Blub recovery', () => {

@@ -18,9 +18,10 @@ import { bindSoundSettings } from './sound-settings.mjs';
 import { loadSurfaces } from './surfaces.mjs';
 import { createTerrain, trailElevation } from './terrain.mjs';
 import { createTower } from './tower.mjs';
-import { GUARD_NAME } from './tower-guards.mjs';
+import { createRoadGuard, GUARD_NAME } from './tower-guards.mjs';
 import { inThroneRoom, towerAction, towerLanding, towerWalkHeight, THRONE_ROOM, TOWER_NAME, TOWER_SPAWN } from './tower-plan.mjs';
 import { createVillage } from './village.mjs';
+import { createVillagePatrol } from './village-patrol.mjs';
 import { createVillager } from './villagers.mjs';
 import { createWoodlandResident, woodlandDoorwayDuck } from './woodland-resident.mjs';
 
@@ -124,7 +125,7 @@ async function startWorld() {
   const openDoors = new Set();
   const woodlandResident = createWoodlandResident({
     canStep: canWoodlandResidentStep,
-    moveDoor: moveWoodlandDoor,
+    moveDoor: requestHouseDoor,
     outhouseFree: () => (area !== null || houseAt(player.x, player.z) !== WOODLAND_OUTHOUSE)
       && (prisoner.area !== 'village' || houseAt(prisoner.position.x, prisoner.position.z) !== WOODLAND_OUTHOUSE),
   });
@@ -142,10 +143,18 @@ async function startWorld() {
   );
   const riderObstacles = obstacles.filter(({ x, z }) => Math.abs(x) < 118 && z > -82 && z < 262);
   const rider = createRiderEncounter(scene, {
-    wake: () => walk(),
+    wake: () => { villagePatrol.setEligible(false); walk(); },
     earth: surfaces.barren,
     canRide: (x, z) => !houseAt(x, z) && canStand(x, z, riderObstacles),
   });
+  const villagePatrol = createVillagePatrol({
+    obstacles,
+    canStep: canVillageGuardStep,
+    moveDoor: requestHouseDoor,
+    isDoorOpen: (house) => openingDoors.has(house.id),
+    wake: () => { rider.setEligible(false); walk(); },
+  });
+  const roadGuards = [0, 1].map((index) => createRoadGuard(scene, surfaces.barren, index));
   healthMeter.max = RIDER_MAX_HEALTH;
   const hearthLight = new T.PointLight('#ff8847', 0, 10, 2);
   const candleLight = new T.PointLight('#ffc184', 0, 9.5, 2);
@@ -194,7 +203,7 @@ async function startWorld() {
       area, player: { ...player, height: standingHeight },
       place: locationName(region, !area && houseAt(player.x, player.z)),
       doors: [...openingDoors], gates: [...(dungeon?.openCells ?? [])], openingGate: dungeon?.openingGate ?? null,
-      blub: prisoner.snapshot(), rider: rider.snapshot(),
+      blub: prisoner.snapshot(), rider: rider.snapshot(), patrol: villagePatrol.snapshot(),
     };
   }
 
@@ -235,6 +244,8 @@ async function startWorld() {
     keepersBusy = false;
     woodlandResident.reset();
     poseWoodlandResident(0);
+    villagePatrol.restore(state.patrol);
+    poseVillagePatrol();
     for (const [id, room] of rooms) {
       room.keeper?.reset();
       room.poseKeeper?.(0);
@@ -387,8 +398,15 @@ async function startWorld() {
     const inside = houseAt(player.x, player.z);
     const { stage, health, attacking, struck } = rider;
     const threatened = stage === 'approach' || stage === 'hunt';
-    rider.setEligible(isAvailable && !document.hidden && !inside
+    const eligible = isAvailable && !document.hidden && area === null;
+    rider.setEligible(eligible && !villagePatrol.active && !inside
       && regionAt(player.z) !== 'forest' && Math.abs(player.x) < 95 && player.z < 231);
+    villagePatrol.setEligible(eligible && !rider.active && Math.abs(player.x) < 52 && player.z > -24 && player.z < 91);
+    const check = villagePatrol.inspection;
+    const patrolCue = villagePatrol.within(player.x, player.z, 42)
+      ? check ? 'Opsing Guards are checking ' + check.name + '.' : 'Opsing Guards are on patrol.'
+      : '';
+    if (dungeonStatus.textContent !== patrolCue) dungeonStatus.textContent = patrolCue;
 
     let cue = '';
     let tone = 'warning';
@@ -433,11 +451,12 @@ async function startWorld() {
       const byPlayer = checkSweep && doorSweepOccupied(worldToHouse(player.x, player.z, nearby), nearby);
       const byBlub = checkSweep && prisonerInDoorway(nearby);
       const byResident = checkSweep && woodlandResident.inDoorway(nearby);
+      const byGuard = checkSweep && villagePatrol.inDoorway(nearby);
       const label = byPlayer ? (open ? 'Step back to close' : 'Step back to open')
-        : byBlub ? 'Blub is in the doorway' : byResident ? 'Someone is in the doorway'
+        : byBlub ? 'Blub is in the doorway' : byGuard ? 'A guard is in the doorway' : byResident ? 'Someone is in the doorway'
           : open ? 'Close door' : 'Open door';
       if (doorLabel.textContent !== label) doorLabel.textContent = label;
-      doorButton.disabled = byPlayer || byBlub || byResident;
+      doorButton.disabled = byPlayer || byBlub || byResident || byGuard;
     }
     const next = rooms.get((inside ?? nearby)?.id) ?? null;
     if (next) {
@@ -466,13 +485,24 @@ async function startWorld() {
 
   function clearHouseDoor(house) {
     return (area !== null || !doorSweepOccupied(worldToHouse(player.x, player.z, house), house))
-      && !prisonerInDoorway(house) && !woodlandResident.inDoorway(house);
+      && !prisonerInDoorway(house) && !woodlandResident.inDoorway(house) && !villagePatrol.inDoorway(house);
   }
 
-  function moveWoodlandDoor(house, open) {
+  function requestHouseDoor(house, open) {
     if (openingDoors.has(house.id) === open) return open ? openDoors.has(house.id) : !doorChanges.has(house.id);
     if ((open && !house.doorOutward) || clearHouseDoor(house)) setHouseDoor(house, open);
     return false;
+  }
+
+  function canVillageGuardStep(x, z) {
+    return (area !== null || Math.hypot(player.x - x, player.z - z) > .68)
+      && (prisoner.area !== 'village' || Math.hypot(prisoner.position.x - x, prisoner.position.z - z) > .54)
+      && canStand(x, z, obstacles, openDoors);
+  }
+
+  function poseVillagePatrol() {
+    const frames = villagePatrol.frames;
+    roadGuards.forEach((guard, index) => guard.pose(frames[index]));
   }
 
   function canWoodlandResidentStep(x, z) {
@@ -500,6 +530,13 @@ async function startWorld() {
       const { house, keeper } = room;
       const open = openDoors.has(house.id);
       if (!keeper || (!open && !keeper.active)) continue;
+      if (villagePatrol.inspection === house) {
+        if (keeper.active) {
+          keeper.reset();
+          room.poseKeeper(time / 1000);
+        }
+        continue;
+      }
       const playerLocal = area === null ? worldToHouse(player.x, player.z, house) : null;
       const blub = prisoner.position;
       const blubLocal = prisoner.area === 'village' ? worldToHouse(blub.x, blub.z, house) : null;
@@ -596,7 +633,10 @@ async function startWorld() {
 
   function render() {
     if (!isAvailable) return;
-    if (area) diningVisible = false;
+    if (area) {
+      diningVisible = false;
+      villagePatrol.setEligible(false);
+    }
     if (speechArea !== area || performance.now() >= speechUntil) prisonerSpeech.textContent = '';
     const meal = !area && nearPrisoner(22) ? prisoner.mealActivity : null;
     const activity = meal?.phase === 'entering' ? 'Blub is heading to ' + meal.house.name + ' for a meal.'
@@ -668,7 +708,7 @@ async function startWorld() {
   }
 
   function canWalkOverworld(x, z) {
-    return !woodlandResident.blocks(x, z) && canStand(x, z, obstacles, openDoors);
+    return !woodlandResident.blocks(x, z) && !villagePatrol.within(x, z, .66) && canStand(x, z, obstacles, openDoors);
   }
 
   function movementFloor(x, z, fromHeight) {
@@ -789,6 +829,11 @@ async function startWorld() {
       talkToPrisoner();
     }
     if (next || prisoner.recovery !== previousRecovery || prisoner.following !== wasFollowing) autosave();
+    const wasPatrolling = villagePatrol.active;
+    if (wasPatrolling) {
+      villagePatrol.advance(elapsed);
+      poseVillagePatrol();
+    }
     const keeperVisible = advanceDoorKeepers(elapsed, time);
     const woodlandNear = nearWoodlandCabin();
     const woodlandChanged = (woodlandNear || woodlandResident.visiting) && woodlandResident.advance(elapsed, woodlandNear, delta);
@@ -796,10 +841,11 @@ async function startWorld() {
     const prisonerNearby = prisoner.area === 'village' && nearPrisoner(70);
     if (area || forward || right || turn || doorsMoving || riderNearby || prisonerNearby || diningVisible || keeperVisible
       || (woodlandNear && woodlandChanged)
+      || (wasPatrolling && (!villagePatrol.active || villagePatrol.within(player.x, player.z, 116)))
       || prisonerSpeech.textContent || rider.within(player.x, player.z, 131)) render();
     else updateHunt();
     if (area === 'tower' || area === 'dungeon' || keys.size || touchKeys.size || doorChanges.size || rider.active || prisoner.active || diningVisible
-      || openDoors.size || keepersBusy || woodlandNear || woodlandResident.visiting
+      || openDoors.size || keepersBusy || woodlandNear || woodlandResident.visiting || villagePatrol.active
       || (area === 'battlefield' && Math.abs(standingHeight + PLAYER_EYE_HEIGHT - visualY) > .018)) requestAnimationFrame(tick);
     else walking = false;
   }
@@ -835,11 +881,12 @@ async function startWorld() {
       clearMovement();
       voice.stop();
       rider.setEligible(false);
+      villagePatrol.setEligible(false);
       autosave();
     } else if (isAvailable) {
       lastTime = performance.now();
       render();
-      if (area || prisoner.active || rider.active || doorChanges.size || diningVisible || openDoors.size || keepersBusy) walk();
+      if (area || prisoner.active || rider.active || villagePatrol.active || doorChanges.size || diningVisible || openDoors.size || keepersBusy) walk();
     }
   });
   window.addEventListener('pagehide', () => autosave());
@@ -878,6 +925,7 @@ async function startWorld() {
     clearMovement();
     isAvailable = false;
     rider.setEligible(false);
+    villagePatrol.setEligible(false);
     huntNotice.hidden = true;
     viewport.hidden = true;
     world.classList.remove('has-world');
@@ -895,12 +943,12 @@ async function startWorld() {
     document.getElementById('fallback-note').hidden = true;
     shadowAnchor.set(Infinity, Infinity);
     resize();
-    if (area || prisoner.active || doorChanges.size || rider.active || diningVisible || openDoors.size || keepersBusy) walk();
+    if (area || prisoner.active || doorChanges.size || rider.active || villagePatrol.active || diningVisible || openDoors.size || keepersBusy) walk();
   });
   viewport.replaceChildren(canvas);
   world.classList.add('has-world');
   const villageStart = { ...VIEWS.village, height: walkSurface(VIEWS.village.x, VIEWS.village.z) };
-  const firstRun = { ...snapshotWorld(), player: villageStart, place: ZONES.village, rider: {} };
+  const firstRun = { ...snapshotWorld(), player: villageStart, place: ZONES.village, rider: {}, patrol: {} };
   refreshSaves = bindSaveMenu(saveMenu, saves, {
     save() {
       if (!isAvailable) return 'unavailable';

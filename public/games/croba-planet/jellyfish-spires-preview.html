@@ -13,16 +13,17 @@ import {getJellyfishSpiresCollision} from './jellyfish-spires.js';
 import {SPIRES_SUBMARINE_PREVIEWS} from './jelly-spires-submarine.js';
 const requestedView=new URLSearchParams(location.search).get('view');
 const submarineView=SPIRES_SUBMARINE_PREVIEWS.findIndex(view=>view.id===requestedView);
-let scene,world,index=submarineView>=0?5+submarineView:requestedView==='gravel'?4:requestedView==='colonies'?3:requestedView==='ridges'?2:0,time=0,animating=false,frameId=0,lastFrame=0;
+let scene,world,index=requestedView==='gardens'?8:submarineView>=0?5+submarineView:requestedView==='gravel'?4:requestedView==='colonies'?3:requestedView==='ridges'?2:0,time=0,animating=false,frameId=0,lastFrame=0;
 const status=document.querySelector('#status'),button=document.querySelector('#animate');
-function draw(dt=0){scene.draw(world,time,dt,false);status.textContent=`JELLYFISH SPIRES · ${((WATER_LEVEL-world.player.z-EYE_HEIGHT)/25).toFixed(1)} m deep · ${animating?'Live movement':'Paused preview'}`;document.querySelector('#details').textContent='Volcanic ridges, gray gravel, purple lantern jellyfish and an old broken submarine. Next viewpoint explores the basin, barnacles and the flooded wreck. Animation pauses when this page is hidden.';}
+function draw(dt=0){scene.draw(world,time,dt,false);status.textContent=`JELLYFISH SPIRES · ${((WATER_LEVEL-world.player.z-EYE_HEIGHT)/25).toFixed(1)} m deep · ${animating?'Live movement':'Paused preview'}`;document.querySelector('#details').textContent='A gently rolling volcanic plain with marine plants and purple Crobon moss. Explore the detailed flooded submarine, now covered in plants, moss and barnacles. Animation pauses when this page is hidden.';}
 function viewpoint(){
-  const slot=index%(5+SPIRES_SUBMARINE_PREVIEWS.length);
+  const slot=index%(6+SPIRES_SUBMARINE_PREVIEWS.length);
+  if(slot===8){const x=14414.859398947367,y=-4321.300432631579,z=getSeabedHeight(x,y)+8,targetZ=getSeabedHeight(x+150,y)+15;Object.assign(world.player,{x,y,z,swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(Math.PI/2,Math.atan2(targetZ-z-EYE_HEIGHT,150));draw();return;}
   if(slot>=5){const view=SPIRES_SUBMARINE_PREVIEWS[slot-5];Object.assign(world.player,view.player,{swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(view.look.yaw,view.look.pitch);draw();return;}
   const target=JELLYFISH_SPIRES_SPIRES[[8,16,24,0,0][slot]],baseAngle=[1.1,.3,-.9,2.1,0][slot];let pose;
   if(slot===4){const x=14500,y=-4450;Object.assign(world.player,{x,y,z:getSeabedHeight(x,y)+8,swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(Math.PI/2,-.65);draw();return;}
   if(slot===0||slot===2){Object.assign(world.player,slot===0?{x:14500,y:-4450,z:-2737.3359261}:{x:11700,y:-6200,z:-3418.0995331},{swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(Math.PI,-.2186689459);draw();return;}
-  if(slot===3){Object.assign(world.player,{x:14512.7380613,y:-4591.3576603,z:-3751.6923134,swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(1.3221577874,-.0431915552);draw();return;}
+  if(slot===3){Object.assign(world.player,{x:10671.617798841655,y:-5502.884909963578,z:-3300.9038612103486,swimming:true,underwater:true});world.biome='jellyfish-spires';scene.setLook(.4289216161975879,-.1951294848048341);draw();return;}
   for(let attempt=0;attempt<32;attempt++){
     const angle=baseAngle+attempt*.28,distance=[1000,450,780,500][slot]+attempt*18;
     const x=target.x+Math.cos(angle)*distance,y=target.y+Math.sin(angle)*distance,z=getSeabedHeight(x,y)+[300,100,520,180][slot];

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Underwater · Croba Planet</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#071e2d;color:#ebf5f8;font:16px system-ui,sans-serif}canvas{display:block;width:100vw;height:100vh}header,footer{position:fixed;z-index:2;left:0;right:0;padding:20px 24px}header{top:0;background:linear-gradient(#061523ed,transparent)}footer{bottom:0;background:linear-gradient(transparent,#061523e8);pointer-events:none}h1{font-size:24px;margin:0 0 8px}p{margin:5px 0;color:#b8d0da}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}button,a{font:inherit;border:1px solid #7b9ba8;color:#e9f5f9;background:#102d3fdf;padding:10px 14px;border-radius:8px;text-decoration:none;cursor:pointer}button:focus-visible,a:focus-visible{outline:2px solid #f5c28b;outline-offset:3px}#error{color:#ffb7a7}@media(max-width:600px){header,footer{padding:14px}h1{font-size:21px}button,a{padding:9px 11px;font-size:14px}}</style></head>
+<body><header><h1>CROBA PLANET · World details</h1><p id="view-name">Preparing the seabed…</p><div class="controls"><button id="next">Next viewpoint</button><button id="animate" aria-pressed="false">Animate</button><a href="./">Play Croba</a></div></header><canvas id="world" aria-label="Actual terrain and moss in Croba Planet"></canvas><footer><p id="status" role="status">Loading underwater surfaces…</p><p>Actual game terrain and materials. Starts paused; animation pauses when hidden.</p><p id="error" role="alert"></p></footer>
+<script type="module">
+import {Scene} from './scene.js';
+import {createWorld} from './world.js';
+import {getSeabedHeight} from './seabed.js';
+import {WATER_LEVEL,EYE_HEIGHT} from './terrain.js';
+import {SPIRES_SUBMARINE_PREVIEWS} from './jelly-spires-submarine.js';
+import {PREPARED_SPIRES_MARINE_GROWTH} from './prepared-spires-marine-growth-data.js';
+import {getForestHeight} from './forest-terrain.js';
+const moss=PREPARED_SPIRES_MARINE_GROWTH.find(site=>site.id==='submarine-moss-1626');
+const views=[
+  {id:'shallows',name:'Arctic shallows',x:1000,y:600,lift:16,yaw:-.45,pitch:-.30},
+  {id:'cliff',name:'Cliff Biome · sandy fissure',x:190,y:-15,lift:5,yaw:3.14,pitch:-.07},
+  {id:'kelp',name:'Blue Kelp Forest · ravine',x:-4300,y:-4180,lift:9,yaw:2.49,pitch:-.08},
+  {id:'deep',name:'Blue Ocean · deep gravel',x:5800,y:-2000,lift:8,yaw:.9,pitch:-.23},
+  {id:'moss',name:'Crobon moss · flooded submarine',...SPIRES_SUBMARINE_PREVIEWS.find(view=>view.id==='submarine-inside').player,target:moss},
+  {id:'forest',name:'Violet Spruce Forest · mossy rock',x:3551.421,y:1643.92,forest:true,target:{x:3551.421,y:1698.92,z:146.8}},
+];
+let scene,world,time=0,frame=0,last=0,animating=false;
+let index=Math.max(0,views.findIndex(v=>v.id===new URLSearchParams(location.search).get('view')));
+const status=document.querySelector('#status'),button=document.querySelector('#animate');
+function draw(dt=0){
+  scene.draw(world,time,dt,false);
+  const depth=(WATER_LEVEL-world.player.z-EYE_HEIGHT)/25;
+  status.textContent=`${depth>0?depth.toFixed(1)+' m deep':'Above water'} · ${animating?'Live movement':'Paused preview'}`;
+  // Read-only diagnostics allow native browser QA without injected app actions.
+  status.dataset.render=JSON.stringify({time:scene.clock,calls:scene.renderer.info.render.calls,triangles:scene.renderer.info.render.triangles,
+    surfaces:'original sand and stone',fog:scene.scene.fog.density,lamp:scene.diveLight.intensity,
+    textures:scene.renderer.info.memory.textures,pixels:scene.renderer.domElement.width*scene.renderer.domElement.height});
+}
+function viewpoint(){
+  const v=views[index];Object.assign(world.player,{x:v.x,y:v.y,z:v.forest?getForestHeight(world,v.x,v.y):v.z??getSeabedHeight(v.x,v.y)+v.lift,swimming:!v.forest,underwater:!v.forest});
+  const dx=v.target?v.target.x-v.x:0,dy=v.target?v.target.y-v.y:0;
+  scene.setLook(v.target?Math.atan2(dx,-dy):v.yaw,v.target?Math.atan2(v.target.z-world.player.z-EYE_HEIGHT,Math.hypot(dx,dy)):v.pitch);
+  document.querySelector('#view-name').textContent=v.name;draw();
+}
+function stop(){animating=false;cancelAnimationFrame(frame);button.textContent='Animate';button.setAttribute('aria-pressed','false');if(scene&&world)draw();}
+function loop(now){if(!animating||document.hidden)return;if(now-last>=1000/15){last=now;time+=1/15;world.elapsed=time;draw(1/15);}frame=requestAnimationFrame(loop);}
+document.querySelector('#next').onclick=()=>{index=(index+1)%views.length;viewpoint();};
+button.onclick=()=>{if(animating){stop();return;}animating=true;button.textContent='Pause';button.setAttribute('aria-pressed','true');last=0;frame=requestAnimationFrame(loop);};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
+window.addEventListener('resize',()=>{if(scene&&world){scene.resize();draw();}});
+window.addEventListener('pagehide',()=>{stop();scene?.dispose();},{once:true});
+try{world=createWorld();scene=new Scene(document.querySelector('#world'),{onInvalidate:()=>{if(scene&&world&&!animating&&!document.hidden)draw();}});scene.setRenderDistance(80);viewpoint();}
+catch(error){status.textContent='The preview could not start.';document.querySelector('#error').textContent=error.message;console.error('Croba underwater preview:',error);}
+</script></body></html>

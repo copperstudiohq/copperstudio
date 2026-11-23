@@ -111,7 +111,8 @@ function buildGuard(scene, hide, index) {
 }
 
 function animateGuard(guard, pursuing) {
-  const swing = Math.sin(guard.cycle) * (pursuing ? .58 : .34);
+  const gait = guard.gait ?? 1;
+  const swing = Math.sin(guard.cycle) * (pursuing ? .58 : .34) * gait;
   const time = guard.attack ?? 0;
   const draw = T.MathUtils.smoothstep(time, 0, WINDUP - .12);
   const thrust = T.MathUtils.smoothstep(time, WINDUP - .16, WINDUP + .035);
@@ -119,7 +120,7 @@ function animateGuard(guard, pursuing) {
   const lean = (.16 * thrust - .11 * draw) * end;
   guard.model.position.set(guard.x, guard.y + .01, guard.z);
   guard.model.rotation.y = guard.yaw;
-  guard.body.position.y = .026 * (1 - Math.cos(guard.cycle * 2)) * (1 - draw * end);
+  guard.body.position.y = .026 * (1 - Math.cos(guard.cycle * 2)) * (1 - draw * end) * gait;
   guard.body.position.z = .18 * thrust * end;
   guard.body.rotation.x = lean;
   guard.legs[0].rotation.x = swing * (1 - draw * end) - .27 * thrust * end;
@@ -127,6 +128,20 @@ function animateGuard(guard, pursuing) {
   guard.arms[0].rotation.x = -swing * .63 - .25 * draw * end;
   guard.arms[1].rotation.x = -.16 + swing * .24 + (.28 * draw - 1.23 * thrust) * end;
   guard.spear.rotation.x = (.98 * draw + .59 * thrust) * end - guard.arms[1].rotation.x - lean;
+}
+
+export function createRoadGuard(scene, earth, index) {
+  const guard = buildGuard(scene, corruptedHide(earth), index);
+  guard.model.visible = false;
+  return {
+    pose(frame) {
+      guard.model.visible = Boolean(frame);
+      if (frame) {
+        Object.assign(guard, frame, { gait: frame.walking ? 1 : 0 });
+        animateGuard(guard, false);
+      }
+    },
+  };
 }
 
 export function createTowerGuards(scene, earth) {

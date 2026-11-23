@@ -139,10 +139,9 @@ export function doorwayAt(x, z) {
   });
 }
 
-export function canStand(x, z, obstacles = [], openDoors) {
-  const radius = PLAYER_RADIUS;
+export function canStand(x, z, obstacles = [], openDoors, radius = PLAYER_RADIUS) {
   if (Math.hypot(x, z) > WORLD_HALF - 12) return false;
-  if (STRUCTURES.some((house) => blocksPlayer(worldToHouse(x, z, house), house, openDoors?.has(house.id), house.room.furnishings))) return false;
+  if (STRUCTURES.some((house) => blocksPlayer(worldToHouse(x, z, house), house, openDoors?.has(house.id), house.room.furnishings, radius))) return false;
   if (Math.hypot(x - WELL.x, z - WELL.z) < WELL.radius + radius) return false;
   if (LAMPS.some(([lx, lz]) => Math.hypot(x - lx, z - lz) < radius + .09)) return false;
   if (FENCES.some(([start, end]) => segmentDistance(x, z, start, end) < radius + .08)) return false;

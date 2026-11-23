@@ -7,14 +7,44 @@ const TAU = Math.PI * 2;
 const weave = woolWeave();
 const sphere = new T.SphereGeometry(1, 16, 12);
 const sleeveShape = new T.CylinderGeometry(.84, 1, 1, 12);
+const woodlandCuffShape = new T.CylinderGeometry(.90, 1, 1, 14);
+const bareShinShape = new T.CylinderGeometry(.97, 1, 1, 14, 1, true);
+const woodlandThighShape = new T.LatheGeometry([
+  new T.Vector2(0, -.5), new T.Vector2(.70, -.5), new T.Vector2(.83, -.38),
+  new T.Vector2(1.00, -.16), new T.Vector2(1.02, .08), new T.Vector2(.94, .31),
+  new T.Vector2(.85, .5), new T.Vector2(0, .5),
+], 14);
 const up = new T.Vector3(0, 1, 0);
 const axis = new T.Vector3();
 const leather = new T.MeshStandardMaterial({ color: '#372c24', roughness: .92 });
 const woodsTrousers = fabric('#4c4436');
-const hatFelt = fabric('#383137');
-const hatBand = new T.MeshStandardMaterial({ color: '#57382b', roughness: .86, side: T.DoubleSide });
+const robeBinding = fabric('#654438');
+const mantleBinding = fabric('#554349');
+const woodlandHood = fabric('#42343a');
+const woodlandWrap = fabric('#574b43');
+const bootLeather = new T.MeshStandardMaterial({ color: '#53392b', roughness: .84, side: T.DoubleSide });
+const bootCuff = new T.MeshStandardMaterial({ color: '#3b2923', roughness: .89 });
+const bootWelt = new T.MeshStandardMaterial({ color: '#78604a', roughness: .96 });
+const bootTread = new T.MeshStandardMaterial({ color: '#2a211c', roughness: .98 });
+const bootRing = new T.CylinderGeometry(1, 1, 1, 16);
+const soleOutline = new T.Shape().moveTo(-.048, .100)
+  .quadraticCurveTo(-.070, .093, -.073, .008)
+  .quadraticCurveTo(-.081, -.064, -.079, -.109)
+  .quadraticCurveTo(-.063, -.152, 0, -.153)
+  .quadraticCurveTo(.066, -.152, .081, -.109)
+  .quadraticCurveTo(.079, -.052, .074, .004)
+  .quadraticCurveTo(.074, .094, .046, .100).closePath();
+const bootSole = new T.ExtrudeGeometry(soleOutline, { depth: 1, bevelEnabled: false, curveSegments: 6 })
+  .rotateX(-Math.PI / 2);
+const bootToeSeam = new T.TubeGeometry(new T.CatmullRomCurve3([
+  new T.Vector3(-.064, .007, .066), new T.Vector3(-.041, .018, .066), new T.Vector3(0, .025, .066),
+  new T.Vector3(.041, .018, .066), new T.Vector3(.064, .007, .066),
+]), 14, .0021, 5, false);
+const woodsSkin = new T.MeshStandardMaterial({ color: '#a48266', roughness: .88 });
+const hatFelt = fabric('#342e36');
+const hatBand = new T.MeshStandardMaterial({ color: '#624333', roughness: .89, side: T.DoubleSide });
 const hatBuckle = new T.MeshStandardMaterial({ color: '#ac8451', roughness: .68, metalness: .34 });
-const buckleRing = new T.TorusGeometry(.025, .0055, 7, 14);
+const buckleBar = new T.BoxGeometry(1, 1, 1);
 const hoodShadow = new T.MeshBasicMaterial({ color: '#171419' });
 const ochre = new T.MeshStandardMaterial({ color: '#8b765b', roughness: .89 });
 const breadColor = new T.MeshStandardMaterial({ color: '#ad6836', roughness: .94 });
@@ -61,6 +91,19 @@ function clothShell(parent, surface, name, rows, vertex) {
   return mesh;
 }
 
+function bindHem(body, material, name, vertex, fraction) {
+  clothShell(body, material, name, 2, (row, angle) => {
+    const [x, y, z] = vertex(0, angle);
+    const [nextX, nextY, nextZ] = vertex(1, angle);
+    const t = row * fraction;
+    return [
+      T.MathUtils.lerp(x, nextX, t) + .003 * Math.sin(angle),
+      T.MathUtils.lerp(y, nextY, t),
+      T.MathUtils.lerp(z, nextZ, t) - .003 * Math.cos(angle),
+    ];
+  });
+}
+
 function coat(body, surface, style, seated, shortCoat) {
   const rings = [
     [.145, .226, .154, 0], [.23, .221, .160, -.012], [.40, .201, .147, -.008],
@@ -70,15 +113,18 @@ function coat(body, surface, style, seated, shortCoat) {
   ];
   if (seated && shortCoat) rings.splice(0, 6, [1.012, .215, .148, -.016], [1.068, .195, .142, -.020]);
   else if (seated) rings.splice(0, 5, [.813, .197, .152, .012], [.885, .181, .143, .002]);
-  else if (shortCoat) rings.splice(0, 4, [.55, .244, .167, .006], [.69, .212, .145, -.011]);
-  clothShell(body, surface, 'Pleated village coat', rings.length, (row, angle) => {
+  else if (shortCoat) rings.splice(0, 5, [.744, .233, .171, .006], [.801, .211, .151, -.006], [.882, .181, .135, -.009]);
+  function vertex(row, angle) {
     const [y, width, depth, z] = rings[row];
     const pleat = 1 + (.081 * Math.sin(8 * angle + y * 1.7) + .028 * Math.cos(15 * angle + style)) * (1 - y * .44);
     const hem = (shortCoat ? .008 : .019) * Math.sin(5 * angle + style)
       * (1 - row / (rings.length - 1)) ** 3;
     return [width * pleat * Math.sin(angle), y + hem, z - depth * pleat * Math.cos(angle)];
-  });
-  if (!shortCoat) {
+  }
+  clothShell(body, surface, 'Pleated village coat', rings.length, vertex);
+  if (shortCoat) {
+    bindHem(body, robeBinding, 'Bound robe hem', vertex, .32);
+  } else {
     oval(body, leather, 0, .951, -.016, .177, .024, .139);
     oval(body, ochre, .019, .941, .119, .036, .024, .020).rotation.z = -.16;
   }
@@ -89,6 +135,59 @@ function fitLimb(mesh, start, end, width) {
   mesh.position.copy(start).lerp(end, .5);
   mesh.scale.set(width, axis.length(), width);
   mesh.quaternion.setFromUnitVectors(up, axis.normalize());
+}
+
+function woodlandBoot(parent, x, y, z) {
+  const boot = new T.Group();
+  boot.name = 'Woodland leather boot';
+  boot.position.set(x, y, z);
+  parent.add(boot);
+  const last = [
+    [-.101, -.013, .003, .048], [-.092, -.008, .054, .056], [-.085, -.005, .063, .065], [-.039, .004, .067, .072],
+    [.010, -.010, .057, .074], [.066, -.022, .046, .079], [.110, -.030, .036, .074],
+    [.140, -.038, .021, .052], [.149, -.048, .004, .016],
+  ];
+  clothShell(boot, bootLeather, 'Shaped leather vamp', last.length, (row, angle) => {
+    const [along, center, height, width] = last[row];
+    return [width * Math.sin(angle), Math.max(-.061, center + height * Math.cos(angle)), along];
+  });
+  const sole = new T.Mesh(bootSole, bootTread);
+  sole.name = 'Stacked boot sole';
+  sole.position.y = -.082;
+  sole.scale.y = .017;
+  const welt = new T.Mesh(bootSole, bootWelt);
+  welt.position.y = -.066;
+  welt.scale.set(.99, .008, .99);
+  const seam = new T.Mesh(bootToeSeam, bootWelt);
+  seam.name = 'Stitched toe seam';
+  boot.add(sole, welt, seam);
+  return boot;
+}
+
+function woodlandShin(root) {
+  const trousers = new T.Mesh(woodlandCuffShape, woodsTrousers);
+  const shin = new T.Mesh(bareShinShape, woodsSkin);
+  const boot = new T.Mesh(sleeveShape, bootLeather);
+  trousers.name = 'Woodland trouser cuff';
+  shin.name = 'Bare lower leg';
+  boot.name = 'Leather boot shaft';
+  for (const [y, width, height] of [[-.448, 1.033, .104], [.287, .916, .092]]) {
+    const band = new T.Mesh(bootRing, bootCuff);
+    band.name = 'Reinforced boot band';
+    band.position.y = y;
+    band.scale.set(width, height, width);
+    boot.add(band);
+  }
+  root.add(trousers, shin, boot);
+  const bootTop = new T.Vector3();
+  const trouserCuff = new T.Vector3();
+  return (knee, ankle) => {
+    bootTop.lerpVectors(ankle, knee, .82);
+    trouserCuff.lerpVectors(ankle, knee, .922);
+    fitLimb(trousers, knee, trouserCuff, .096);
+    fitLimb(shin, trouserCuff, bootTop, .083);
+    fitLimb(boot, bootTop, ankle, .089);
+  };
 }
 
 function seatedLegs(root, wool, resident, broad) {
@@ -103,34 +202,42 @@ function seatedLegs(root, wool, resident, broad) {
     const knee = new T.Vector3(side * .109 * spacing, seatY + .014, .333);
     const ankle = new T.Vector3(side * .114 * spacing, footY + .083, .362);
     const trousers = new T.Mesh(sleeveShape, wool);
-    const shin = new T.Mesh(sleeveShape, leather);
     trousers.name = 'Seated thigh';
     fitLimb(trousers, new T.Vector3(side * .105 * spacing, seatY + .052, -.026), knee, .083 * width);
-    fitLimb(shin, knee, ankle, .051 * width);
-    root.add(trousers, shin);
-    oval(root, wool, ...knee, .080 * width, .072, .079 * width);
-    oval(root, leather, ankle.x, footY + .047, ankle.z + .047, .053 * width, .044, .103 * spacing);
+    root.add(trousers);
+    if (broad) {
+      woodlandShin(root)(knee, ankle);
+    } else {
+      const shin = new T.Mesh(sleeveShape, leather);
+      fitLimb(shin, knee, ankle, .051);
+      root.add(shin);
+    }
+    const kneeShape = broad ? knee.clone().lerp(ankle, -.064) : knee;
+    oval(root, wool, ...kneeShape, .080 * width, broad ? .035 : .072, .079 * width);
+    if (broad) woodlandBoot(root, ankle.x, footY + .084, ankle.z + .034);
+    else oval(root, leather, ankle.x, footY + .047, ankle.z + .047, .053, .044, .103);
   }
 }
 
 function woodlandLeg(root, side) {
   const x = side * .123;
   // The independent trouser mesh ends inside the hem, below the fitted waist.
-  const hip = new T.Vector3(side * .114, .595, .002);
+  const hip = new T.Vector3(side * .109, .798, .016);
   const knee = new T.Vector3();
   const ankle = new T.Vector3();
-  const thigh = new T.Mesh(sleeveShape, woodsTrousers);
+  const thigh = new T.Mesh(woodlandThighShape, woodsTrousers);
   thigh.name = 'Thick woodland thigh';
-  const calf = new T.Mesh(sleeveShape, woodsTrousers);
-  const joint = oval(root, woodsTrousers, x, .484, .017, .095, .096, .099);
-  root.add(thigh, calf);
+  const fitShin = woodlandShin(root);
+  const joint = oval(root, woodsTrousers, x, .484, .017, .095, .036, .099);
+  root.add(thigh);
   return (swing, lift, bend = 0) => {
-    hip.y = .595 - bend;
+    hip.y = .798 - bend;
+    hip.z = .016 + bend * .38;
     knee.set(x, .484 + lift * .5 - bend * .62, .017 + swing * .59 + bend * .30);
     ankle.set(x, .119 + lift, swing + .009);
     fitLimb(thigh, hip, knee, .108);
-    fitLimb(calf, knee, ankle, .081);
-    joint.position.copy(knee);
+    fitShin(knee, ankle);
+    joint.position.copy(knee).lerp(ankle, -.064);
   };
 }
 
@@ -222,12 +329,18 @@ function shawl(body, wool, tailored) {
     [1.205, .248, .167], [1.255, .254, .163], [1.315, .235, .154],
     [1.39, .177, .133], [1.47, .087, .091],
   ];
-  clothShell(body, wool, 'Shoulder shawl', rings.length, (row, angle) => {
+  function vertex(row, angle) {
     const [y, width, depth] = rings[row];
     const fall = .041 * Math.cos(angle - .35) + .016 * Math.sin(7 * angle);
     const ease = tailored ? 1 + .16 * (1 - row / 4) : 1;
     return [width * ease * Math.sin(angle), y + fall * (1 - row / 4), -.024 - depth * ease * Math.cos(angle)];
-  });
+  }
+  clothShell(body, wool, 'Shoulder shawl', rings.length, vertex);
+  if (tailored) {
+    bindHem(body, mantleBinding, 'Mantle edging', vertex, .34);
+    const [x, y, z] = vertex(2, Math.PI - .30);
+    oval(body, hatBuckle, x, y + .006, z + .008, .027, .022, .011).name = 'Brass mantle clasp';
+  }
 }
 
 function concealHead(head, wool, wrap) {
@@ -261,21 +374,23 @@ function woodlandWitchHat(head) {
   head.add(hat);
 
   const brim = [
-    [.003, .147, .162, 0], [-.004, .215, .202, .28], [-.004, .287, .252, .65],
-    [.007, .331, .296, 1], [.001, .337, .301, 1], [-.012, .332, .296, 1],
-    [-.017, .291, .256, .68], [-.014, .151, .164, 0],
+    [.003, .147, .162, 0], [-.006, .230, .219, .23], [-.012, .328, .285, .68],
+    [-.007, .403, .341, 1], [-.014, .411, .347, 1], [-.024, .403, .340, 1],
+    [-.027, .330, .287, .68], [-.014, .151, .164, 0],
   ];
   clothShell(hat, hatFelt, 'Wavy felt brim', brim.length, (row, angle) => {
     const [y, width, depth, edge] = brim[row];
-    const curl = .021 * Math.sin(2 * angle + .85) - .012 * Math.cos(3 * angle - .3);
-    return [width * Math.sin(angle), y + edge * curl, depth * Math.cos(angle)];
+    const curl = -.032 * Math.cos(angle) + .045 * Math.sin(angle - .20) + .034 * Math.sin(2 * angle + .34);
+    const wear = 1 + edge * (.043 * Math.sin(angle + .6) + .029 * Math.sin(3 * angle + .4));
+    return [width * wear * Math.sin(angle), y + edge * curl, depth * wear * Math.cos(angle)];
   });
 
   const crown = [
-    [.001, .157, .172, 0, 0], [.051, .150, .161, -.005, -.008], [.119, .128, .140, -.012, -.014],
-    [.183, .103, .116, -.014, -.023], [.240, .075, .086, .003, -.038],
-    [.281, .049, .057, .037, -.052], [.310, .025, .031, .074, -.071],
-    [.324, .001, .001, .117, -.092],
+    [.001, .159, .174, 0, 0], [.058, .154, .165, -.007, -.006], [.135, .137, .151, -.022, -.012],
+    [.210, .112, .126, -.032, -.018], [.268, .084, .099, -.020, -.027],
+    [.314, .063, .076, .016, -.039], [.353, .044, .053, .064, -.054],
+    [.390, .029, .036, .120, -.071], [.408, .015, .020, .167, -.088],
+    [.405, .001, .001, .211, -.111],
   ];
   clothShell(hat, hatFelt, 'Bent pointed crown', crown.length, (row, angle) => {
     const [y, width, depth, x, z] = crown[row];
@@ -283,16 +398,25 @@ function woodlandWitchHat(head) {
     return [x + width * folds * Math.sin(angle), y, z + depth * folds * Math.cos(angle)];
   });
 
-  const band = [[.018, .161, .176], [.056, .155, .164], [.066, .152, .159]];
+  const band = [[.014, .165, .179], [.048, .161, .175], [.080, .157, .167]];
   clothShell(hat, hatBand, 'Leather hat band', band.length, (row, angle) => {
     const [y, width, depth] = band[row];
-    return [-.004 + width * Math.sin(angle), y, -.006 + depth * Math.cos(angle)];
+    const tilt = .006 * Math.sin(angle + .45);
+    return [-.005 + width * Math.sin(angle), y + tilt, -.003 + depth * Math.cos(angle)];
   });
-  const buckle = new T.Mesh(buckleRing, hatBuckle);
+  const buckle = new T.Group();
   buckle.name = 'Brass hat buckle';
-  buckle.position.set(.047, .044, .154);
-  buckle.rotation.y = .30;
-  buckle.scale.set(1.15, .77, 1);
+  buckle.position.set(.031, .049, .170);
+  buckle.rotation.set(-.09, .21, -.075);
+  for (const [x, y, width, height] of [
+    [0, -.026, .087, .010], [0, .026, .087, .010],
+    [-.038, 0, .010, .042], [.038, 0, .010, .042], [.007, -.001, .069, .006],
+  ]) {
+    const bar = new T.Mesh(buckleBar, hatBuckle);
+    bar.position.set(x, y, 0);
+    bar.scale.set(width, height, .010);
+    buckle.add(bar);
+  }
   hat.add(buckle);
 }
 
@@ -318,14 +442,14 @@ export function createVillager(room, house, resident, index = 0) {
   const cloth = new T.Color(resident.accent ?? accent).lerp(dye, .30);
   if (index === 1) cloth.lerp(new T.Color('#625040'), .44);
   if (resident.child) cloth.lerp(new T.Color('#89765b'), .58);
+  const broad = Boolean(house.woodland);
   const wool = fabric(cloth);
-  const hood = fabric(cloth.clone().multiplyScalar(.58));
-  const wrap = fabric(new T.Color('#645649').lerp(cloth, .31));
+  const hood = broad ? woodlandHood : fabric(cloth.clone().multiplyScalar(.58));
+  const wrap = broad ? woodlandWrap : fabric(new T.Color('#645649').lerp(cloth, .31));
   const body = new T.Group();
   root.add(body);
   const lowered = seated ? .85 - (resident.seatHeight + .020) / root.scale.y : 0;
   body.position.y = -lowered;
-  const broad = Boolean(house.woodland);
   coat(body, wool, house.style, seated, broad);
   shawl(body, hood, broad);
   if (seated) seatedLegs(root, broad ? woodsTrousers : wool, resident, broad);
@@ -335,8 +459,8 @@ export function createVillager(room, house, resident, index = 0) {
   if (!seated || resident.resting) {
     for (const side of [-1, 1]) {
       if (!seated) {
-        const boot = oval(root, leather, side * (broad ? .123 : .087), .084, .043,
-          broad ? .078 : .058, .082, broad ? .139 : .110);
+        const boot = broad ? woodlandBoot(root, side * .123, .084, .043)
+          : oval(root, leather, side * .087, .084, .043, .058, .082, .110);
         const fitLeg = broad ? woodlandLeg(root, side) : null;
         fitLeg?.(0, 0);
         boots.push({ boot, fitLeg });
@@ -367,13 +491,13 @@ export function createVillager(room, house, resident, index = 0) {
     root.position.set(spot.x, spot.y ?? FLOOR_LEVEL, spot.z);
     root.rotation.y = spot.yaw;
     pose(seconds);
-    const bend = duck * .218;
-    body.rotation.x += duck * .075;
-    head.rotation.x += duck * .24;
+    const bend = duck * .255;
+    body.rotation.x += duck * .108;
+    head.rotation.x += duck * .43;
     const step = position?.walking ? .119 * Math.sin(position.stride * 9.4) : 0;
     for (const [index, { boot, fitLeg }] of boots.entries()) {
       const swing = index === 0 ? step : -step;
-      const lift = Math.max(0, swing * .40);
+      const lift = Math.max(0, swing * .40, broad ? -.116 * swing : 0);
       boot.position.y = .084 + lift;
       boot.position.z = .043 + swing;
       boot.rotation.x = -.75 * swing;

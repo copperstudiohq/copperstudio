@@ -1,11 +1,16 @@
 import {WorldBarnacleRenderer} from './world-barnacle-renderer.js';
 import {JellyfishSpiresRenderer} from './jellyfish-spires-renderer.js';
 import {SpiresSubmarineRenderer} from './submarine-renderer.js';
+import {SpiresMarineGrowthRenderer} from './spires-marine-growth.js';
 import {JELLYFISH_SPIRES} from './jellyfish-spires-data.js';
 import {getJellyfishSpiresDiveLightGain} from './jellyfish-spires-lighting.js';
 import {GravelPebblesRenderer} from './gravel-pebbles.js';
 import {createGravelMaps,addGravelMask,applyGravelSurface,seabedGravelBlend} from './seabed-gravel.js';
 import {MarineTextureDetail,applyBasaltDetail} from './marine-texture-detail.js';
+import {addNaturalSandMask,applyNaturalSandSurface} from './ocean-sand.js';
+import {createOceanCausticsMaterial} from './ocean-caustics.js';
+import {getUnderwaterLighting} from './underwater-lighting.js';
+import {addCanyonSurfaceMask,applyCanyonRockSurface,canyonSurfaceAt} from './canyon-rock-surface.js';
 import {setFirstPersonSubmerged} from './first-person-lighting.js';
 import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 import {WildlifeBroodRenderer} from './wildlife-brood-renderer.js';
@@ -100,20 +105,12 @@ const WORLD_SCALE = 25;
 const TAU = Math.PI * 2;
 const CAMERA_UP = new THREE.Vector3(0, 1, 0);
 const AIR_COLOR = 0x8daab9;
-const WATER_COLOR = 0x164e61;
 const BLUE_AIR_COLOR = 0x96bed5;
 const FOREST_AIR_COLOR = 0xbcbacf;
 const FOREST_AIR_TINT = new THREE.Color(FOREST_AIR_COLOR);
 const FOREST_SKY_LIGHT = new THREE.Color(0xe9ddf5);
 const FOREST_GROUND_LIGHT = new THREE.Color(0x817263);
 const FOREST_SUN_LIGHT = new THREE.Color(0xffdfb4);
-const BLUE_WATER_COLOR = 0x062941;
-const ABYSS_COLOR = 0x020b20;
-const ABYSS_TINT = new THREE.Color(ABYSS_COLOR);
-const SHELL_WATER_TINT = new THREE.Color(0x4aa6bc);
-const SHELL_SKY_LIGHT = new THREE.Color(0xd5f4f3);
-const SHELL_GROUND_LIGHT = new THREE.Color(0x6e9caa);
-const SHELL_SUN_LIGHT = new THREE.Color(0xe9f9ef);
 
 /** Fade the coastal palette over the first 2.8m of actual forest ground. */
 function forestLightBlend(forest, x, y) {
@@ -177,7 +174,7 @@ export function seabedGeometry() {
   }
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
   const ab = new THREE.Vector3(), ac = new THREE.Vector3(), normal = new THREE.Vector3();
-  const color = new THREE.Color();
+  const color = new THREE.Color(),wallNormal=new THREE.Vector3(),smoothWall=new THREE.Vector3();
   for (let index = 0; index < indices.length; index += 3) {
     a.fromArray(positions, indices[index] * 3);
     b.fromArray(positions, indices[index + 1] * 3);
@@ -194,7 +191,12 @@ export function seabedGeometry() {
       tint[steep].push(groundTint.r, groundTint.g, groundTint.b); occlusion[steep].push(concavity[vertex]);
       shellMasks[steep].push(Math.round(255*shellFieldBlend(positions[vertex*3]*25,positions[vertex*3+2]*25)));
       armorMasks[steep].push(Math.round(255*shellFieldArmorBlend(positions[vertex*3]*25,positions[vertex*3+2]*25)));
-      normals[steep].push(...(steep ? normal.toArray() : [smoothNormals.getX(vertex), smoothNormals.getY(vertex), smoothNormals.getZ(vertex)]));
+      wallNormal.fromBufferAttribute(smoothNormals,vertex);
+      if(steep){
+        const weathering=canyonSurfaceAt(positions[vertex*3]*25,positions[vertex*3+2]*25).blend*.72;
+        wallNormal.copy(normal).lerp(smoothWall.fromBufferAttribute(smoothNormals,vertex),weathering).normalize();
+      }
+      normals[steep].push(wallNormal.x,wallNormal.y,wallNormal.z);
     }
   }
   const geometry = new THREE.BufferGeometry();
@@ -207,7 +209,7 @@ export function seabedGeometry() {
   geometry.addGroup(0, faces[0].length / 3, 0);
   geometry.addGroup(faces[0].length / 3, faces[1].length / 3, 1);
   indexed.dispose();
-  return addGravelMask(projectSurfaceUVs(geometry));
+  return addCanyonSurfaceMask(addNaturalSandMask(addGravelMask(projectSurfaceUVs(geometry))));
 }
 
 /** Border faces follow the same authored polygon edges used by movement. */
@@ -507,11 +509,14 @@ export class Scene {
     const sand = this.materials?.sand?.clone() ?? matte(0xffffff);
     const rock = this.materials?.rock?.clone() ?? matte(0xffffff);
     sand.flatShading = false;
+    rock.flatShading = false; // Explicit face normals retain hard cliffs; canyon normals can soften.
     for (const material of [sand, rock]) {
       material.vertexColors = true;
       applyTerrainSurface(material, this.materials, this.waterMaterial?.uniforms.time ?? { value: 0 });
+      applyNaturalSandSurface(material);
       applyShellFieldSurface(material,this.shellFieldMap,this.shellFieldNormalMap,true);
       applyGravelSurface(material,this.gravelMaps);
+      applyCanyonRockSurface(material);
       applyWaterMedium(material);
     }
     this.seabedBatch = createSeabedBatch(floor);
@@ -521,34 +526,8 @@ export class Scene {
     this.seabed.receiveShadow = true;
     this.scene.add(this.seabed);
 
-    this.causticsMaterial = new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      uniforms: {
-        time: { value: 0 },
-        waterLevel: { value: WATER_LEVEL / WORLD_SCALE },
-        lightPenetration: { value: WATER_OPTICS.causticDepth },
-        waterFogDensity: { value: this.scene.fog?.density ?? 0.027 },
-        waterField: { value: null }, fieldBounds: { value: new THREE.Vector4() }, fieldReady: { value: 0 },
-      },
-      vertexShader:
-        "varying vec3 vWorld; void main() { vec4 p = modelMatrix * vec4(position, 1.0); vWorld = p.xyz; gl_Position = projectionMatrix * viewMatrix * p; }",
-      fragmentShader: `varying vec3 vWorld; uniform float time; uniform float waterLevel; uniform float lightPenetration;
-        uniform sampler2D waterField; uniform vec4 fieldBounds; uniform float fieldReady, waterFogDensity;
-        void main() {
-          vec2 p=vWorld.xz+vWorld.y*.21;
-          float a=sin(p.x*2.6+sin(p.y*1.8+time*.4));
-          float b=cos(p.y*2.1+sin(p.x*2.2-time*.3));
-          float bands=pow(max(0.,1.-abs(a+b)*.95),17.);
-          float lace=pow(max(0.,1.-abs(sin(p.x*3.8-time*.33)+cos(p.y*3.1+time*.27))*.8),22.);
-          vec2 uv=clamp((vWorld.xz-fieldBounds.xy)/max(fieldBounds.zw,vec2(1.)),0.,1.);
-          float open=mix(1.,texture2D(waterField,uv).g,fieldReady);
-          float sunlight=exp(-max(0.,waterLevel-vWorld.y)/lightPenetration)*open;
-          float distanceExtinction=exp(-pow(distance(cameraPosition,vWorld)*waterFogDensity,2.));
-          gl_FragColor=vec4(.53,.85,.83,(bands*.19+lace*.08)*sunlight*distanceExtinction);
-        }`,
-    });
+    this.causticsMaterial = createOceanCausticsMaterial({waterLevel:WATER_LEVEL/WORLD_SCALE,
+      lightPenetration:WATER_OPTICS.causticDepth,waterFogDensity:this.scene.fog?.density??.027});
     this.seabedCaustics = new THREE.Mesh(this.seabedBatch.caustics, this.causticsMaterial);
     this.seabedCaustics.name = "terrain-caustics";
     this.seabedCaustics.position.y = 0.012; this.seabedCaustics.renderOrder = 1;
@@ -672,6 +651,7 @@ export class Scene {
       applyBasaltDetail(material,this.marineDetails.basaltMaps);applyWaterMedium(material);return material;
     }});this.scene.add(this.jellyfishSpires.group);
     this.spiresSubmarine=new SpiresSubmarineRenderer(this.materials);this.scene.add(this.spiresSubmarine.group);
+    this.spiresGrowth=new SpiresMarineGrowthRenderer({materials:this.materials,mobile:this.quality?.mobile});this.scene.add(this.spiresGrowth.group);
     this.gravelPebbles=new GravelPebblesRenderer(world,{mobile:this.quality?.mobile,decorateMaterial:material=>applyWaterMedium(material)});
     this.scene.add(this.gravelPebbles.group);
     const cliffSurface={map:this.shellFieldMap,normalMap:this.shellFieldNormalMap};
@@ -1388,37 +1368,26 @@ export class Scene {
     const inDeepWater = inBlueWater || (underwater && biome === "blue-kelp-forest");
     const sunlight = underwater ? Math.exp(-depth / WATER_OPTICS.sunlightDepth) : 1;
     const shellLight = underwater ? shellFieldBlend(world.player.x,world.player.y) : 0;
-    const environmentColor = underwater
-      ? (blueOcean ? BLUE_WATER_COLOR : WATER_COLOR)
-      : (blueOcean ? BLUE_AIR_COLOR : AIR_COLOR);
-    this.scene.background.setHex(environmentColor);
-    if (forestAir) this.scene.background.lerp(FOREST_AIR_TINT, forestBlend);
-    if (inDeepWater)
-      this.scene.background.lerp(ABYSS_TINT, 1 - Math.exp(-depth / 120));
-    this.scene.background.lerp(SHELL_WATER_TINT,shellLight);
-    this.scene.fog.color.copy(this.scene.background);
-    this.scene.fog.density = underwater
-      ? getWaterFogDensity(biome,depth,shellLight)
-      : (blueOcean ? 0.0045 : 0.013) * (1 - forestBlend) + 0.006 * forestBlend;
-    this.ambient.color.setHex(0xd8ebf5).lerp(FOREST_SKY_LIGHT, forestBlend);
-    this.ambient.groundColor.setHex(0x587789).lerp(FOREST_GROUND_LIGHT, forestBlend);
-    this.keyLight.color.setHex(0xe9f2f4).lerp(FOREST_SUN_LIGHT, forestBlend);
-    if (underwater) {
-      this.ambient.color.setHex(blueOcean ? 0x8bc1db : 0xa8cfd8);
-      this.ambient.groundColor.setHex(0x142f47);
-      this.keyLight.color.setHex(0xc5e3eb);
-      this.ambient.color.lerp(SHELL_SKY_LIGHT,shellLight);
-      this.ambient.groundColor.lerp(SHELL_GROUND_LIGHT,shellLight);
-      this.keyLight.color.lerp(SHELL_SUN_LIGHT,shellLight);
+    const waterLighting=underwater?getUnderwaterLighting(biome,depth,shellLight,this.waterLighting??={}):null;
+    if(waterLighting){
+      this.scene.background.setRGB(...waterLighting.background);
+      this.scene.fog.density=waterLighting.fogDensity;
+      this.ambient.color.setRGB(...waterLighting.ambient);
+      this.ambient.groundColor.setRGB(...waterLighting.ground);
+      this.keyLight.color.setRGB(...waterLighting.key);
+      this.ambient.intensity=waterLighting.ambientIntensity;
+      this.keyLight.intensity=waterLighting.keyIntensity;
+      this.scene.environmentIntensity=waterLighting.environmentIntensity;
+    }else{
+      this.scene.background.setHex(blueOcean?BLUE_AIR_COLOR:AIR_COLOR);
+      if(forestAir)this.scene.background.lerp(FOREST_AIR_TINT,forestBlend);
+      this.scene.fog.density=(blueOcean?.0045:.013)*(1-forestBlend)+.006*forestBlend;
+      this.ambient.color.setHex(0xd8ebf5).lerp(FOREST_SKY_LIGHT,forestBlend);
+      this.ambient.groundColor.setHex(0x587789).lerp(FOREST_GROUND_LIGHT,forestBlend);
+      this.keyLight.color.setHex(0xe9f2f4).lerp(FOREST_SUN_LIGHT,forestBlend);
+      this.ambient.intensity=2.2;this.keyLight.intensity=2.3;this.scene.environmentIntensity=1;
     }
-    this.ambient.intensity = inDeepWater ? 0.10 + 1.15 * sunlight : (underwater ? 0.9 : 2.2);
-    this.keyLight.intensity = inDeepWater ? 0.025 + 2.1 * sunlight : (underwater ? 1.3 : 2.3);
-    this.scene.environmentIntensity = inDeepWater ? 0.025 + 0.7 * sunlight : 1;
-    // An illuminated shelf fades into the surrounding navy ocean over its
-    // existing transition belt. Fog range and light counts stay unchanged.
-    this.ambient.intensity=THREE.MathUtils.lerp(this.ambient.intensity,1.65,shellLight);
-    this.keyLight.intensity=THREE.MathUtils.lerp(this.keyLight.intensity,2.5,shellLight);
-    this.scene.environmentIntensity=THREE.MathUtils.lerp(this.scene.environmentIntensity,.95,shellLight);
+    this.scene.fog.color.copy(this.scene.background);
     if(caveAir){this.scene.background.setHex(0x112733);this.scene.fog.color.copy(this.scene.background);this.scene.fog.density=.012;this.ambient.intensity=.55;this.keyLight.intensity=.3;this.scene.environmentIntensity=.3;}
     if(saltSection&&!saltSurfaceAir){
       this.scene.background.setHex(0x585b36);this.scene.fog.color.copy(this.scene.background);this.scene.fog.density=underwater?getWaterFogDensity('salt-cave',depth,0,true):.025;
@@ -1433,6 +1402,7 @@ export class Scene {
     this.waterMaterial.uniforms.underwater.value = underwater ? 1 : 0;
     this.waterMaterial.uniforms.viewerDepth.value = depth;
     this.causticsMaterial.uniforms.time.value = animation;
+    this.causticsMaterial.uniforms.waterLevel.value = activeWaterLevel/WORLD_SCALE;
     this.causticsMaterial.uniforms.waterFogDensity.value = this.scene.fog.density;
     this.water.position.x = world.player.x / WORLD_SCALE;
     this.water.position.z = world.player.y / WORLD_SCALE;
@@ -1473,9 +1443,10 @@ export class Scene {
     this.keyLight.target.position.set(lightX, lightY, lightZ);
     this.diveLight.visible = underwater||caveAir;
     this.diveLight.color.setHex(saltSection&&!saltSurfaceAir?0xffdda0:0xc4e4ff);
-    this.diveLight.intensity = caveAir ? 18 : underwater ? (inDeepWater ? 30 + 150 * (1 - sunlight) : 58) : 0;
-    this.diveLight.intensity=THREE.MathUtils.lerp(this.diveLight.intensity,35,shellLight);
-    if(underwater&&biome==='jellyfish-spires'){
+    this.diveLight.intensity=caveAir?18:(waterLighting?.diveLightIntensity??0);
+    // Existing close-surface exposure correction also protects the new canyon
+    // views. It samples the real floor at perception cadence; no new light.
+    if(underwater&&!saltSection){
       const p=world.player,last=this.spireLightSample;
       this.camera.getWorldDirection(this.diveDirection);
       if(!last||Math.hypot(p.x-last.x,p.y-last.y,p.z-last.z)>30||Math.abs(this.yaw-last.yaw)+Math.abs(this.pitch-last.pitch)>.04||world.elapsed-last.time>.25)
@@ -1516,6 +1487,7 @@ export class Scene {
     this.sulfuric?.update(this.camera.position,animation,this.reducedMotion,world.elapsed);
     this.jellyfishSpires?.update(world,this.camera.position,this.renderDistance??80);
     this.gravelPebbles?.update(this.camera.position,this.quality,this.renderDistance??80);
+    this.spiresGrowth?.update(this.camera,this.renderDistance??80,animation,this.reducedMotion,{mobile:this.quality?.mobile});
     this.seaweed?.update(animation, this.reducedMotion, this.camera.position, this.quality);
     this.arcticGardens?.update(animation, this.reducedMotion, this.camera.position, this.quality);
     this.plants?.update(animation, this.reducedMotion, this.camera.position, this.quality,world);
@@ -1810,6 +1782,7 @@ export class Scene {
     this.marineDetails?.dispose();this.marineDetails=null;
     this.jellyfishSpires?.dispose();this.jellyfishSpires=null;
     this.gravelPebbles?.dispose();this.gravelPebbles=null;
+    this.spiresGrowth?.dispose();this.spiresGrowth=null;
     this.staticRenderDistance?.dispose();this.instanceRenderDistance?.dispose();
     for (const name of ["heldItems", "salvage", "playerBases", "driftIce", "worldRocks", "worldBarnacles", "spiresSubmarine", "saltCave", "caveWorms", "sandWorms", "sulfurLizards", "sulfuric", "crobanMango", "basinMerchCargo", "largeGlacierWreck", "copperCargo", "basinDetails", "woodlons", "basinCaves", "penguinIslandNests", "penguinEggs", "penguins", "hogwongs", "wildlifeBroods", "tundra", "redFish", "tuskjawSharks", "voidFish", "frostHounds", "arcticGardens", "jellyfish", "conceptSky", "forest", "treeStalkers", "seaweed", "plants", "underwaterFx", "crabColony", "fauna", "squids", "flora", "blizzard"]) {
       const owner = this[name], group = owner?.group;

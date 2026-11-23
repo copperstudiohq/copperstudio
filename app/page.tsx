@@ -8,10 +8,10 @@ const games = [
     number: "01", shortName: "Croba Planet", name: "Croba Planet", label: "Beyond the familiar", genre: "Alien exploration",
     description: [
       "Your spaceship lies broken on an alien glacier, and the only way to understand this world is to step outside. Cross windblown ice islands, swim beneath their spiked undersides, and follow blue coral and glowing plants into a deep cobalt ocean. Beyond the frozen coast, the Violet Spruce Forest offers a completely different landscape to explore.",
-      "This is a first-person expedition built around curiosity and survival. Watch your suit’s warmth and integrity, plan each dive around your oxygen, and use your map to learn the way back. Explore Jellyfish Spires, a deep volcanic basin of fractured stone, glowing jellies and charcoal gravel, or swim through a broken alien submarine. Young Crobonic Squid share the water with armored wildlife, while giant hunters make some discoveries more dangerous than others.",
+      "This is a first-person expedition built around curiosity and survival. Watch your suit’s warmth and integrity, plan each dive around your oxygen, and use your map to learn the way back. Explore Jellyfish Spires, a deep volcanic basin of fractured stone, glowing jellies and blue-and-plum marine gardens, or swim through an overgrown alien submarine. Young Crobonic Squid share the water with armored wildlife, while giant hunters make some discoveries more dangerous than others.",
     ],
     highlights: [
-      { title: "Go deeper", text: "Dive through the blue ocean into the 170-metre Jellyfish Spires basin, with a lamp to light the rocks and drifting jellies." },
+      { title: "Go deeper", text: "Dive through the blue ocean into the 154-metre Jellyfish Spires basin, with a lamp to light the rocks and drifting jellies." },
       { title: "Keep a field log", text: "Find three discoveries, record wildlife in your bestiary, and identify alien plants in your field guide." },
       { title: "Find your way back", text: "Reach the surface for air, recover near heat beacons, and let your rescue tether bring you home if your suit fails." },
     ],
@@ -97,7 +97,7 @@ const games = [
   {
     number: "06", shortName: "Blackroot Vale", name: "Blackroot Vale", label: "Follow the lights. Watch the road.", genre: "Dark-fantasy exploration",
     description: [
-      "Lanterns glow through the windows of Thornwick, a moonlit village at the edge of an enormous evergreen forest. Step inside seven furnished houses, meet households with human and creature ancestry, and follow the forest trail to Pine Hollow Cabin and its gloved resident. Cross the barren South Field to study the ruined tower, or explore the rooms and open landscapes with keyboard or touch.",
+      "Lanterns glow through the windows of Thornwick, a moonlit village at the edge of an enormous evergreen forest. Step inside seven furnished houses, meet households with human and creature ancestry, and follow the forest trail to Pine Hollow Cabin and its gloved resident. Watch paired Opsing Guards arrive from South Field to inspect village houses, then return along the road. Cross the barren field to study the ruined tower, or explore the rooms and open landscapes with keyboard or touch.",
       "The Opsing Rider sometimes approaches from the tower; watch for his warning and shelter in a house. Three sword strikes send you to The Under Neath, where Blub — the son of a goblin and an orc — shares your cell. Help him escape the guards and return through the tower and Ashen Battlefield. Reunite outside and he follows your journey, stopping for meals that help him recover and give him clean village clothes. Explore the four-eyed ruler’s throne room and painted history. A manual save and autosave now preserve the adventure in this browser, including your location, doors, the Rider and Blub’s progress.",
     ],
     highlights: [

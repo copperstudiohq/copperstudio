@@ -18,6 +18,7 @@ import {shellFieldBlend} from './shell-field.js';
 import {getSeabedHeight} from './seabed.js';
 import {JELLYFISH_SPIRES} from './jellyfish-spires-data.js';
 import {clearSubmarineLoadPose} from './submarine-player.js';
+import {clearSpiresLoadPose} from './spires-save-pose.js';
 import {getBestiaryEntries} from './bestiary.js';
 const VERSION=1;
 const removedStarterPlantIds=new Set(PREPARED_STARTER_PLANTS.map(p=>p.id));
@@ -46,7 +47,8 @@ export function validateExpeditionSnapshot(value){
  if(!record(value.player)||!record(value.state)||!record(value.look)||!record(value.inventory)||!record(value.harvestedPlants)||!record(value.bestiary))fail('missing progress fields');
  const p=value.player,state={elapsed:number(value.state.elapsed,0,1e9,'elapsed time'),respawns:number(value.state.respawns,0,1e7,'rescue count')};
  if(!Number.isInteger(state.respawns)||typeof p.swimming!=='boolean')fail('player state');
- const minHeight=Math.min(-4000,WATER_LEVEL-JELLYFISH_SPIRES.maxDepthMeters*25-100);
+ // Dives saved before the gentler floor remain valid and migrate on restore.
+ const minHeight=Math.min(-4000,WATER_LEVEL-Math.max(170,JELLYFISH_SPIRES.maxDepthMeters)*25-100);
  const player={x:number(p.x,NEW_PERIMETER_BOUNDS.minX,NEW_PERIMETER_BOUNDS.maxX,'position X'),y:number(p.y,NEW_PERIMETER_BOUNDS.minY,NEW_PERIMETER_BOUNDS.maxY,'position Y'),z:number(p.z,minHeight,5000,'height'),swimming:p.swimming};
  // Existing swimmers saved on the former flat floor rise onto the repaired
  // surface. Keep this migration inside the original portal's valid volume.
@@ -110,7 +112,7 @@ export function restoreExpedition(world,value,look){
  const sulfurGround=getSulfuricGround(world.player.x,world.player.y);
  if(!saltCave&&sulfurGround!==null)world.player.z=Math.max(world.player.z,sulfurGround);
  if(!saltCave&&sulfurGround!==null&&sulfurGround>=WATER_LEVEL-EYE_HEIGHT+9&&world.player.z<=sulfurGround+.001)world.player.swimming=false;
- clearSubmarineLoadPose(world.player);
+ clearSpiresLoadPose(world.player);clearSubmarineLoadPose(world.player);
  world.player.underwater=playerIsUnderwater(world.player);
  Object.assign(world,{...save.state,inventory:save.inventory,quickSlots:save.quickSlots,activeQuickSlot:save.activeQuickSlot,copperCargo:save.copperCargo,crafting:save.crafting,structures:save.structures,harvestedPlants:save.harvestedPlants,takenPenguinEggs:save.takenPenguinEggs,penguinEggLaying:save.penguinEggLaying,bestiary:save.bestiary});
  Object.assign(world,{buildPlan:'universal-base',buildRotation:0,buildPreview:null,buildPreviewKey:null});

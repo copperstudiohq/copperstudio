@@ -1,4 +1,5 @@
 import * as THREE from "./vendor/three.module.js";
+import {applyMossSurface} from './moss-surface.js';
 import { updateInstancedWindBounds } from "./render-visibility.js";
 import { getForestHeight } from "./forest-terrain.js";
 import { WATER_LEVEL, WORLD_BOUNDS } from "./terrain.js";
@@ -381,12 +382,32 @@ function coneGeometry() {
 
 function mossGeometry(rock) {
   const surface = new Surface(), positions = rock.attributes.position;
+  let shoots=0;
   for (let vertex = 0; vertex < positions.count; vertex += 3) {
     const points = [0, 1, 2].map((offset) => new THREE.Vector3().fromBufferAttribute(positions, vertex + offset));
     if (points.some((p) => p.y < 0.28)) continue;
-    surface.triangle(...points.map((p) => p.multiplyScalar(1.016)), 0xc0ce9d);
+    const [a,b,c]=points.map(p=>p.multiplyScalar(1.016));
+    surface.triangle(a,b,c,0xc0ce9d);
+    const outward=new THREE.Vector3().crossVectors(b.clone().sub(a),c.clone().sub(a)).normalize();
+    if(outward.y<0)outward.negate();
+    const tangent=b.clone().sub(a).normalize(),across=new THREE.Vector3().crossVectors(outward,tangent).normalize();
+    // Fixed tiny leafy shoots soften the cap's silhouette in the same draw.
+    // Their geometry is shared by every boulder on every device.
+    for(let shoot=0;shoot<12;shoot++){
+      const u=Math.sqrt((shoot+.5)/12),v=(shoot*.61803398875+vertex*.037)%1;
+      const root=a.clone().multiplyScalar(1-u).addScaledVector(b,u*(1-v)).addScaledVector(c,u*v);
+      const height=.022+(shoot%4)*.004;
+      for(let leaf=0;leaf<3;leaf++){
+        const turn=shoot*2.3999632297+leaf*2.1;
+        const reach=tangent.clone().multiplyScalar(Math.cos(turn)).addScaledVector(across,Math.sin(turn));
+        const start=root.clone().addScaledVector(outward,leaf*.004);
+        const tip=start.clone().addScaledVector(outward,height).addScaledVector(reach,.012);
+        surface.leaf(start,tip,.0035,leaf%2?0x99b17d:0xb1c18e,.003);
+      }
+      shoots++;
+    }
   }
-  return surface.geometry();
+  const geometry=surface.geometry();geometry.userData.mossShoots=shoots;return geometry;
 }
 
 function material(source, fallback, extra = {}) {
@@ -446,6 +467,7 @@ export class ForestRenderer {
       moss: material(shared.moss, 0x688755),
       wood: material(null, 0xd5b78b),
     };
+    applyMossSurface(this.materials.moss);
     this.materials.needles.emissive.setHex(0x381e4c);
     this.materials.needles.emissiveIntensity = 0.10;
     // The same pausable breeze bends tips and fronds, leaving every root and collision anchor fixed.
