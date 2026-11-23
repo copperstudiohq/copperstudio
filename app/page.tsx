@@ -116,7 +116,7 @@ const games = [
     number: "07", shortName: "Pond", name: "Pond", label: "From starlight to tiny life", genre: "Planet & evolution sandbox",
     description: [
       "Start with a sun and empty orbits, then create planets with your own stone and water colors. Visit a globe, carve basins into its surface, and let rain fill them. Place a pond and dive into a little underwater world where the next inhabitants are yours to design.",
-      "Release creature cells and algae, then watch their descendants inherit and mutate shapes, colors and behavior. Suitable creatures can venture onto land, find mates and lay eggs, while shore plants grow from algae into grass. Follow a creature, inspect its family lineage, or compare population and inherited-trait histories across planets. Pause, fast-forward or advance one second at a time. Three local save slots and downloadable backup files keep your evolving system ready for another visit.",
+      "Release creature cells and algae, then watch their descendants inherit and mutate shapes, colors and behavior. Inspect evolved creatures’ shaded, articulated bodies in the creature close-up panel. Suitable creatures can venture onto land, find mates and lay eggs, while shore plants grow from algae into grass. Follow a creature, inspect its family lineage, or compare population and inherited-trait histories across planets. Pause, fast-forward or advance one second at a time. Three local save slots and downloadable backup files keep your evolving system ready for another visit.",
     ],
     highlights: [
       { title: "Shape a living world", text: "Choose your sun and planets, carve terrain, place ponds, and experiment with rain, storms and changing seasons." },

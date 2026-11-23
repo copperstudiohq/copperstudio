@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import {createWorldRockGeometry,getWorldRockPose} from './world-rock-geometry.js';
+import {applyRockWearNormals} from './weathered-rock-geometry.js';
 import {BLUE_OCEAN_START_X} from './terrain.js';
 import {shellFieldBlend} from './shell-field.js';
 
@@ -29,10 +30,11 @@ export class WorldRockRenderer{
   for(const [key,entries]of batches){
    const [habitat,styleText]=key.split(':'),style=Number(styleText);
    let geometry=prototypes.get(style),material=surfaces.get(habitat);
-   if(!geometry){geometry=createWorldRockGeometry(style);prototypes.set(style,geometry);this.geometries.push(geometry);}
+   if(!geometry){geometry=applyRockWearNormals(createWorldRockGeometry(style));prototypes.set(style,geometry);this.geometries.push(geometry);}
    if(!material){
     material=materials.rock?.clone()??new THREE.MeshStandardMaterial({color:0xd88945,roughness:.9,metalness:.01});
     material.name=`world-rock-${habitat}`;material.vertexColors=true;material.transparent=false;material.opacity=1;material.depthWrite=true;
+    material.flatShading=false;
     material.roughness=Math.max(.84,material.roughness??.9);material.metalness=Math.min(.04,material.metalness??.01);
     if(habitat==='marine')material.color.setHex(0xffffff);
     surfaces.set(habitat,material);this.materials.push(material);

@@ -41,6 +41,10 @@ const bootToeSeam = new T.TubeGeometry(new T.CatmullRomCurve3([
   new T.Vector3(.041, .018, .066), new T.Vector3(.064, .007, .066),
 ]), 14, .0021, 5, false);
 const woodsSkin = new T.MeshStandardMaterial({ color: '#a48266', roughness: .88 });
+const woodlandHair = new T.MeshStandardMaterial({ color: '#503026', roughness: .87, side: T.DoubleSide });
+const woodlandHairLight = new T.MeshStandardMaterial({ color: '#6c4130', roughness: .84, side: T.DoubleSide });
+const woodlandEyeWhite = new T.MeshStandardMaterial({ color: '#b1a28f', roughness: .65 });
+const woodlandEyeDark = new T.MeshStandardMaterial({ color: '#393028', roughness: .52 });
 const hatFelt = fabric('#342e36');
 const hatBand = new T.MeshStandardMaterial({ color: '#624333', roughness: .89, side: T.DoubleSide });
 const hatBuckle = new T.MeshStandardMaterial({ color: '#ac8451', roughness: .68, metalness: .34 });
@@ -113,7 +117,8 @@ function coat(body, surface, style, seated, shortCoat) {
   ];
   if (seated && shortCoat) rings.splice(0, 6, [1.012, .215, .148, -.016], [1.068, .195, .142, -.020]);
   else if (seated) rings.splice(0, 5, [.813, .197, .152, .012], [.885, .181, .143, .002]);
-  else if (shortCoat) rings.splice(0, 5, [.744, .233, .171, .006], [.801, .211, .151, -.006], [.882, .181, .135, -.009]);
+  else if (shortCoat) rings.splice(0, 6, [.744, .233, .171, .006], [.801, .211, .151, -.006],
+    [.882, .177, .135, -.009], [.97, .154, .128, -.015]);
   function vertex(row, angle) {
     const [y, width, depth, z] = rings[row];
     const pleat = 1 + (.081 * Math.sin(8 * angle + y * 1.7) + .028 * Math.cos(15 * angle + style)) * (1 - y * .44);
@@ -366,6 +371,64 @@ function concealHead(head, wool, wrap) {
   gathered.rotation.z = .095;
 }
 
+function woodlandWomanHead(head) {
+  oval(head, woodsSkin, 0, .103, .028, .101, .119, .106).name = 'Woodland face';
+  oval(head, woodsSkin, 0, .117, .131, .013, .028, .021);
+  for (const side of [-1, 1]) {
+    const eye = new T.Group();
+    eye.position.set(side * .043, .131, .119);
+    eye.rotation.y = side * .37;
+    head.add(eye);
+    oval(eye, woodlandHair, 0, 0, 0, .022, .010, .010);
+    oval(eye, woodlandEyeWhite, 0, -.001, .006, .018, .006, .006);
+    oval(eye, woodlandEyeDark, 0, -.001, .011, .0065, .006, .003);
+    const brow = oval(eye, woodlandHair, 0, .025, -.004, .023, .004, .006);
+    brow.rotation.z = -side * .13;
+  }
+
+  const scarf = [
+    [.023, .082, .081], [.044, .104, .106], [.063, .109, .108],
+    [.085, .108, .111], [.107, .097, .111],
+  ];
+  clothShell(head, woodlandWrap, 'Face wrap', scarf.length, (row, angle) => {
+    const [y, width, depth] = scarf[row];
+    const fold = Math.sin(4 * angle + row * 1.2);
+    return [width * Math.sin(angle), y + .006 * fold, .031 + (depth + .003 * fold) * Math.cos(angle)];
+  });
+
+  const hairline = [
+    [.010, .091, .115], [.081, .112, .119], [.130, .116, .116],
+    [.184, .104, .105], [.217, .077, .082], [.240, .002, .003],
+  ];
+  clothShell(head, woodlandHair, 'Swept auburn hair', hairline.length, (row, angle) => {
+    const [y, width, depth] = hairline[row];
+    const front = T.MathUtils.smoothstep(Math.cos(angle), -.20, .76);
+    const sweep = (.153 + .017 * Math.sin(angle)) * front * (1 - row / (hairline.length - 1)) ** 2;
+    const waves = 1 + .023 * Math.sin(15 * angle + row * .59);
+    return [width * waves * Math.sin(angle), y + sweep, .018 + depth * waves * Math.cos(angle)];
+  });
+
+  const braid = new T.Group();
+  braid.name = 'Shoulder braid';
+  head.add(braid);
+  for (const strand of [0, 1, 2]) {
+    clothShell(braid, strand === 1 ? woodlandHairLight : woodlandHair, 'Braided strand', 29, (row, angle) => {
+      const t = row / 28;
+      const twist = TAU * (2.25 * t + strand / 3);
+      const radius = .016 - .008 * t;
+      const x = .106 + .091 * t - .042 * t * t;
+      const z = .030 + .157 * Math.sin(t * Math.PI / 2);
+      return [
+        x + radius * (Math.cos(twist) * .8 + Math.sin(angle)),
+        .135 - .233 * t,
+        z + radius * (Math.sin(twist) * .8 + Math.cos(angle)),
+      ];
+    });
+  }
+  oval(braid, hatBand, .155, -.091, .186, .018, .010, .017);
+  oval(braid, woodlandHair, .156, -.108, .188, .012, .019, .012).rotation.z = .11;
+}
+
 function woodlandWitchHat(head) {
   const hat = new T.Group();
   hat.name = 'Witch hat';
@@ -424,7 +487,7 @@ export function createVillager(room, house, resident, index = 0) {
   const { accent } = house.room;
   const seated = resident.seatHeight !== undefined;
   const root = new T.Group();
-  root.name = 'Hooded villager';
+  root.name = house.woodland ? 'Pine Hollow woman' : 'Hooded villager';
   root.position.set(resident.x, resident.y ?? FLOOR_LEVEL, resident.z);
   root.rotation.y = resident.yaw;
   const stature = 1.17 + house.style * .023 - .020 * Math.min(index, 1);
@@ -445,7 +508,6 @@ export function createVillager(room, house, resident, index = 0) {
   const broad = Boolean(house.woodland);
   const wool = fabric(cloth);
   const hood = broad ? woodlandHood : fabric(cloth.clone().multiplyScalar(.58));
-  const wrap = broad ? woodlandWrap : fabric(new T.Color('#645649').lerp(cloth, .31));
   const body = new T.Group();
   root.add(body);
   const lowered = seated ? .85 - (resident.seatHeight + .020) / root.scale.y : 0;
@@ -473,8 +535,12 @@ export function createVillager(room, house, resident, index = 0) {
   head.position.set(0, 1.442, .005);
   head.name = 'Concealed head';
   body.add(head);
-  concealHead(head, hood, wrap);
-  if (house.woodland) woodlandWitchHat(head);
+  if (broad) {
+    woodlandWomanHead(head);
+    woodlandWitchHat(head);
+  } else {
+    concealHead(head, hood, fabric(new T.Color('#645649').lerp(cloth, .31)));
+  }
 
   function pose(seconds, playerLocal = null) {
     const distance = playerLocal ? Math.hypot(playerLocal.x - resident.x, playerLocal.z - resident.z) : 4;

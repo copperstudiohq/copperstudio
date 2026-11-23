@@ -8,6 +8,8 @@ import {GravelPebblesRenderer} from './gravel-pebbles.js';
 import {createGravelMaps,addGravelMask,applyGravelSurface,seabedGravelBlend} from './seabed-gravel.js';
 import {MarineTextureDetail,applyBasaltDetail} from './marine-texture-detail.js';
 import {MossTextureDetail,applyMossTexture} from './moss-texture.js';
+import {applyRockWearNormals} from './weathered-rock-geometry.js';
+import {finishOrangeBorderGeometry} from './border-rock-finish.js';
 import {addNaturalSandMask,applyNaturalSandSurface} from './ocean-sand.js';
 import {createOceanCausticsMaterial} from './ocean-caustics.js';
 import {getUnderwaterLighting} from './underwater-lighting.js';
@@ -534,14 +536,16 @@ export class Scene {
     this.seabedCaustics.position.y = 0.012; this.seabedCaustics.renderOrder = 1;
     this.scene.add(this.seabedCaustics);
 
-    const stoneGeometry=createSeabedStoneGeometry();
+    const stoneGeometry=applyRockWearNormals(createSeabedStoneGeometry());
     stoneGeometry.setAttribute('shellFieldBlend',new THREE.InstancedBufferAttribute(
       Uint8Array.from(PREPARED_SEABED_STONES,stone=>Math.round(255*shellFieldBlend(stone.x,stone.y))),1,true));
     stoneGeometry.setAttribute('gravelBlend',new THREE.InstancedBufferAttribute(
       Uint8Array.from(PREPARED_SEABED_STONES,stone=>Math.round(255*seabedGravelBlend(stone.x,stone.y))),1,true));
+    const stoneMaterial=this.materials?.rock?.clone()??matte(0xd88945);
+    stoneMaterial.flatShading=false;
     const rocks = new THREE.InstancedMesh(
       stoneGeometry,
-      applyGravelSurface(applyShellFieldSurface(this.materials?.rock?.clone() ?? matte(0xd88945),this.shellFieldMap,this.shellFieldNormalMap),this.gravelMaps),
+      applyGravelSurface(applyShellFieldSurface(stoneMaterial,this.shellFieldMap,this.shellFieldNormalMap),this.gravelMaps),
       PREPARED_SEABED_STONES.length,
     );
     rocks.name = "seabed-stones";
@@ -793,7 +797,8 @@ export class Scene {
       const material = kind === "iceberg"
         ? (this.materials?.ice ?? matte(0xffffff, { vertexColors: true }))
         : applyShellFieldSurface(this.materials?.rock?.clone() ?? matte(0xe28b45),this.shellFieldMap,this.shellFieldNormalMap);
-      const geometry=borderGeometry(borders,kind);
+      const geometry=kind==='stone'?finishOrangeBorderGeometry(borderGeometry(borders,kind)):borderGeometry(borders,kind);
+      if(kind==='stone')material.flatShading=false;
       if(kind==='stone')addShellFieldBorderMask(geometry);
       const cliffs = new THREE.Mesh(geometry, material);
       cliffs.name = `${kind}-border`;

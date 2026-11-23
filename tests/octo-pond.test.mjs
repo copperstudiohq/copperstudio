@@ -99,6 +99,12 @@ test('Pond evolution and plant facts explain inherited anatomy and shore grass',
   assert.match(fact('How do algae establish grass in Pond?', 'pond-algae-grass'), /Release plant cells.*Shore adaptation.*Scatter grass seeds.*grown grass patch.*wind pollination/);
 });
 
+test('Pond creature-model help points to the actual inspector and land roster', () => {
+  const answer = fact('How do I inspect the 3D creature models in Pond?', 'pond-creature-models');
+  assert.match(answer, /Click an evolved creature in Pond or Land.*Creature close-up.*inherited anatomy/);
+  assert.match(answer, /choose a species in the roster.*animal or egg.*Follow creature/);
+});
+
 test('Pond eggs, lineage and habitats have bounded source-checked guidance', () => {
   assert.match(fact('How do land eggs hatch and what is the population cap in Pond?', 'pond-land-eggs'), /lone founder.*incubation.*Reserved egg spaces.*five active land species and six creatures per species/);
   assert.match(fact('How do I inspect lineage and ancestors in Pond?', 'pond-lineage-following'), /View lineage.*pauses.*Recent dead ancestors.*Follow creature/);

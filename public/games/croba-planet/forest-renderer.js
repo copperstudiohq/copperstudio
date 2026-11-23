@@ -1,6 +1,6 @@
 import * as THREE from "./vendor/three.module.js";
 import {applyMossSurface} from './moss-surface.js';
-import {createForestRockGeometry} from './weathered-rock-geometry.js';
+import {createForestRockGeometry,applyRockWearNormals} from './weathered-rock-geometry.js';
 import { updateInstancedWindBounds } from "./render-visibility.js";
 import { getForestHeight } from "./forest-terrain.js";
 import { WATER_LEVEL, WORLD_BOUNDS } from "./terrain.js";
@@ -464,7 +464,7 @@ export class ForestRenderer {
       green: material(shared.greenLeaves, 0xc8d7b5),
       purple: material(shared.purpleNeedles, 0xe4c9ef),
       flower: material(null, 0xffffff, { emissive: new THREE.Color(0x27182e), emissiveIntensity: 0.12 }),
-      rock: material(shared.rock, 0xe4a16b),
+      rock: material(shared.rock, 0xe4a16b, {flatShading:false}),
       moss: material(shared.moss, 0x688755),
       wood: material(null, 0xd5b78b),
     };
@@ -481,7 +481,7 @@ export class ForestRenderer {
       ground: forestGroundGeometry(this.forest), needles: spruceNeedles(true), lowNeedles: spruceNeedles(false),
       distantNeedles: spruceNeedles("distant"),
       grass: grassGeometry(), fern: fernGeometry(), flower: flowerGeometry(), cone: coneGeometry(),
-      rock: createForestRockGeometry(),
+      rock: applyRockWearNormals(createForestRockGeometry()),
     };
     this.geometries.moss = mossGeometry(this.geometries.rock);
     const ground = new THREE.Mesh(this.geometries.ground, [this.materials.ground, this.materials.rock, this.materials.shore]);

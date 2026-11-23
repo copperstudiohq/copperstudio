@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { SEABED_LEVEL,WATER_LEVEL } from './terrain.js';
+import {createOrangeBorderGeometry} from './orange-border-geometry.js';
 
 const SCALE=25;
 const RIDGE=[.42,.90,.64,.46,.91,1,.62,.43,.93,.68,.40];
@@ -9,6 +10,7 @@ const RIDGE=[.42,.90,.64,.46,.91,1,.62,.43,.93,.68,.40];
  * All ranges still share one ice draw and one orange-stone draw.
  * @param {import('./biomes.js').Border[]} borders @param {'iceberg'|'stone'} kind */
 export function createMountainRangeGeometry(borders,kind) {
+  if(kind==='stone')return createOrangeBorderGeometry(borders);
   const positions=[],colors=[],ranges=[];
   const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),normal=new THREE.Vector3();
   const tint=new THREE.Color();
