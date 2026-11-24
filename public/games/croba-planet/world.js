@@ -26,6 +26,7 @@ import { applyLanternStings } from './lantern-stingers.js';
 import { updateLanternJellyfish } from './lantern-jellyfish.js';
 import {resolveWreckCollision} from './wreck-collision.js';
 import {resolveWorldRockMovement} from './world-rock-collision.js';
+import {getOrangeCliffSurface,resolveOrangeCliffMovement} from './orange-cliff-surface.js';
 import {resolveLargeGlacierWreckCollision} from './large-glacier-wreck.js';
 import {resolveBasinMerchCollision} from './basin-merch-collision.js';
 import {resolveCrobanMangoCollision} from './croban-mango-collision.js';
@@ -103,15 +104,26 @@ export function getPlatformAt(world, x, y) {
   const support=getStructureSupport(world,x,y);
   if(support!==null&&world.player.z>=support-8)return{id:'built-structure-floor',kind:'structure',x,y,z:support,rx:0,ry:0,seed:0};
   const ice = highestIceAt(world.platforms, x, y);
+  const cliff=orangeCliffSupport(world,x,y);
+  const z=getLandHeight(world,x,y,cliff?.z??null);
+  if(cliff&&cliff.z>=SURFACE_FEET&&cliff.z>=z-1e-6&&(!ice||cliff.z>getIceSurfaceHeight(ice,x,y)))
+    return{id:`orange-cliff-${cliff.triangleId}`,kind:'orange-cliff',x,y,z:cliff.z,rx:0,ry:0,seed:0};
   if (ice) return ice;
-  const z = getLandHeight(world, x, y);
   return z !== null && z >= SURFACE_FEET
     ? { id: getSulfuricGround(x,y)!==null?SULFURIC_LAND.id:world.forest.id, kind: getSulfuricGround(x,y)!==null?'sulfuric-land':'forest', x, y, z, rx: 0, ry: 0, seed: 0 } : undefined;
 }
 
-function getLandHeight(world,x,y){
+/** A finite apron is a ceiling, rather than a ground column, while the feet
+ * are below its bottom. Its separate body sweep owns any head contact. */
+function orangeCliffSupport(world,x,y){
+  const surface=getOrangeCliffSurface(x,y,world.borders);
+  return surface&&Number.isFinite(surface.low)&&world.player?.z<surface.low-1e-6?null:surface;
+}
+
+function getLandHeight(world,x,y,cliffHeight=orangeCliffSupport(world,x,y)?.z??null){
   const forest=getForestHeight(world,x,y),sulfur=getSulfuricGround(x,y);
-  return forest===null?sulfur:sulfur===null?forest:Math.max(forest,sulfur);
+  const land=forest===null?sulfur:sulfur===null?forest:Math.max(forest,sulfur);
+  return cliffHeight===null?land:land===null?cliffHeight:Math.max(land,cliffHeight);
 }
 
 function groundHeight(world, x, y) {
@@ -403,6 +415,26 @@ export function jumpPlayer(world) {
 function climbLedge(world, x, y, vertical, diving) {
   const player = world.player;
   if (diving || player.z < SURFACE_FEET - 10) return false;
+  // The body radius meets a rock toe before its centre enters the top face.
+  // Probe the existing short hand reach, then plant the feet just inside that
+  // same visible ledge. Deeply embedded or higher faces are never pulled up.
+  const travel=Math.hypot(x-player.x,y-player.y);
+  if(travel>1e-6||vertical>0){
+    const vx=travel>1e-6?(x-player.x)/travel:Math.cos(player.heading??0);
+    const vy=travel>1e-6?(y-player.y)/travel:Math.sin(player.heading??0);
+    for(let reach=0;reach<=LEDGE_REACH;reach++){
+      const edge=getOrangeCliffSurface(x+vx*reach,y+vy*reach,world.borders);
+      if(!edge||edge.z<SURFACE_FEET||edge.z>player.z+LEDGE_REACH||edge.normal.z<1/Math.sqrt(1+.65**2))continue;
+      const px=x+vx*(reach+PLAYER_RADIUS+1),py=y+vy*(reach+PLAYER_RADIUS+1);
+      const top=getOrangeCliffSurface(px,py,world.borders);
+      if(!top||top.z<SURFACE_FEET||top.z>player.z+LEDGE_REACH||top.normal.z<1/Math.sqrt(1+.65**2))continue;
+      const candidate={x:px,y:py,z:top.z},clear=resolveOrangeCliffMovement(candidate,candidate,EYE_HEIGHT,PLAYER_RADIUS,world.borders);
+      if(Math.hypot(clear.x-px,clear.y-py)>1e-4||Math.abs(clear.z-top.z)>1e-4)continue;
+      Object.assign(player,candidate,{swimming:false,underwater:false,wetTime:0,jumping:false,jumpTime:0});
+      clearForestFall(player);delete player.jumpBaseZ;
+      return true;
+    }
+  }
   const forestHeight = getLandHeight(world, x, y);
   if (forestHeight !== null && forestHeight >= SURFACE_FEET && forestHeight <= player.z + LEDGE_REACH) {
     Object.assign(player, { x, y, z: forestHeight, swimming: false, underwater: false,
@@ -582,6 +614,10 @@ export function updateWorld(world, input, dt, options = {}) {
   const previousCave=player.basinCaveId;
   const caveMoved=stepSaltCavePlayer(world,input,dx,dy,delta,getSulfuricGround)||stepBasinCavePlayer(world,input,dx,dy,delta);
   if(!caveMoved){
+    // New raised rock can intersect an older expedition pose. Clear that body
+    // sideways before swimming/ground support can pull it onto a distant top.
+    Object.assign(player,resolveOrangeCliffMovement(player,player,EYE_HEIGHT,PLAYER_RADIUS,world.borders));
+    Object.assign(beforeMovement,{x:player.x,y:player.y,z:player.z});
     const jumpPressed = Boolean(input.jump);
     if (jumpPressed && !world.lastJumpInput && !player.swimming)
       jumpPlayer(world);
@@ -589,7 +625,13 @@ export function updateWorld(world, input, dt, options = {}) {
     const jumpOrigin = player.jumpBaseZ;
     if (dx || dy) player.heading = Math.atan2(dy, dx);
 
-    if (player.swimming) swim(world, input, dx, dy, delta);
+    if (player.swimming){
+      swim(world,input,dx,dy,delta);
+      // Like the existing ice hand-pull, a short assisted rock ledge entry is
+      // already body-clear. Subsequent sweeps begin at its planted position.
+      if(!player.swimming&&getPlatformAt(world,player.x,player.y)?.kind==='orange-cliff')
+        Object.assign(beforeMovement,{x:player.x,y:player.y,z:player.z});
+    }
     else {
       const speed = player.jumping ? JUMP_SPEED : WALK_SPEED;
       player.x += dx * speed * delta;
@@ -633,13 +675,18 @@ export function updateWorld(world, input, dt, options = {}) {
     Object.assign(player, resolveSquidMovement(world, beforeMovement, player));
     Object.assign(player,resolveWorldRockMovement(beforeMovement,player,EYE_HEIGHT,PLAYER_RADIUS,activeWorldRocks(world).rocks));
     Object.assign(player,resolveStructureMovement(world,beforeMovement,player));
+    const cliffCandidateZ=player.z;
+    Object.assign(player,resolveOrangeCliffMovement(beforeMovement,player,EYE_HEIGHT,PLAYER_RADIUS,world.borders));
+    if(!player.swimming&&player.z>cliffCandidateZ+1e-6&&beforeMovement.z>=player.z-1e-6){
+      player.jumping=false;player.jumpTime=0;delete player.jumpBaseZ;clearForestFall(player);
+    }
     if (player.swimming)
       player.z = Math.max(player.z, getSeabedHeight(player.x, player.y));
     const atBorder = confineToWorld(player);
     if (atBorder && world.noticeTime <= 0)
       announce(world, getBiome(player.x) === "arctic"
         ? "Towering icebergs block the edge of the Arctic. Explore east toward the blue ocean."
-        : "Stone cliffs mark the ocean’s outer edge. Turn back toward the ocean shelves and blue kelp.");
+        : "Stone cliffs mark the ocean’s outer edge. Follow the rocky ledges and climbing slopes along the coast.");
     resolveForestFall(world, beforeMovement, jumpOrigin);
     if (
       !player.swimming &&

@@ -17,6 +17,10 @@ test('Croba guide explains the new deep basin and swimmable submarine', () => {
   assert.match(ask('Can I explore the broken submarine in Croba Planet?', 'croba', 'croba-submarine'), /swimmable interior.*Space ascends.*Shift descends.*oxygen/);
 });
 
+test('Croba climbing guidance uses normal controls and preserves expedition progress', () => {
+  assert.match(ask('How do I climb orange coastal cliffs in Croba Planet?', 'croba', 'croba-cliff-climb'), /waterline.*crest lookout.*WASD.*Space.*automatically.*saves keep your mid-climb position/);
+});
+
 test('Blackroot guide distinguishes house inspections from hostile guards', () => {
   const answer = ask('What do the village patrol guards do in Blackroot Vale?', 'blackroot', 'blackroot-village-patrol');
   assert.match(answer, /two randomly chosen Thornwick houses.*escort waits outside/);

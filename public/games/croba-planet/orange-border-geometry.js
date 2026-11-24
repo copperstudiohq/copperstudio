@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import {SEABED_LEVEL} from './terrain.js';
 import {getSulfuricGround} from './sulfuric-biome.js';
+import {getOrangeCliffMeshData} from './orange-cliff-surface.js';
 
 const SCALE=25,STEP_METERS=5;
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -108,9 +109,14 @@ export function createOrangeBorderGeometry(borders){
     ranges.push({id:wall.id,start,count:positions.length/3-start});
   }
   const geometry=new THREE.BufferGeometry();geometry.name='connected-weathered-orange-border';
+  const cliff=getOrangeCliffMeshData(borders);
+  for(let i=0;i<cliff.positions.length;i+=3){
+    const point=[cliff.positions[i],cliff.positions[i+1],cliff.positions[i+2]];
+    positions.push(...point);colors.push(...colorAt(point));
+  }
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();
   geometry.userData={ranges,sharedCrestEndpoints:[...nodes.values()].filter(node=>node.owners>1).length,
-    profileVertices:9,alongshoreStepMeters:STEP_METERS};return geometry;
+    profileVertices:9,alongshoreStepMeters:STEP_METERS,climbableTriangles:cliff.positions.length/9};return geometry;
 }

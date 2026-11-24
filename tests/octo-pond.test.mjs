@@ -105,6 +105,48 @@ test('Pond creature-model help points to the actual inspector and land roster', 
   assert.match(answer, /choose a species in the roster.*animal or egg.*Follow creature/);
 });
 
+test('Pond trees and extra limbs explain growth, inheritance and species selection', () => {
+  const trees = fact('How do I grow trees and find tree species in Pond?', 'pond-trees');
+  assert.match(trees, /grass matures.*up to 15 trees per planet on dry ground/i);
+  assert.match(trees, /seed determines.*branch pattern.*widest zoom.*Land controls.*Trees.*manual system saves and backup files/);
+  const limbs = fact('How do extra limbs mutate and mark matching species in Pond?', 'pond-species-mutations');
+  assert.match(limbs, /extra limbs.*grow as they mature.*Mutations can change their number and layout.*offspring can inherit/);
+  assert.match(limbs, /same species in the current view.*body build, leg count and diet.*View lineage/);
+});
+
+test('Pond species-call guidance explains explicit microphone permission and bounded local recordings', () => {
+  const answer = fact('How do I record a species call with a microphone in Pond?', 'pond-species-calls');
+  assert.match(answer, /Species call → Record call; only that click asks.*microphone permission/);
+  assert.match(answer, /4 seconds and 96 KiB per clip.*one clip per species.*8 species per planet/);
+  assert.match(answer, /Play call and Remove call appear after recording.*Record again replaces/);
+  assert.match(answer, /Audio stays on your device.*manually save.*download a backup/);
+  assert.match(answer, /no upload, recording backend or paid speech service/);
+});
+
+test('Pond call follow-ups retain game context and explain playback after page reload', () => {
+  const memory = createOctoChat();
+  ask('Tell me about Pond', memory);
+  for (const question of ['How do I enable calls?', 'Why are species calls silent after reloading?', 'Can I remove a recording?', 'Do species call recordings use a paid service?']) {
+    const answer = ask(question, memory);
+    assert.equal(answer.command, null, question);
+    assert.equal(answer.links[0]?.href, url, question);
+    assert.match(answer.reply, /Enable calls.*animals in view.*Mute calls.*Record call and Play call also enable playback/, question);
+    assert.match(answer.reply, /Calls start off after reloading the page; playback enablement stays in memory/, question);
+    assert.match(answer.reply, /no upload.*paid speech service/, question);
+  }
+  assert.match(ask('How do I save Pond?').reply, /Trees and recorded species calls.*manual saves and backups.*calls start off after reloading the page/);
+});
+
+test('Pond recording help keeps Octo chat separate from game microphone access', () => {
+  for (const question of ['Does this chat access a microphone in Pond?', 'Octo can you record a call for me in Pond?', 'Does this chat use paid AI for Pond recordings?']) {
+    const answer = ask(question);
+    assert.equal(answer.command, null, question);
+    assert.match(answer.reply, /local pattern-matching.*no paid AI calls.*does not access your microphone/, question);
+    assert.match(answer.reply, /page session; reloading clears them/, question);
+    assert.doesNotMatch(answer.reply, /only that click asks/, question);
+  }
+});
+
 test('Pond eggs, lineage and habitats have bounded source-checked guidance', () => {
   assert.match(fact('How do land eggs hatch and what is the population cap in Pond?', 'pond-land-eggs'), /lone founder.*incubation.*Reserved egg spaces.*five active land species and six creatures per species/);
   assert.match(fact('How do I inspect lineage and ancestors in Pond?', 'pond-lineage-following'), /View lineage.*pauses.*Recent dead ancestors.*Follow creature/);
