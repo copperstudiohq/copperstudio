@@ -15,16 +15,19 @@ const moss=PREPARED_SPIRES_MARINE_GROWTH.find(site=>site.id==='submarine-moss-16
 const route=getOrangeCliffRoutes().find(route=>route.region==='main')??getOrangeCliffRoutes()[0];
 const cliffViews=[];
 if(route){
-  const length=Math.hypot(route.foot.x-route.crest.x,route.foot.y-route.crest.y)||1;
-  const nx=(route.foot.x-route.crest.x)/length,ny=(route.foot.y-route.crest.y)/length;
+  const length=Math.hypot(route.foot.x-route.lookout.x,route.foot.y-route.lookout.y)||1;
+  const nx=(route.foot.x-route.lookout.x)/length,ny=(route.foot.y-route.lookout.y)/length;
   const x=route.foot.x+nx*650-ny*180,y=route.foot.y+ny*650+nx*180;
   const mid=route.path[Math.floor(route.path.length/2)];
   cliffViews.push(
     {id:'border',name:'Orange cliffs · jagged climbing ledges',x,y,z:Math.max(route.foot.z+90,(getOrangeCliffSurface(x,y)?.z??-Infinity)+90),target:mid,cliff:true},
-    {id:'border-climb',name:'Orange cliffs · halfway up',...mid,target:route.crest,cliff:true},
-    {id:'border-crest',name:'Orange cliffs · crest lookout',...route.crest,target:route.foot,cliff:true});
+    {id:'border-climb',name:'Orange cliffs · lower climbing ledges',...mid,target:route.summit,cliff:true},
+    {id:'border-lookout',name:'Orange cliffs · lower lookout beneath the sheer rim',...route.lookout,target:route.summit,cliff:true});
 }
 const views=[
+  {id:'starter',name:'Crash glacier · polar daylight',x:-5505,y:-1120,z:16,surface:true,target:{x:-5650,y:-850,z:35}},
+  {id:'caustics',name:'Seabed · swirling sunlight',x:850,y:600,z:-257.922659874,target:{x:725,y:600,z:-272.610902786}},
+  {id:'caustics-clear',name:'Open sand · continuous light patterns',x:-6250,y:-7000,z:-266,target:{x:-6250,y:-7125,z:-280}},
   {id:'shallows',name:'Arctic shallows',x:1000,y:600,lift:16,yaw:-.45,pitch:-.30},
   {id:'rocks',name:'Arctic seabed · uneven boulders',x:940,y:-60,lift:12,target:{x:758.794709,y:-254.660037,z:-240}},
   {id:'cliff',name:'Cliff Biome · sandy fissure',x:190,y:-15,lift:5,yaw:3.14,pitch:-.07},
@@ -37,7 +40,8 @@ const views=[
   {id:'forest',name:'Violet Spruce Forest · mossy rock',x:3551.421,y:1643.92,forest:true,target:{x:3551.421,y:1698.92,z:146.8}},
 ];
 let scene,world,time=0,frame=0,last=0,animating=false,hike=null,hikeMessage='';
-let index=Math.max(0,views.findIndex(v=>v.id===new URLSearchParams(location.search).get('view')));
+const requestedView=new URLSearchParams(location.search).get('view');
+let index=Math.max(0,views.findIndex(v=>v.id===(requestedView==='border-crest'?'border-lookout':requestedView)));
 const status=document.querySelector('#status'),button=document.querySelector('#animate');
 function draw(dt=0){
   scene.draw(world,time,dt,false);
@@ -50,7 +54,7 @@ function draw(dt=0){
 }
 function viewpoint(){
   hike=null;hikeMessage='';
-  const v=views[index];Object.assign(world.player,{x:v.x,y:v.y,z:v.forest?getForestHeight(world,v.x,v.y):v.z??getSeabedHeight(v.x,v.y)+v.lift,swimming:!v.forest&&!v.cliff,underwater:!v.forest&&!v.cliff});
+  const v=views[index];Object.assign(world.player,{x:v.x,y:v.y,z:v.forest?getForestHeight(world,v.x,v.y):v.z??getSeabedHeight(v.x,v.y)+v.lift,swimming:!v.forest&&!v.cliff&&!v.surface,underwater:!v.forest&&!v.cliff&&!v.surface});
   const dx=v.target?v.target.x-v.x:0,dy=v.target?v.target.y-v.y:0;
   scene.setLook(v.target?Math.atan2(dx,-dy):v.yaw,v.target?Math.atan2(v.target.z-world.player.z-EYE_HEIGHT,Math.hypot(dx,dy)):v.pitch);
   document.querySelector('#view-name').textContent=v.name;document.querySelector('#climb').hidden=!v.cliff;draw();
@@ -62,7 +66,7 @@ function stepHike(){
   const support=getOrangeCliffSurface(player.x,player.y,world.borders);
   const grounded=!player.swimming&&!player.jumping&&!player.falling&&support&&Math.abs(player.z-support.z)<1;
   if(distance<6&&Math.abs(player.z-target.z)<=8&&grounded){
-    if(++hike.index===hike.points.length){hike=null;hikeMessage='Climb complete · standing on the rock crest';stop();return;}
+    if(++hike.index===hike.points.length){hike=null;hikeMessage='Reached the lower lookout · the upper rim is too steep to climb';stop();return;}
     return;
   }
   if(distance>1e-6)scene.setLook(Math.atan2(dx,-dy),Math.atan2(target.z-player.z,Math.max(100,distance)));
@@ -78,10 +82,10 @@ document.querySelector('#next').onclick=()=>{index=(index+1)%views.length;viewpo
 button.onclick=()=>{if(animating){stop();return;}animating=true;button.textContent='Pause';button.setAttribute('aria-pressed','true');last=0;frame=requestAnimationFrame(loop);};
 document.querySelector('#climb').onclick=()=>{
   if(!route)return;stop();world=createWorld();time=world.elapsed;
-  const length=Math.hypot(route.foot.x-route.crest.x,route.foot.y-route.crest.y)||1;
-  const approach=route.approach??{x:route.foot.x+(route.foot.x-route.crest.x)/length*20,y:route.foot.y+(route.foot.y-route.crest.y)/length*20,z:SURFACE_FEET};
+  const length=Math.hypot(route.foot.x-route.lookout.x,route.foot.y-route.lookout.y)||1;
+  const approach=route.approach??{x:route.foot.x+(route.foot.x-route.lookout.x)/length*20,y:route.foot.y+(route.foot.y-route.lookout.y)/length*20,z:SURFACE_FEET};
   Object.assign(world.player,approach,{swimming:true,underwater:false});
-  hike={points:[route.foot,...route.path,route.crest],index:0,ticks:0,blocked:0,previous:{x:world.player.x,y:world.player.y}};hikeMessage='Approaching the first climbing ledge';
+  hike={points:[route.foot,...route.path,route.lookout],index:0,ticks:0,blocked:0,previous:{x:world.player.x,y:world.player.y}};hikeMessage='Approaching the first climbing ledge';
   document.querySelector('#view-name').textContent='Orange cliffs · walking the real climbing route';
   button.onclick();
 };

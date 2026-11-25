@@ -11,24 +11,28 @@ function smooth(a, b, value) { const t = clamp((value - a) / (b - a)); return t 
  */
 export function sampleCausticWeb(x, z, time = 0) {
   if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(time)) return 0;
-  const px = x * 1.75, pz = z * 1.75;
-  const qx = px + .52 * Math.sin(px * 1.17 + pz * .83 + time * .43) + time * .045;
-  const qz = pz + .47 * Math.sin(-px * .91 + pz * 1.1 - time * .37) - time * .031;
+  const px = x * 1.35, pz = z * 1.35;
+  const flowA = Math.sin(px * .47 + pz * .36 + time * .19);
+  const flowB = Math.sin(-px * .33 + pz * .51 - time * .16);
+  const qx = px + .24 * Math.sin(px * 1.17 + pz * .83 + time * .43) + .6 * (.36 * flowA + .51 * flowB) + time * .045;
+  const qz = pz + .22 * Math.sin(-px * .91 + pz * 1.1 - time * .37) + .6 * (-.47 * flowA + .33 * flowB) - time * .031;
   const ix = Math.floor(qx), iz = Math.floor(qz), fx = fract(qx), fz = fract(qz);
-  let first = 8, second = 8, third = 8;
+  let first = 8, second = 8, third = 8, localStrength = 0, localWeight = 0;
   for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
     let a = fract((ix + i) * .1031), b = fract((iz + j) * .1030), c = fract((ix + i) * .0973);
     const mix = a * (b + 33.33) + b * (c + 33.33) + c * (a + 33.33);
     a += mix; b += mix; c += mix;
-    const dx = i + .04 + fract((a + b) * c) * .92 - fx;
-    const dz = j + .04 + fract((a + c) * b) * .92 - fz;
+    const sx = fract((a + b) * c), sz = fract((a + c) * b);
+    const dx = i + .04 + sx * .92 - fx, dz = j + .04 + sz * .92 - fz;
     const distance = dx * dx + dz * dz, low = Math.min(first, distance), high = Math.max(first, distance);
+    const weight = Math.max(0, 1 - distance) ** 2;
+    localStrength += (sx * .6 + sz * .4) * weight; localWeight += weight;
     third = Math.min(third, Math.max(second, high)); second = Math.min(second, high); first = low;
   }
   const nearest = Math.sqrt(first), edge = Math.sqrt(second) - nearest, junction = Math.sqrt(third) - nearest;
-  const focus = .22 + .78 * smooth(-.65, .85, Math.sin(px * .71 + pz * .93 - time * .28));
-  return clamp(((1 - smooth(.025, .12, edge)) * .55 + (1 - smooth(.045, .22, edge)) * .2) * focus
-    + (1 - smooth(.025, .14, junction)) * .1);
+  const localFocus = .82 + .18 * localStrength / Math.max(.0001, localWeight);
+  return clamp(((1 - smooth(.025, .12, edge)) * .55 + (1 - smooth(.045, .24, edge)) * .22) * localFocus
+    + (1 - smooth(.025, .14, junction)) * .06);
 }
 
 /** Metre-based visibility envelope shared with the shader's attenuation model.
@@ -77,30 +81,41 @@ export function createOceanCausticsMaterial({ waterLevel = WATER_LEVEL / 25,
         return fract((p.xx+p.yz)*p.zy);
       }
       float causticWeb(vec2 world){
-        vec2 p=world*1.75;
+        vec2 p=world*1.35;
+        float flowA=sin(dot(p,vec2(.47,.36))+time*.19);
+        float flowB=sin(dot(p,vec2(-.33,.51))-time*.16);
+        // Curl changes shape only. Gentle displacement avoids compressing
+        // many cells into narrow corridors; it never gates their brightness.
+        vec2 curl=vec2(.36*flowA+.51*flowB,-.47*flowA+.33*flowB);
         vec2 wave=vec2(sin(dot(p,vec2(1.17,.83))+time*.43),
                        sin(dot(p,vec2(-.91,1.1))-time*.37));
-        vec2 q=p+wave*vec2(.52,.47)+time*vec2(.045,-.031);
+        vec2 q=p+wave*vec2(.24,.22)+curl*.6+time*vec2(.045,-.031);
         vec2 cell=floor(q),local=fract(q);
         vec3 nearest=vec3(8.);
+        float localStrength=0.,localWeight=0.;
         // Fixed nine candidates; no extra texture, ray march or framebuffer.
         for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
           vec2 offset=vec2(float(x),float(y));
-          vec2 delta=offset+.04+causticSeed(cell+offset)*.92-local;
+          vec2 seed=causticSeed(cell+offset);
+          vec2 delta=offset+.04+seed*.92-local;
           float d=dot(delta,delta),low=min(nearest.x,d),high=max(nearest.x,d);
+          // Compact radial weights provide continuous local2D variation from
+          // these same nine seeds, including across integer cell boundaries.
+          float weight=max(0.,1.-d);weight*=weight;
+          localStrength+=dot(seed,vec2(.6,.4))*weight;localWeight+=weight;
           nearest.z=min(nearest.z,max(nearest.y,high));
           nearest.y=min(nearest.y,high);nearest.x=low;
         }
         nearest=sqrt(nearest);
         float edge=nearest.y-nearest.x,junction=nearest.z-nearest.x;
-        // Derivative coverage keeps narrow light folds stable on phones and
-        // distant terrain. A soft skirt and moving focus break rigid outlines.
+        // Every cell keeps its curved pattern; local focus stays above82%.
+        // Dark pockets belong to individual cells, not world-scale bands.
         float aa=min(.075,fwidth(edge)*.65);
         float fine=1.-smoothstep(.025-aa,.12+aa,edge);
-        float soft=1.-smoothstep(.045,.22+aa,edge);
+        float soft=1.-smoothstep(.045,.24+aa,edge);
         float cusp=1.-smoothstep(.025,.14+aa,junction);
-        float focus=.22+.78*smoothstep(-.65,.85,sin(dot(p,vec2(.71,.93))-time*.28));
-        return clamp((fine*.55+soft*.2)*focus+cusp*.1,0.,1.);
+        float localFocus=.82+.18*localStrength/max(.0001,localWeight);
+        return clamp((fine*.55+soft*.22)*localFocus+cusp*.06,0.,1.);
       }
       void main(){
         float depth=waterLevel-vWorld.y;
@@ -115,7 +130,7 @@ export function createOceanCausticsMaterial({ waterLevel = WATER_LEVEL / 25,
         #include <colorspace_fragment>
       }`,
   });
-  material.userData.causticModel = 'advected-fold-web';
+  material.userData.causticModel = 'distributed-caustic-web';
   material.userData.borrowedWaterField = true;
   return material;
 }

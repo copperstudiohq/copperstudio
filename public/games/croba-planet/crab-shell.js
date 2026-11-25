@@ -6,16 +6,22 @@ import { CRAB_SIZE } from './crab-size.js';
  */
 export function crabShellRadiusAt(u, angle) {
   const spiral = u * Math.PI * 2 * 5.4 - angle;
-  const crease = Math.exp(-((Math.sin(spiral * .5) / .15) ** 2));
+  const crease = Math.exp(-((Math.sin(spiral * .5) / .19) ** 2));
   const growth = Math.sin(u * Math.PI * 2 * 64 + angle * .25);
-  return ((CRAB_SIZE.shellWidth * .5 - .002) * (1 - u) ** .74 + .002)
-    * (1 - crease * .11 + growth * .012);
+  // Broad swollen turns, a rounded projecting lip and a recessed lower seam
+  // make a gastropod spire. The flatter taper leaves the upper turns full.
+  const swell = (.5 + .5 * Math.cos(spiral - .88)) ** .65;
+  const shoulder = .79 + .21 * swell;
+  return ((CRAB_SIZE.shellWidth * .5 - .002) * (1 - u) ** .53 + .002)
+    * (shoulder - crease * .34 + growth * .004);
 }
 
 const resolution = mobile => mobile ? [40, 20] : [64, 32];
 const point = (u, angle, inside = false) => {
   const radius = Math.max(.001, crabShellRadiusAt(u, angle) - (inside ? .004 : 0));
-  return [Math.sin(angle) * radius, u * CRAB_SIZE.shellHeight, Math.cos(angle) * radius];
+  const lean = Math.sin(u * Math.PI) * u;
+  return [Math.sin(angle) * radius + .023 * lean, u * CRAB_SIZE.shellHeight,
+    Math.cos(angle) * radius + .009 * Math.sin(u * Math.PI * 1.5) * u];
 };
 
 /** Exact point on the rendered outer triangle, not on an idealized curve.
@@ -34,8 +40,8 @@ export function crabShellSurfaceAt(u, angle, { mobile = false } = {}) {
   return b.multiplyScalar(1 - f).addScaledVector(c, 1 - g).addScaledVector(d, f + g - 1);
 }
 
-/** Original tall marine-snail shell. Spiral sutures, growth ridges and an open,
- * thick aperture are actual surfaces. Pigment multiplies neutral PBR relief.
+/** Original tall marine-snail shell. Spiral sutures, growth ridges and a closed
+ * front are actual surfaces. Pigment multiplies neutral PBR relief.
  * Its unusually tall proportions are the requested alien carried-shell design.
  */
 export function createCrabCarriedShell({ mobile = false } = {}) {
@@ -49,13 +55,11 @@ export function createCrabCarriedShell({ mobile = false } = {}) {
     position.push(...point(u, angle, inside)); uv.push(col / columns, u * 4);
     const spiral = u * Math.PI * 2 * 5.4 - angle;
     tint.copy(inside ? inner : gold).lerp(ridge, inside ? .08 : Math.exp(-((Math.sin(spiral * .5) / .19) ** 2)) * .75);
-    tint.multiplyScalar(.91 + .09 * Math.sin(angle * 11 + u * 173) ** 2);
+    const shoulderLight = .91 + .09 * Math.cos(spiral - .52) ** 2;
+    tint.multiplyScalar(shoulderLight * (.96 + .04 * Math.sin(angle * 11 + u * 173) ** 2));
     color.push(tint.r, tint.g, tint.b);
   }
   for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
-    const u = (row + .5) / rows, angle = (col + .5) / columns * Math.PI * 2;
-    const apertureAngle = Math.atan2(Math.sin(angle - Math.PI), Math.cos(angle - Math.PI));
-    if (((u - .075) / .13) ** 2 + (apertureAngle / .95) ** 2 < 1) continue;
     const a = row * (columns + 1) + col, b = a + columns + 1;
     // Increasing angle winds clockwise viewed from above; both normals face
     // into their corresponding free space rather than inverting the shell.
@@ -75,8 +79,16 @@ export function createCrabCarriedShell({ mobile = false } = {}) {
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(position.length), 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geometry.setIndex(index);
-  geometry.computeVertexNormals(); geometry.computeBoundingBox(); geometry.computeBoundingSphere();
-  geometry.userData = { carriedShell: true, aperture: true, whorls: 5.4, pigment: 'gold',
+  geometry.computeVertexNormals();
+  // Wrapped vertices share a smooth normal across the spiral's UV seam.
+  const normals = geometry.attributes.normal, normal = new THREE.Vector3(), other = new THREE.Vector3();
+  for (const offset of [0, vertices]) for (let row = 0; row <= rows; row++) {
+    const first = offset + row * (columns + 1), last = first + columns;
+    normal.fromBufferAttribute(normals, first).add(other.fromBufferAttribute(normals, last)).normalize();
+    normals.setXYZ(first, normal.x, normal.y, normal.z); normals.setXYZ(last, normal.x, normal.y, normal.z);
+  }
+  geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+  geometry.userData = { carriedShell: true, aperture: false, whorls: 5.4, pigment: 'gold',
     widthMeters: CRAB_SIZE.shellWidth, heightMeters: CRAB_SIZE.shellHeight };
   return geometry;
 }

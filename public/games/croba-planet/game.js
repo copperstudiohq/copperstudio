@@ -2,6 +2,8 @@ import {createQuickSlotsPanel} from './quick-slots-ui.js';
 import {saveRenderDistance} from './render-distance-settings.js';
 import {useQuickItem,equippedHint} from './tool-actions.js';
 import {createSimulationClock} from './simulation-clock.js';
+import {sampleDayNight} from './day-night-cycle.js';
+import {setupMobileHud} from './mobile-hud.js';
 import {insideUniversalBase,rotateBuildPlan,removeNearbyFurniture} from './base-building.js';
 import {activeQuickItem,selectQuickSlot,releaseQuickUse,nearbyCopperCargo,interactCopperCargo} from './copper-yoyo.js';
 import { finishLoading,showStartupError } from './loading-screen.js';
@@ -58,6 +60,7 @@ try {
   const inputButtons = [...directionButtons, element("movement-stick"), element("touch-jump"), element("touch-dive"), element("touch-use")];
   const menu = /** @type {HTMLDialogElement} */ (element("menu"));
   const bestiary = /** @type {HTMLDialogElement} */ (element("bestiary"));
+  const mobileHud=setupMobileHud({document,window});
   let expeditionUI=null,quickSlotsPanel=null;
   let mouseToyHeld=false,toyPointerId=null;
   const minimap = /** @type {HTMLCanvasElement} */ (element("minimap"));
@@ -91,6 +94,7 @@ try {
   const regionMusic=createRegionMusic();
   const regionalAmbientNoise=createRegionalAmbientNoise();
   let lastHudUpdate = -1;
+  const hudDayNight={};
   let lookIsTouch = false;
   let lastTouchTime = -Infinity;
   let wasPointerLocked = false;
@@ -178,6 +182,7 @@ try {
   }
 
   function setPaused(value) {
+    mobileHud.closeAll();
     const nextPaused = value || graphicsLost || Boolean(document.hidden);
     if (nextPaused !== paused) {
       sceneDirty = true;
@@ -428,6 +433,8 @@ try {
       "aria-label",
       mapOpen ? "Close expedition map" : "Open expedition map",
     );
+    element('mobile-map-toggle').setAttribute('aria-expanded',String(mapOpen));
+    element('mobile-map-toggle').setAttribute('aria-label',mapOpen?'Close expedition map':'Open expedition map');
     scene.drawMap(minimap, world);
     focusGame();
   }
@@ -617,6 +624,14 @@ try {
   }
 
   function updateHud() {
+    const daylight=sampleDayNight(world.elapsed,hudDayNight),minutes=Math.floor(daylight.hour*60);
+    const clockTime=`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`;
+    const clockText=`Day ${daylight.day} · ${clockTime}`,phaseText=daylight.phase[0].toUpperCase()+daylight.phase.slice(1);
+    const clock=element('world-clock'),phase=element('day-phase');
+    if(clock.textContent!==clockText){clock.textContent=clockText;clock.setAttribute('datetime',clockTime);}
+    if(phase.textContent!==phaseText)phase.textContent=phaseText;
+    const footerDay=element('expedition-day'),dayText=`DAY ${String(daylight.day).padStart(2,'0')}`;
+    if(footerDay.textContent!==dayText)footerDay.textContent=dayText;
     quickSlotsPanel?.render(started&&!paused&&!activeEncounter());
     const heldHint=started&&!paused&&!activeEncounter()?equippedHint(world):'';
     element('equipped-hint').hidden=!heldHint;element('equipped-hint').textContent=heldHint;
@@ -787,6 +802,7 @@ try {
   element("close-menu").addEventListener("click", closeMenu);
   element("restart").addEventListener("click", resetGame);
   element("map-toggle").addEventListener("click", toggleMap);
+  element("mobile-map-toggle").addEventListener("click", toggleMap);
   element("sound").addEventListener("click", toggleSound);
   element("touch-interact").addEventListener("click", recordDiscovery);
   menu.addEventListener("cancel", (event) => {
@@ -1142,6 +1158,7 @@ try {
       regionMusic.dispose();
       regionalAmbientNoise.dispose();
       openingPlayer.dispose();
+      mobileHud.dispose();
       audio?.close().catch(() => {});
       scene.dispose();
     },

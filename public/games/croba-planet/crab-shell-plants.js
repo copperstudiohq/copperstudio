@@ -2,15 +2,15 @@ import * as THREE from './vendor/three.module.js';
 import { PlantMesh } from './plant-mesh.js';
 import { crabShellSurfaceAt } from './crab-shell.js';
 
-// Authored flank positions. All are above the front aperture and remain fixed
+// Authored flank positions. All grow on the solid shell and remain fixed
 // in the shell's local metres; there is no runtime scatter or extra animation.
 const PATCHES = [
-  [.31, .60, .095, 0x267bb5, 0x75c6d9],
-  [.46, 1.90, .110, 0x2d8955, 0x82b780],
-  [.55, 3.50, .100, 0x6934a0, 0xa982cf],
-  [.67, 5.00, .120, 0x267bb5, 0x75c6d9],
-  [.78, 2.60, .100, 0x2d8955, 0x82b780],
-  [.90, .10, .090, 0x6934a0, 0xa982cf],
+  [.23, .60, .140, 0x267bb5, 0x75c6d9],
+  [.38, 1.90, .150, 0x2d8955, 0x82b780],
+  [.51, 3.50, .145, 0x6934a0, 0xa982cf],
+  [.64, 5.00, .155, 0x267bb5, 0x75c6d9],
+  [.77, 2.60, .135, 0x2d8955, 0x82b780],
+  [.89, .10, .120, 0x6934a0, 0xa982cf],
 ];
 
 /** Six small epibiont patches: physical holdfast roots, stiff stems and cupped
@@ -40,11 +40,11 @@ export function createCrabShellPlants({ mobile = false } = {}) {
     for (let frond = -1; frond <= 1; frond++) {
       const start = crown.clone().addScaledVector(tangent, frond * .005);
       const end = start.clone().addScaledVector(normal, length * .45)
-        .addScaledVector(tangent, frond * length * .31).add(new THREE.Vector3(0, length * .70, 0));
+        .addScaledVector(tangent, frond * length * .42).add(new THREE.Vector3(0, length * .63, 0));
       if (frond) mesh.tube([crown, crown.clone().lerp(start, .5), start], [.0016, .0013, .0008], pigment, mobile ? 3 : 4);
       tip.setHex(endPigment);
-      mesh.leaf(start, end, .012, fraction => color.setHex(pigment).lerp(tip, fraction * .8).getHex(),
-        { segments: leafSegments, columns: leafColumns, curve: .004, cup: .32, twist: .18 });
+      mesh.leaf(start, end, .026, fraction => color.setHex(pigment).lerp(tip, fraction * .8).getHex(),
+        { segments: leafSegments, columns: leafColumns, curve: .014, cup: .38, twist: .35 });
     }
   }
   const geometry = mesh.geometry({ normalizeHeight: false });

@@ -15,6 +15,9 @@ import {createOceanCausticsMaterial} from './ocean-caustics.js';
 import {getUnderwaterLighting} from './underwater-lighting.js';
 import {addCanyonSurfaceMask,applyCanyonRockSurface,canyonSurfaceAt} from './canyon-rock-surface.js';
 import {setFirstPersonSubmerged} from './first-person-lighting.js';
+import {scheduleWaterShaderWarmup} from './water-shader-warmup.js';
+import {sampleDayNight} from './day-night-cycle.js';
+import {applyDayNightLighting} from './day-night-lighting.js';
 import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 import {WildlifeBroodRenderer} from './wildlife-brood-renderer.js';
 import {CaveSandWormRenderer} from './cave-sand-worm-renderer.js';
@@ -107,13 +110,21 @@ import {
 const WORLD_SCALE = 25;
 const TAU = Math.PI * 2;
 const CAMERA_UP = new THREE.Vector3(0, 1, 0);
-const AIR_COLOR = 0x8daab9;
-const BLUE_AIR_COLOR = 0x96bed5;
+const AIR_COLOR = 0x91bcd3;
+const BLUE_AIR_COLOR = 0x9ac7dc;
 const FOREST_AIR_COLOR = 0xbcbacf;
 const FOREST_AIR_TINT = new THREE.Color(FOREST_AIR_COLOR);
 const FOREST_SKY_LIGHT = new THREE.Color(0xe9ddf5);
 const FOREST_GROUND_LIGHT = new THREE.Color(0x817263);
 const FOREST_SUN_LIGHT = new THREE.Color(0xffdfb4);
+const SURFACE_SKY_LIGHT = 0xc6e4ff;
+const SURFACE_GROUND_LIGHT = 0x2d4868;
+const SURFACE_SUN_LIGHT = 0xffefd9;
+// Directional daylight and cool sky fill give existing geometry depth in the
+// main render pass. Keep shadows/refraction disabled by the quality budget.
+const SURFACE_AMBIENT = 1.08;
+const SURFACE_SUN = 3.2;
+const SURFACE_ENVIRONMENT = .58;
 
 /** Fade the coastal palette over the first 2.8m of actual forest ground. */
 function forestLightBlend(forest, x, y) {
@@ -344,7 +355,7 @@ export class Scene {
     }
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    this.renderer.toneMappingExposure = 1.03;
     this.renderer.shadowMap.enabled = this.quality.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.materials = createMaterials({
@@ -375,9 +386,11 @@ export class Scene {
     canvas.addEventListener("webglcontextlost", (event) => {
       event.preventDefault();
       this.contextLost = true;
+      this.cancelWaterShaderWarmup?.();
     });
     canvas.addEventListener("webglcontextrestored", () => {
       this.contextLost = false;
+      this.waterShadersScheduled = false;
     });
   }
 
@@ -466,8 +479,8 @@ export class Scene {
     this.conceptSky = new ConceptSky();
     this.scene.add(this.conceptSky.group);
     const quality = this.quality ?? renderQuality();
-    this.ambient = new THREE.HemisphereLight(0xd8ebf5, 0x587789, 2.2);
-    this.keyLight = new THREE.DirectionalLight(0xe9f2f4, 2.3);
+    this.ambient = new THREE.HemisphereLight(SURFACE_SKY_LIGHT, SURFACE_GROUND_LIGHT, SURFACE_AMBIENT);
+    this.keyLight = new THREE.DirectionalLight(SURFACE_SUN_LIGHT, SURFACE_SUN);
     this.keyLight.position.set(-40, 55, -80);
     this.keyLight.castShadow = quality.shadows;
     this.keyLight.shadow.mapSize.set(quality.shadowMapSize, quality.shadowMapSize);
@@ -486,7 +499,9 @@ export class Scene {
     this.scene.add(this.ambient, this.keyLight);
     this.diveLight = new THREE.SpotLight(0xc4e4ff, 0, 42, Math.PI * 0.28, 0.65, 1.4);
     this.diveLight.name = "suit-dive-light";
-    this.diveLight.visible = false;
+    // Keep the light layout stable: changing visibility recompiles every lit
+    // material on the first dive. Zero intensity turns the lamp off on land.
+    this.diveLight.visible = true;
     this.scene.add(this.diveLight, this.diveLight.target);
     this.diveDirection = new THREE.Vector3();
     this.waterMaterial = createOceanMaterial(this.scene.fog.color);
@@ -779,6 +794,7 @@ export class Scene {
    * screen size, touch controls or the mobile visibility budget. */
   updateCreatures(world, animation, dt) {
     const reducedMotion = this.reducedMotion === true, camera = this.camera.position, quality = this.quality;
+    if(quality){quality.viewCamera=this.camera?.isCamera?this.camera:null;quality.fogDensity=this.scene?.fog?.density??0;}
     this.crabColony?.update(animation, dt, reducedMotion, camera, quality, this.crabVisibility,getWildlifeRenderPopulation(world,'crab'));
     this.wildlifeBroods?.update(world,animation,reducedMotion,camera,quality);
     for (const name of ["woodlons", "fauna", "squids", "jellyfish", "treeStalkers", "frostHounds", "voidFish", "redFish", "tuskjawSharks", "sulfurLizards", "sandWorms", "caveWorms", "hogwongs",
@@ -1358,6 +1374,9 @@ export class Scene {
     for(const entry of this.distanceGroups??[]){if(entry.hidden){entry.group.visible=true;entry.hidden=false;}}
     if (dt > 0 && !this.reducedMotion) this.clock += dt;
     const animation = this.clock;
+    // The saved simulation clock pauses with the expedition, independently of
+    // reduced-motion animation and the page's lifetime.
+    const cycle = sampleDayNight(world.elapsed, this.dayNight ??= {});
     const saltSection=getSaltCave(world.player.x,world.player.y,world.player.z,EYE_HEIGHT);
     const caveSection=saltSection??getBasinCave(world.player.x,world.player.y,world.player.z+EYE_HEIGHT);
     const activeWaterLevel=basinWaterLevel(world.player);
@@ -1376,7 +1395,7 @@ export class Scene {
     const depth = Math.max(0, (activeWaterLevel - world.player.z - EYE_HEIGHT) / WORLD_SCALE);
     const inBlueWater = underwater && blueOcean;
     const inDeepWater = inBlueWater || (underwater && biome === "blue-kelp-forest");
-    const sunlight = underwater ? Math.exp(-depth / WATER_OPTICS.sunlightDepth) : 1;
+    const sunlight = (underwater ? Math.exp(-depth / WATER_OPTICS.sunlightDepth) : 1) * cycle.daylight;
     const shellLight = underwater ? shellFieldBlend(world.player.x,world.player.y) : 0;
     const waterLighting=underwater?getUnderwaterLighting(biome,depth,shellLight,this.waterLighting??={}):null;
     if(waterLighting){
@@ -1391,11 +1410,13 @@ export class Scene {
     }else{
       this.scene.background.setHex(blueOcean?BLUE_AIR_COLOR:AIR_COLOR);
       if(forestAir)this.scene.background.lerp(FOREST_AIR_TINT,forestBlend);
-      this.scene.fog.density=(blueOcean?.0045:.013)*(1-forestBlend)+.006*forestBlend;
-      this.ambient.color.setHex(0xd8ebf5).lerp(FOREST_SKY_LIGHT,forestBlend);
-      this.ambient.groundColor.setHex(0x587789).lerp(FOREST_GROUND_LIGHT,forestBlend);
-      this.keyLight.color.setHex(0xe9f2f4).lerp(FOREST_SUN_LIGHT,forestBlend);
-      this.ambient.intensity=2.2;this.keyLight.intensity=2.3;this.scene.environmentIntensity=1;
+      this.scene.fog.density=(blueOcean?.0045:.0105)*(1-forestBlend)+.006*forestBlend;
+      this.ambient.color.setHex(SURFACE_SKY_LIGHT).lerp(FOREST_SKY_LIGHT,forestBlend);
+      this.ambient.groundColor.setHex(SURFACE_GROUND_LIGHT).lerp(FOREST_GROUND_LIGHT,forestBlend);
+      this.keyLight.color.setHex(SURFACE_SUN_LIGHT).lerp(FOREST_SUN_LIGHT,forestBlend);
+      this.ambient.intensity=SURFACE_AMBIENT-.18*forestBlend;
+      this.keyLight.intensity=SURFACE_SUN-.65*forestBlend;
+      this.scene.environmentIntensity=SURFACE_ENVIRONMENT-.08*forestBlend;
     }
     this.scene.fog.color.copy(this.scene.background);
     if(caveAir){this.scene.background.setHex(0x112733);this.scene.fog.color.copy(this.scene.background);this.scene.fog.density=.012;this.ambient.intensity=.55;this.keyLight.intensity=.3;this.scene.environmentIntensity=.3;}
@@ -1408,12 +1429,16 @@ export class Scene {
       this.scene.background.setHex(0xc8bd83);this.scene.fog.color.copy(this.scene.background);this.scene.fog.density=.008;
       this.ambient.color.setHex(0xffedc6);this.ambient.groundColor.setHex(0x766c45);this.keyLight.color.setHex(0xffe8b0);
     }
+    if(!caveAir&&(!saltSection||saltSurfaceAir))applyDayNightLighting(this,cycle,underwater);
     this.waterMaterial.uniforms.time.value = animation;
     this.waterMaterial.uniforms.underwater.value = underwater ? 1 : 0;
     this.waterMaterial.uniforms.viewerDepth.value = depth;
+    this.waterMaterial.uniforms.daylight.value = cycle.daylight;
+    this.waterMaterial.uniforms.sunDirection.value.set(cycle.sunX,cycle.sunY,cycle.sunZ);
     this.causticsMaterial.uniforms.time.value = animation;
     this.causticsMaterial.uniforms.waterLevel.value = activeWaterLevel/WORLD_SCALE;
     this.causticsMaterial.uniforms.waterFogDensity.value = this.scene.fog.density;
+    this.causticsMaterial.uniforms.sunStrength.value = cycle.daylight;
     this.water.position.x = world.player.x / WORLD_SCALE;
     this.water.position.z = world.player.y / WORLD_SCALE;
     const walking =
@@ -1435,11 +1460,11 @@ export class Scene {
     this.driftIce?.update(animation,this.reducedMotion,this.camera.position,this.renderDistance??Infinity);
     const tremor=sampleSandWormShake(world,this.reducedMotion);
     this.camera.position.x+=tremor.x;this.camera.position.y+=tremor.y;this.camera.rotation.z+=tremor.roll;
-    this.conceptSky?.update(this.camera, this.scene.background, underwater, blueOcean, forestBlend, forestAir,animation,this.reducedMotion);
+    this.conceptSky?.update(this.camera, this.scene.background, underwater, blueOcean, forestBlend, forestAir,animation,this.reducedMotion,cycle);
     if(sulfuricAir&&this.conceptSky){
-      this.conceptSky.material.uniforms.zenith.value.setHex(0x827849);this.conceptSky.material.uniforms.cloudTint.value.setHex(0xe2d9a3);
+      this.conceptSky.material.uniforms.zenith.value.setHex(0x827849).multiplyScalar(.13+.87*cycle.daylight);
       this.conceptSky.mountains.mesh.visible=false;
-    }else if(this.conceptSky)this.conceptSky.material.uniforms.cloudTint.value.setHex(0xe5f1f5);
+    }
     if(this.conceptSky&&Math.abs(world.player.x-SULFURIC_PASSAGE.x)<400&&world.player.y<SULFURIC_PASSAGE.frontY+300)
       this.conceptSky.mountains.mesh.visible=false;
     if(caveSection&&!saltSurfaceAir)this.conceptSky.group.visible=false;
@@ -1449,9 +1474,11 @@ export class Scene {
     const lightX = Math.round(this.camera.position.x * 2) / 2;
     const lightZ = Math.round(this.camera.position.z * 2) / 2;
     const lightY = underwater ? this.camera.position.y : 0;
-    this.keyLight.position.set(lightX - 40, lightY + 55, lightZ - 80);
+    const moon = cycle.sunY < 0 ? -1 : 1;
+    if(caveAir||(saltSection&&!saltSurfaceAir))this.keyLight.position.set(lightX-40,lightY+55,lightZ-80);
+    else this.keyLight.position.set(lightX + cycle.sunX * moon * 100, lightY + Math.max(.04,cycle.sunY * moon) * 100,
+      lightZ + cycle.sunZ * moon * 100);
     this.keyLight.target.position.set(lightX, lightY, lightZ);
-    this.diveLight.visible = underwater||caveAir;
     this.diveLight.color.setHex(saltSection&&!saltSurfaceAir?0xffdda0:0xc4e4ff);
     this.diveLight.intensity=caveAir?18:(waterLighting?.diveLightIntensity??0);
     // Existing close-surface exposure correction also protects the new canyon
@@ -1478,7 +1505,7 @@ export class Scene {
     this.worldBarnacles?.update(this.camera.position,animation,this.reducedMotion);
     this.basinDetails?.update(this.camera.position,animation,this.reducedMotion);
     this.copperCargo?.update(world);
-    this.heldItems?.update(world,animation,dt,moving);
+    this.heldItems?.update(world,animation,dt,moving,this.quality);
     if(this.heldItems)this.heldItems.group.visible&&=Boolean(this.playing);
     this.salvage?.update(world,this.camera.position,this.renderDistance??Infinity);
     this.playerBases?.update(world,this.camera.position,this.renderDistance??Infinity);
@@ -1505,6 +1532,7 @@ export class Scene {
     this.underwaterFx?.update(this.camera.position, animation, {
       underwater, reducedMotion: this.reducedMotion, depth, direction: this.diveDirection,
       waterLevel:activeWaterLevel/WORLD_SCALE,turbidity:Math.max(.8,Math.min(1.6,this.scene.fog.density/.05)),
+      daylight:cycle.daylight,
     });
     const fogDepth = fogVisibilityDepth(this.scene.fog.density, .0001);
     let shadowFrustum;
@@ -1527,7 +1555,7 @@ export class Scene {
     }
     updateSeabedBatchVisibility(this.seabedBatch, this.camera, this.scene.fog.density,this.renderDistance??Infinity);
     this.staticRenderDistance?.update(this.camera,this.renderDistance??Infinity,this.scene.fog.density);
-    this.instanceRenderDistance?.update(this.camera.position,this.renderDistance??Infinity);
+    this.instanceRenderDistance?.update(this.camera.position,this.renderDistance??Infinity,this.camera,this.scene.fog.density);
     for (const item of world.items) {
       const object = this.parts.get(item.id);
       if (!object) continue;
@@ -1576,6 +1604,12 @@ export class Scene {
     this.bubbles.position.copy(this.camera.position);
     for(const entry of this.distanceGroups??[])if(entry.group.visible&&entry.bounds.distanceToPoint(this.camera.position)>(this.renderDistance??Infinity)){entry.group.visible=false;entry.hidden=true;}
     this.renderer.render(this.scene, this.camera);
+    if (!this.waterShadersScheduled && this.renderer.compile) {
+      this.waterShadersScheduled = true;
+      this.cancelWaterShaderWarmup = scheduleWaterShaderWarmup(
+        this.renderer, this.camera, this.scene, [this.underwaterFx?.group, this.bubbles].filter(Boolean),
+      );
+    }
   }
 
   /** Map outlines use the same chipped ice polygons as the 3D world. */
@@ -1788,6 +1822,7 @@ export class Scene {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.cancelWaterShaderWarmup?.();
     const managedTextures=new Set([...(this.marineDetails?.ownedTextures??[]),...(this.mossTexture?.ownedTextures??[])]);
     this.mossTexture?.dispose();this.mossTexture=null;
     this.marineDetails?.dispose();this.marineDetails=null;

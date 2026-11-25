@@ -55,6 +55,7 @@ export function createOceanMaterial(fogColor) {
     transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true,
     uniforms: {
       time: { value: 0 }, fogColor: { value: fogColor }, underwater: { value: 0 }, viewerDepth: { value: 0 },
+      daylight: { value: 1 }, sunDirection: { value: SUN.clone() },
       blueOceanStart: { value: BLUE_OCEAN_START_X / SCALE },
       blueSurfaceColor: { value: new THREE.Color(0x082b43) }, blueHorizonColor: { value: new THREE.Color(0x4a7189) },
       waterField: { value: null }, fieldBounds: { value: new THREE.Vector4() }, fieldReady: { value: 0 }, fieldDepth:{value:JELLYFISH_SPIRES.maxDepthMeters},
@@ -65,8 +66,8 @@ export function createOceanMaterial(fogColor) {
         vWorld=world.xyz;vec4 view=viewMatrix*world;vDepth=-view.z;gl_Position=projectionMatrix*view;}`,
     fragmentShader: `${NOISE}
       varying vec3 vWorld;varying float vDepth;
-      uniform float time,underwater,viewerDepth,blueOceanStart,fieldReady,fieldDepth;
-      uniform vec3 fogColor,blueSurfaceColor,blueHorizonColor;uniform sampler2D waterField;uniform vec4 fieldBounds;
+      uniform float time,underwater,viewerDepth,blueOceanStart,fieldReady,fieldDepth,daylight;
+      uniform vec3 fogColor,blueSurfaceColor,blueHorizonColor,sunDirection;uniform sampler2D waterField;uniform vec4 fieldBounds;
       void main(){
         vec2 p=vWorld.xz;
         vec2 warp=p+(vec2(waterNoise(p*.29+time*.025),waterNoise(p*.23-time*.018+31.7))-.5)*2.1;
@@ -82,7 +83,8 @@ export function createOceanMaterial(fogColor) {
         float blue=max(smoothstep(blueOceanStart-3.,blueOceanStart+3.,p.x),fieldReady*field.b);
         vec3 sky=mix(vec3(.30,.47,.57),blueHorizonColor*1.6+.12,blue);
         sky=mix(sky*.67,sky,clamp(reflection.y*.8+.3,0.,1.));
-        float glitter=pow(max(dot(reflection,normalize(vec3(-.28,.92,-.28))),0.),180.)*(1.+capillary*.22);
+        float surfaceDaylight=clamp(daylight,0.,1.);
+        float glitter=pow(max(dot(reflection,normalize(sunDirection)),0.),180.)*(1.+capillary*.22)*surfaceDaylight;
         float depth=mix(mix(11.,100.,blue),field.r*fieldDepth,fieldReady);
         float nearShore=fieldReady*(1.-smoothstep(1.5,9.,depth));
         vec3 absorption=exp(-${waterOpticsVec3(WATER_OPTICS.surfaceAbsorption)}*depth/max(facing,.22));
@@ -98,7 +100,9 @@ export function createOceanMaterial(fogColor) {
         float window=smoothstep(.62,.80,facing);
         vec3 below=mix(vec3(.014,.06,.085),sky*.65,window)*exp(-vec3(.055,.025,.012)*viewerDepth);
         below+=pow(max(0.,chop),14.)*.055*exp(-viewerDepth/28.);
-        vec3 color=mix(above,below,underwater);
+        // Keep the daytime material unchanged, with a small moonlit visibility
+        // floor at night. Fog is supplied by the scene's matching sky profile.
+        vec3 color=mix(above,below,underwater)*mix(.065,1.,surfaceDaylight);
         float fog=1.-exp(-.000055*vDepth*vDepth);color=mix(color,fogColor,clamp(fog,0.,1.));
         float alpha=mix(mix(${WATER_OPTICS.arcticSurfaceOpacity}+fresnel*.10,${WATER_OPTICS.oceanSurfaceOpacity}+fresnel*.02,blue),${WATER_OPTICS.underSurfaceOpacity}+fresnel*.30,underwater);
         alpha=mix(alpha,${WATER_OPTICS.shoreSurfaceOpacity}+fresnel*.20,nearShore*(1.-underwater));
@@ -255,14 +259,16 @@ export class UnderwaterRenderer {
     Object.assign(material.uniforms, { waterField: { value: this.field.texture }, fieldBounds: { value: this.field.bounds }, fieldReady: { value: 1 } });
   }
 
-  update(cameraPosition, time, { underwater = false, reducedMotion = false, depth = 0, direction, waterLevel = LEVEL, turbidity = 1 } = {}) {
+  update(cameraPosition, time, { underwater = false, reducedMotion = false, depth = 0, direction, waterLevel = LEVEL, turbidity = 1, daylight = 1 } = {}) {
     if (this.disposed) return;
     this.group.visible = this.particles.visible = underwater;
     this.clock.value = reducedMotion || !Number.isFinite(time) ? 0 : Math.max(0,time);
     const safeDepth=Number.isFinite(depth)?Math.max(0,depth):0;
     this.waterLevel.value=Number.isFinite(waterLevel)?waterLevel:LEVEL;
     this.turbidity.value=Number.isFinite(turbidity)?Math.max(.5,Math.min(3,turbidity)):1;
-    this.center.value.copy(cameraPosition); this.depth.value = safeDepth; this.sun.value = Math.exp(-safeDepth*this.turbidity.value / 18);
+    const availableSun=Number.isFinite(daylight)?Math.max(0,Math.min(1,daylight)):1;
+    this.center.value.copy(cameraPosition); this.depth.value = safeDepth;
+    this.sun.value = Math.exp(-safeDepth*this.turbidity.value / 18)*availableSun;
     if (direction) {this.direction.value.copy(direction).normalize();if(this.direction.value.lengthSq()<.000001)this.direction.value.set(0,0,-1);}
     this.shafts.visible = underwater&&safeDepth < 40/this.turbidity.value;
     if (!underwater || !this.shafts.visible) return;

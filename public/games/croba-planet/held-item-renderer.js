@@ -12,7 +12,7 @@ export class HeldItemRenderer {
   this.group=new THREE.Group();this.group.name='first-person-held-supplies';camera.add(this.group);
   this.hand=createExplorerHand();this.group.add(this.hand);this.models=new Map();this.item=null;this.disposed=false;this.phase=0;this.group.visible=false;
  }
- update(world,time=world?.elapsed??0,dt=0,moving=false){
+ update(world,time=world?.elapsed??0,dt=0,moving=false,quality={}){
   if(this.disposed)return;
   const id=world.quickSlots?.[world.activeQuickSlot??0],available=id&&(world.inventory?.[id]??0)>0;
   this.group.visible=Boolean(available&&!world.squidEncounter&&!world.centipedeEncounter&&!world.treeStalkerEncounter&&!world.sandWormEncounter);
@@ -28,6 +28,9 @@ export class HeldItemRenderer {
    }
    if(this.models.has(id))this.models.get(id).visible=true;
   }
+  // Keep the physical yo-yo grip aligned with its separately simulated cord.
+  // Only camera-local supplies shrink; world models retain their full size.
+  const compact=quality.mobile===true&&id!=='copper-yoyo';this.group.scale.setScalar(compact?.74:1);
   const age=world.elapsed-(world.crafting?.lastToolUseAt??-Infinity),swing=age>=0&&age<.42?Math.sin(age/.42*Math.PI):0;
   const clock=Number.isFinite(time)?time:0,bob=moving?Math.sin(clock*8)*.009:Math.sin(clock*1.7)*.002;
   if(id==='copper-yoyo'){
@@ -40,12 +43,13 @@ export class HeldItemRenderer {
    const fov=Number.isFinite(this.camera.fov)?THREE.MathUtils.clamp(this.camera.fov,25,120):76;
    const zoom=Number.isFinite(this.camera.zoom)&&this.camera.zoom>0?this.camera.zoom:1;
    const slope=Math.tan(THREE.MathUtils.degToRad(fov/2))*aspect/zoom;
-   // Fit the unchanged palm and active tool to the real perspective width.
+   // Fit depth from the unchanged palm/tool bounds before the mobile scale,
+   // otherwise narrow-screen auto-fit would move them closer and undo it.
    // Cropped sleeve below the frame is intentional; fingers stay in view.
    const depth=Math.max(.49+swing*.025,(this.fitBox.max.x-this.fitBox.min.x)/(1.88*slope)+this.fitBox.max.z);
    const halfWidth=Math.max(.02,depth-this.fitBox.max.z)*slope*.94;
    const minX=-halfWidth-this.fitBox.min.x,maxX=halfWidth-this.fitBox.max.x;
-   this.group.position.set(THREE.MathUtils.clamp(.285,minX,maxX),-.235+bob,-depth);
+   this.group.position.set(THREE.MathUtils.clamp(.285,minX,maxX),-.235+bob-(compact?.06:0),-depth);
   }
  }
  dispose(){if(this.disposed)return;this.disposed=true;this.hand.dispose();for(const model of this.models.values())model.dispose();this.models.clear();this.itemBounds.clear();this.group.removeFromParent();this.group.clear();}

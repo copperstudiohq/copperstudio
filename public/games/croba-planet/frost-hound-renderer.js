@@ -5,6 +5,7 @@ import { createCreatureSurfaceMaps, applyCreatureSurface } from './creature-mate
 import { applySealSwimming, deformSealSwimmingPoint, sealSwimmingParameters, SEAL_SWIMMING_BOUNDS } from './seal-swimming.js';
 import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 import {getLifecycleScale} from './lifecycle-scale.js';
+import {addFrostHoundScutes,addFrostHoundWedge} from './frost-hound-armor.js';
 
 const v=(x,y,z)=>new THREE.Vector3(x,y,z);
 function sealSection(z){
@@ -26,14 +27,12 @@ export function frostHoundJawAngle(hound,reducedMotion=false) {
 export function frostHoundAnatomy(options={}) {
   const shell=new PlantMesh(),face=new PlantMesh(),jaw=new PlantMesh(),fins=new PlantMesh(),fangs=new PlantMesh();
   const egg=(mesh,p,r,color,segments=12)=>mesh.ellipsoid(v(...p),v(...r),color,{segments,rings:8});
-  const skin=new THREE.Color(),back=new THREE.Color(0x6f919c),belly=new THREE.Color(0xc4cec5),irisRanges=[];
+  const skin=new THREE.Color(),back=new THREE.Color(0x4d7d97),belly=new THREE.Color(0xb2c2c5),irisRanges=[],hornRanges=[];
   shell.grid(28,24,(u,t)=>{
     const z=-1.3+2.4*u,section=sealSection(z),a=t*Math.PI*2;
     return v(Math.sin(a)*section.width,section.y+Math.cos(a)*section.height,z);
   },(u,t)=>skin.copy(back).lerp(belly,(1-Math.cos(t*Math.PI*2))*.44).getHex(),0,true);
-  egg(shell,[0,.18,1.04],[.37,.27,.48],0xa5c1c5,18);
-  // Broad, low upper snout and a recessed dark palate replace the round muzzle.
-  egg(shell,[0,.09,1.35],[.32,.115,.31],0xbfd4d7,16);
+  addFrostHoundWedge(shell);
   egg(face,[0,-.028,1.30],[.29,.029,.30],0x342b42,16);
   egg(face,[0,-.055,1.08],[.22,.085,.16],0x50354a,12);
   for(const side of [-1,1]){
@@ -46,25 +45,11 @@ export function frostHoundAnatomy(options={}) {
       [.016,0],0xddd8bc,5);
   }
 
-  for(let row=0;row<9;row++)for(let side=0;side<9;side++){
-    const z=-.77+row*.19,angle=-1.34+side*.335+(row%2)*.09;
-    const section=sealSection(z),center=v(Math.sin(angle)*section.width,section.y+Math.cos(angle)*section.height,z);
-    const before=sealSection(z-.005),after=sealSection(z+.005);
-    const normal=v(Math.sin(angle)/section.width,Math.cos(angle)/section.height,0);
-    normal.z=-(normal.x*Math.sin(angle)*(after.width-before.width)/.01+normal.y*((after.y-before.y)+(after.height-before.height)*Math.cos(angle))/.01);
-    const rotation=new THREE.Quaternion().setFromUnitVectors(v(0,1,0),normal.normalize());
-    center.addScaledVector(normal,.014);
-    const rings=options.black?[0,.125,.25,.375,.46,.48,.5,.52,.54,.625,.75,.875,1]:[0,.125,.25,.375,.5,.625,.75,.875,1];
-    shell.grid(rings.length-1,12,(u,t)=>{
-      const latitude=rings[Math.round(u*(rings.length-1))]*Math.PI,azimuth=t*Math.PI*2;
-      return v(Math.sin(latitude)*Math.cos(azimuth)*.09,Math.cos(latitude)*.023,Math.sin(latitude)*Math.sin(azimuth)*.125).applyQuaternion(rotation).add(center);
-    },(u)=>u>.38&&u<.62?0x98b3b8:row%2?0x628590:0x7c9ba2,u=>{
-      if(!options.black)return 0;
-      const latitude=rings[Math.round(u*(rings.length-1))];return Math.max(0,1-Math.abs(latitude-.5)/.04);
-    });
-  }
+  const scutes=addFrostHoundScutes(shell,sealSection);
   for(const side of [-1,1]){
-    shell.tube([v(side*.28,.34,.93),v(side*.41,.62,.77),v(side*.43,.86,.48),v(side*.37,.96,.24)], [.12,.085,.044,0],u=>u>.8?0xd6d2b5:u>.25?0xb4b5a1:0x7a9399,10);
+    const hornStart=shell.positions.length/3;
+    shell.tube([v(side*.28,.34,.93),v(side*.41,.64,.73),v(side*.43,.91,.40),v(side*.37,1.02,.14)], [.12,.085,.044,0],u=>u>.8?0xeee5c7:u>.25?0xd8d4bd:0x8d9fa7,10);
+    hornRanges.push([hornStart,shell.positions.length/3]);
     for(const [height,z]of [[.19,1.22],[.04,1.05]]){
       egg(face,[side*.327,height,z],[.065,.081,.097],0x142635,14);
       const first=face.positions.length/3,iris=new THREE.Color(),deep=new THREE.Color(options.black?0x693c9f:0x9e782c),light=new THREE.Color(options.black?0xc394ef:0xefc76a);
@@ -78,10 +63,13 @@ export function frostHoundAnatomy(options={}) {
     egg(face,[side*.10,.065,1.585],[.035,.027,.018],0x243e50,8);
     shell.tube([v(side*.22,-.02,-.91),v(side*.24,-.06,-1.26)], [.14,.115],0x668caa,10);
     egg(face,[side*.24,-.06,-1.275],[.095,.087,.023],0x102837,12);
-    fins.leaf(v(side*.38,-.15,.25),v(side*.95,-.34,-.18),.24,0x668ea8,{segments:8,curve:.07,cup:.3});
+    const finGlow=(u,t)=>(.10+.35*Math.abs(t*2-1))*Math.sin(Math.PI*u);
+    fins.leaf(v(side*.38,-.15,.25),v(side*1.04,-.34,-.28),.27,0x789dac,{segments:8,curve:.07,cup:.3,glow:finGlow});
     for(let rib=0;rib<3;rib++)fins.tube([v(side*.40,-.15,.22),v(side*(.65+rib*.08),-.25,-.01-rib*.055),v(side*(.82+rib*.04),-.30,-.13-rib*.04)],
-      [.012,.008,.002],0x72959e,5);
-    fins.leaf(v(side*.08,-.03,-1.26),v(side*.49,-.09,-1.72),.20,0x709aaf,{segments:8,curve:.04,cup:.2});
+      [.014,.009,.002],0xb7cbd0,5,.35);
+    fins.leaf(v(side*.08,-.03,-1.26),v(side*.59,-.09,-1.72),.23,0x83a9b6,{segments:8,curve:.04,cup:.2,glow:finGlow});
+    for(let rib=0;rib<3;rib++)fins.tube([v(side*.08,-.03,-1.26),v(side*(.28+rib*.07),-.055,-1.45-rib*.04),v(side*(.43+rib*.06),-.075,-1.61-rib*.045)],
+      [.012,.007,.001],0xc1d3d3,5,.35);
   }
   // Everything below is local to the mouth hinge, including gums and tongue.
   egg(jaw,[0,-.055,.30],[.31,.075,.39],0xb9cbd0,16);
@@ -95,6 +83,10 @@ export function frostHoundAnatomy(options={}) {
     jaw.tube([v(0,.05,.47),v(side*.045,.052,.61)], [.018,.003],0xa16c85,6);
   }
   const geometry={shell:shell.geometry({normalizeHeight:false}),face:face.geometry({normalizeHeight:false}),fangs:fangs.geometry({normalizeHeight:false}),jaw:jaw.geometry({normalizeHeight:false}),fins:fins.geometry({normalizeHeight:false})};
+  geometry.shell.userData.scutes=scutes;
+  const hornMask=new Float32Array(geometry.shell.attributes.position.count);
+  for(const[a,b]of hornRanges)hornMask.fill(1,a,b);
+  geometry.shell.setAttribute('hornMask',new THREE.Float32BufferAttribute(hornMask,1));
   const irisMask=new Float32Array(geometry.face.attributes.position.count);
   for(const [a,b]of irisRanges)irisMask.fill(1,a,b);
   geometry.face.setAttribute('irisMask',new THREE.Float32BufferAttribute(irisMask,1));
@@ -120,10 +112,11 @@ export class FrostHoundRenderer {
     if(options.black)for(const kind of ['shell','jaw','fins']){
       const colors=this.geometry[kind].attributes.color,rim=this.geometry[kind].attributes.plantGlow;
       this.geometry[kind].setAttribute('scaleRim',rim.clone());
-      const purple=new THREE.Color(0x8f45ca),tint=new THREE.Color();
+      const purple=new THREE.Color(0x7847a3),tint=new THREE.Color(),horn=this.geometry[kind].attributes.hornMask;
       for(let i=0;i<colors.count;i++){
-        const shade=.006+(colors.getX(i)+colors.getY(i)+colors.getZ(i))/3*.016;
-        tint.setRGB(shade*.78,shade*.9,shade).lerp(purple,rim.getX(i));
+        const shade=.045+(colors.getX(i)+colors.getY(i)+colors.getZ(i))/3*.04;
+        tint.setRGB(shade*.72,shade*.42,shade).lerp(purple,rim.getX(i));
+        if(horn?.getX(i))tint.multiplyScalar(.30);
         colors.setXYZ(i,tint.r,tint.g,tint.b);
       }
     }

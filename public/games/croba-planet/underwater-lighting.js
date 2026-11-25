@@ -5,8 +5,10 @@ const mix=(a,b,t)=>a+(b-a)*t;
 const linear=value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4;
 const rgb=hex=>Object.freeze([linear((hex>>16&255)/255),linear((hex>>8&255)/255),linear((hex&255)/255)]);
 const COLORS=Object.freeze({
-  shallowOcean:rgb(0x267b99),deepOcean:rgb(0x041526),
-  shallowArctic:rgb(0x24596e),deepArctic:rgb(0x123346),
+  // Turquoise daylight grades into blue distance without raising the abyssal
+  // illumination floors or tinting the original material maps themselves.
+  shallowOcean:rgb(0x1d849e),deepOcean:rgb(0x04172f),
+  shallowArctic:rgb(0x236f83),deepArctic:rgb(0x0b2d48),
   shellWater:rgb(0x4aa6bc),oceanSky:rgb(0xa4d4e5),arcticSky:rgb(0xa8cfd8),
   oceanGround:rgb(0x203c51),arcticGround:rgb(0x1c3548),sun:rgb(0xe1edf1),
   deepSun:rgb(0x92bed5),shellSky:rgb(0xe0f5ee),shellGround:rgb(0x638d98),shellSun:rgb(0xf2f9e8),

@@ -7,8 +7,10 @@ import { RedFishTendrilRenderer } from './red-fish-tendril-renderer.js';
 import { applyRedFishSkin, redFishAppearance } from './red-fish-skin.js';
 import {getWildlifeRenderPopulation} from './wildlife-lifecycle.js';
 import {getLifecycleScale} from './lifecycle-scale.js';
+import {uploadAttributePrefix} from './dynamic-attribute-upload.js';
 
-const finite = p => p && [p.x, p.y, p.z].every(Number.isFinite);
+const finite = p => p && Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z);
+const nearestFirst=(a,b)=>a.distance-b.distance;
 
 /** Smooth flex around an attached base, including its exact normal derivative.
  * Vertex colours and neutral biological relief keep the reference red intact. */
@@ -49,6 +51,7 @@ function swimmingMaterial(maps, clock, strength) {
 export class RedFishRenderer {
   constructor(world, quality = {}) {
     const fish = getWildlifeRenderPopulation(world,'red-fish');
+    this.validationIds=new Set();this.validationOrder=[];
     this.validate(fish); this.capacity = fish.length; this.disposed = false;
     this.group = new THREE.Group(); this.group.name = 'red-crescent-fish';
     this.clock = { value: 0 }; this.strength = { value: 1 };
@@ -81,15 +84,28 @@ export class RedFishRenderer {
     this.tendrils = new RedFishTendrilRenderer(this.capacity, this.materials.tendrils, quality);
     this.group.add(this.tendrils.mesh);
     this.pose = new THREE.Object3D(); this.selected = [];
+    this.candidatePool=Array.from({length:this.capacity},()=>({animal:null,distance:0}));this.candidates=[];
+    this.meshList=Object.values(this.meshes);this.meshEntries=Object.entries(this.meshes);
+    this.appearanceAttributes=[this.geometry.body.attributes.fishAppearance,this.geometry.fins.attributes.fishAppearance];
   }
 
   validate(fish) {
-    const ids = new Set();
-    for (const animal of fish) {
-      if (typeof animal?.id !== 'string' || ids.has(animal.id) || !finite(animal)
-        || ![animal.heading, animal.pitch ?? 0, animal.lengthMeters].every(Number.isFinite)
+    let idsChanged=fish.length!==this.validationOrder.length;
+    for (let i=0;i<fish.length;i++) {
+      const animal=fish[i];
+      if (typeof animal?.id !== 'string' || !finite(animal)
+        || !Number.isFinite(animal.heading)||!Number.isFinite(animal.pitch??0)||!Number.isFinite(animal.lengthMeters)
         || animal.lengthMeters <= 0) throw new TypeError('Red fish need unique names, a finite pose and a positive metre length.');
-      ids.add(animal.id);
+      if(animal.id!==this.validationOrder[i])idsChanged=true;
+    }
+    if(idsChanged){
+      const ids=this.validationIds;ids.clear();
+      for(const animal of fish){
+        if(ids.has(animal.id))throw new TypeError('Red fish need unique names, a finite pose and a positive metre length.');
+        ids.add(animal.id);
+      }
+      for(let i=0;i<fish.length;i++)this.validationOrder[i]=fish[i].id;
+      this.validationOrder.length=fish.length;
     }
   }
 
@@ -99,10 +115,16 @@ export class RedFishRenderer {
     if (fish.length > this.capacity) throw new RangeError('Red fish population exceeds its prepared render capacity.');
     this.clock.value = Number.isFinite(time) ? time : 0; this.strength.value = reducedMotion ? 0 : 1;
     const mobile = Boolean(quality.mobile), far = capRenderDistance(quality,mobile ? 38 : 70);
-    const candidates = fish.filter(animal => !animal.lifecycleInactive&&!(animal.squidRespawnIn > 0)).map(animal => ({ animal,
-      distance: finite(camera) ? Math.max(0, Math.hypot(animal.x / 25 - camera.x,
-        animal.z / 25 - camera.y, animal.y / 25 - camera.z) - animal.lengthMeters*getLifecycleScale(animal)*.64) : 0 }))
-      .filter(value => value.distance < far).sort((a, b) => a.distance - b.distance);
+    const hasCamera=finite(camera),candidates=this.candidates;let candidateCount=0;
+    for(const animal of fish){
+      if(animal.lifecycleInactive||animal.squidRespawnIn>0)continue;
+      const distance=hasCamera?Math.max(0,Math.hypot(animal.x/25-camera.x,animal.z/25-camera.y,animal.y/25-camera.z)
+        -animal.lengthMeters*getLifecycleScale(animal)*.64):0;
+      if(distance>=far)continue;
+      const candidate=this.candidatePool[candidateCount];candidate.animal=animal;candidate.distance=distance;
+      candidates[candidateCount++]=candidate;
+    }
+    candidates.length=candidateCount;candidates.sort(nearestFirst);
     this.selected.length = 0;
     this.tendrils.begin();
     let small = 0, large = 0, maximumLength = 0;
@@ -116,14 +138,15 @@ export class RedFishRenderer {
       this.pose.rotation.set(animal.pitch ?? 0, -animal.heading - Math.PI / 2, 0, 'YXZ');
       this.pose.scale.setScalar(length); this.pose.updateMatrix();
       const index = this.selected.length - 1;
-      for (const mesh of Object.values(this.meshes)) mesh.setMatrixAt(index, this.pose.matrix);
-      for (const geometry of [this.geometry.body, this.geometry.fins]) geometry.attributes.fishAppearance.setX(index, redFishAppearance(animal));
+      for (const mesh of this.meshList) mesh.setMatrixAt(index, this.pose.matrix);
+      const appearance=redFishAppearance(animal);
+      for (const attribute of this.appearanceAttributes) attribute.setX(index,appearance);
     }
     this.group.visible = this.selected.length > 0;
     this.tendrils.finish();
-    for (const geometry of [this.geometry.body, this.geometry.fins]) geometry.attributes.fishAppearance.needsUpdate = true;
-    for (const [name, mesh] of Object.entries(this.meshes)) {
-      mesh.count = this.selected.length; mesh.visible = mesh.count > 0; mesh.instanceMatrix.needsUpdate = true;
+    for (const attribute of this.appearanceAttributes) uploadAttributePrefix(attribute,this.selected.length);
+    for (const [name, mesh] of this.meshEntries) {
+      mesh.count = this.selected.length; mesh.visible = mesh.count > 0;uploadAttributePrefix(mesh.instanceMatrix,mesh.count);
       if (mesh.count) {
         updateInstancedWindBounds(mesh, name === 'fins' || name === 'filaments' ? .018 : 0, 0);
         if (name === 'fins' || name === 'filaments') mesh.boundingSphere.radius += .012 * maximumLength;

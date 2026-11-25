@@ -1,4 +1,5 @@
 import {capRenderDistance} from './render-distance.js';
+import {DynamicInstanceCulling} from './dynamic-instance-culling.js';
 import {PenguinJoints,PENGUIN_JOINT_COLORS,PENGUIN_BABY_COAT} from './penguin-joints.js';
 import {MAX_CROBON_OFFSPRING,penguinGrowthScale} from './penguin-lifecycle.js';
 import {PREPARED_HAULER_BIRDS} from './hauler-birds.js';
@@ -162,6 +163,7 @@ export class PenguinRenderer{
    mesh.name='alien-penguin-'+name;mesh.count=0;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);this.group.add(mesh);this.meshes[name]=mesh;
   }
   this.joints=new PenguinJoints(count,quality);this.group.add(this.joints.mesh);this.tail=new PenguinTailRenderer(count,quality);this.group.add(this.tail.mesh);
+  this.viewCulling=new DynamicInstanceCulling([...Object.values(this.meshes),this.joints.mesh,this.tail.mesh]);
   this.jointA=new THREE.Vector3();this.jointB=new THREE.Vector3();this.jointBend=new THREE.Vector3();
   this.wetTint=new THREE.Color();this.footBase=new THREE.Object3D();this.base=new THREE.Object3D();this.local=new THREE.Object3D();this.matrix=new THREE.Matrix4();this.disposed=false;
  }
@@ -171,7 +173,7 @@ export class PenguinRenderer{
   this.wetTint.setRGB(1-wet*.18,1-wet*.14,1-wet*.08);mesh.setColorAt(index,this.wetTint);
  }
  update(world,time,reducedMotion=false,camera,quality={}){
-  if(this.disposed)return;let count=0;this.joints.begin();this.tail.begin();
+  if(this.disposed)return;this.viewCulling.restore();let count=0;this.joints.begin();this.tail.begin();
   for(const bird of world.penguins??[]){
    if(count===this.capacity)break;
    if(bird.lifecycleInactive||bird.squidRespawnIn>0||camera&&Math.hypot(bird.x/25-camera.x,bird.z/25-camera.y,bird.y/25-camera.z)>capRenderDistance(quality,quality.mobile?45:70))continue;
@@ -221,7 +223,7 @@ export class PenguinRenderer{
    count++;
   }
   for(const [name,mesh]of Object.entries(this.meshes)){mesh.count=count*(name==='flipper'?4:name==='foot'?2:1);mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;for(const attribute of ['penguinWet','penguinGrowth'])if(mesh.geometry.attributes[attribute])mesh.geometry.attributes[attribute].needsUpdate=true;if(mesh.count)mesh.computeBoundingSphere();}
-  this.joints.finish();this.tail.finish();this.group.visible=count>0;
+  this.joints.finish();this.tail.finish();this.viewCulling.update(quality.viewCamera,quality.fogDensity);this.group.visible=count>0;
  }
- dispose(){if(this.disposed)return;this.disposed=true;this.joints.dispose();this.tail.dispose();Object.values(this.meshes).forEach(m=>m.dispose());Object.values(this.geometry).forEach(g=>g.dispose());Object.values(this.materials).forEach(m=>m.dispose());this.maps.dispose();this.hornMaps.dispose();this.eyeMaps.dispose();this.group.removeFromParent();this.group.clear();}
+ dispose(){if(this.disposed)return;this.disposed=true;this.viewCulling.dispose();this.joints.dispose();this.tail.dispose();Object.values(this.meshes).forEach(m=>m.dispose());Object.values(this.geometry).forEach(g=>g.dispose());Object.values(this.materials).forEach(m=>m.dispose());this.maps.dispose();this.hornMaps.dispose();this.eyeMaps.dispose();this.group.removeFromParent();this.group.clear();}
 }

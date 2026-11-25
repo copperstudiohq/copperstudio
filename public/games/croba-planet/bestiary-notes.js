@@ -2,7 +2,7 @@
  * names and sizes remain owned by the canonical bestiary definitions. */
 const notes={
  'woodlon':{
-  description:'A short, round cousin of the Tree Stalker with one oval eye, four stubby arms and two legs. Icicles hang from its small antlers. It gently probes old bones with a mosquito-like feeding tube to draw out remaining nutrients. Parents give birth to small, soft white babies whose downy coats gradually darken as they grow.',
+  description:'A short, round plum-colored cousin of the Tree Stalker with one oval eye, four stubby arms and two legs. Ice hangs from branching antlers. Its feeding tube draws nutrients from old bones. Parents bear soft white babies whose downy coats darken as they grow.',
   fieldNote:'Woodlons bear live young and do not lay eggs. Babies follow their parents near remains and bone nests. They do not attack explorers; give the family room to pass.',
   disposition:'Peaceful',
   habitat:'Icy Basin snowfields and bone caverns',
@@ -14,19 +14,19 @@ const notes={
   habitat:'Ice islands · Icy Basin coasts · wreck nests',
  },
  'tundra-hogwong':{
-  description:'A broad, fur-coated creature with a crocodilian gray body, six clawed legs and a long whip tail. Four folded-lid eyes sit above a hard gray beak, while spines project through its white coat. It grazes and hunts adult Crobon Birds on reachable ice.',
+  description:'A broad, fur-coated creature with a crocodilian gray body, six clawed legs and a long whip tail. Four amber side eyes sit above a low gray beak, while swept spines project through its mottled white coat. It grazes and hunts Crobon Birds on reachable ice.',
   fieldNote:'Pairs court on safe ice before giving birth to small white-furred calves. Calves grow near their nursery; mature offspring can replace an aged adult. Give feeding adults space.',
   disposition:'Opportunistic hunter',
   habitat:'Icy Basin · western crash glacier',
  },
  'void-fish':{
-  description:'A black, armored relative of the Frost Hound with purple plate outlines, four purple eyes and swept horns. Its snake-like jaws hide recurved teeth. Flipper strokes and rear water jets drive coordinated patrols just above the deep seabed.',
+  description:'A plum-black, armored relative of the Frost Hound with broad purple-edged plates, four purple eyes and swept dark horns. Its snake-like jaws hide recurved teeth. Flipper strokes and rear water jets drive coordinated patrols just above the deep seabed.',
   fieldNote:'Packs share sightings and flank divers beside the deepest seabed. Calm packmates bear small young that stay in the same bottom-water band. Gain height to escape adult hunters.',
   disposition:'Pack predator',
   habitat:'Deep Blue Ocean floor',
  },
  'frost-hound':{
-  description:'An alien seal-shaped hunter with blue-gray scales, four amber eyes, ivory horns and a pale belly. A wide snake-like mouth carries hooked fangs. Traveling body waves, flipper strokes and rear jets power its pack hunts through the orange grass.',
+  description:'An alien seal-shaped hunter with broad blue armor plates, four amber eyes, swept ivory horns and a pale belly. Its gray wedge-shaped face opens into hooked snake-like fangs. Traveling body waves, flipper strokes and rear jets power its pack hunts.',
   fieldNote:'Calm packmates raise small pups in their grassy territory. Young follow their family without hunting divers. Adult sightings still trigger coordinated rushes; surface or leave the grass to escape.',
   disposition:'Pack predator',
   habitat:'Orange Grass Field water',
@@ -38,7 +38,7 @@ const notes={
   habitat:'Blue Ocean midwater',
  },
  'coral-crab':{
-  description:'A stocky red crab with black stalked eyes, eight jointed walking legs and two heavy four-fingered pincers. A tall golden spiral shell shelters its back and supports small marine plants. It explores the seafloor with steady sideways steps.',
+  description:'A stocky red crab with four black eyes on two pairs of red stalks, eight jointed walking legs and two heavy four-fingered pincers. A tall golden spiral shell shelters its back and supports small marine plants. It explores the seafloor with steady sideways steps.',
   fieldNote:'Nearby adults pair before laying seabed eggs. Small red hatchlings grow their golden carried shells as they mature. Keep clear of their low egg nests and sideways walking legs.',
   disposition:'Peaceful',
   habitat:'Arctic and Blue Ocean seabed',
@@ -84,8 +84,8 @@ const notes={
   disposition:'Cautious basker',habitat:'Sulfuric Land · geyser pond margins',
  },
  'sulfur-sand-worm':{
-  description:'Three colossal vibration hunters patrol separate stretches of the same Sulfuric Land route. Chipped bronze armor, scarred shell plates and dark ribbed joints protect each hundred-metre body. Four pointed shields cover a deep toothed mouth. Adults court while their buried bodies pass nearby. Their eggs hatch into young that burrow to the Salt Cave and swim with traveling body waves. At five metres they leave through the geyser shaft, growing outside before taking a vacant adult place.',
-  fieldNote:'Jumping on Sulfuric Land alerts nearby adults. Ground rumbling and rising sand warn of an approach. Dodge sideways when the ground swells; stop jumping and leave the mineral ground to break the hunt. A fatal strike draws you into the attacking worm’s own mouth. Only bred young inhabit the cave; they do not hunt the explorer.',
+  description:'Three colossal vibration hunters patrol separate stretches of Sulfuric Land. Chipped bronze armor, scarred plates and dark ribbed joints protect each hundred-metre body. Four pointed shields cover a deep toothed mouth. Their young swim with traveling body waves.',
+  fieldNote:'Jumping alerts nearby adults. Ground rumbling and rising sand warn of an approach. Dodge sideways; stop jumping and leave the mineral ground to break the hunt. A fatal strike draws you into the worm’s own mouth. Adults court underground; their eggs hatch into young that burrow to the Salt Cave. These young do not hunt explorers. At five metres they leave through the geyser shaft, growing outside before taking a vacant adult place.',
   disposition:'Giant vibration hunter · peaceful young',habitat:'Sulfuric Land flats · Salt Cave nursery',
  },
 };

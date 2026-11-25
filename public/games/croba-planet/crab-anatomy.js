@@ -44,7 +44,16 @@ export const CRAB_CLAW_ROOTS = Object.freeze([-1, 1].map((side) => Object.freeze
   radii: point([.017, .015].map((radius) => radius * CRAB_STOCKY_SHAPE.legThickness)),
   palm: shapePoint([side * .170, .49, -.215]),
 })));
-export const CRAB_EYES = Object.freeze([-1, 1].map((side) => shapePoint([side * .101, .731, -.171])));
+// A second pair emerges farther forward below the original pair. Both tiers
+// are baked into the existing stalk/eye surfaces, without additional draws.
+const EYE_STALKS = [
+  { center: [.101, .731, -.171], path: [[.073, .613, -.133], [.085, .646, -.146],
+    [.096, .691, -.165], [.101, .725, -.171]] },
+  { center: [.101, .663, -.218], path: [[.073, .584, -.149], [.085, .607, -.173],
+    [.096, .633, -.200], [.101, .657, -.218]] },
+];
+export const CRAB_EYES = Object.freeze(EYE_STALKS.flatMap(({ center: [x, y, z] }) =>
+  [-1, 1].map(side => shapePoint([side * x, y, z]))));
 
 const tint = new THREE.Color();
 const shade = (color, amount) => tint.set(color).multiplyScalar(amount).getHex();
@@ -54,13 +63,13 @@ const shade = (color, amount) => tint.set(color).multiplyScalar(amount).getHex()
  */
 function shieldPoint(u, t) {
   const cross = t * 2 - 1;
-  const width = .116 + .027 * Math.sin(u * Math.PI) - .025 * u;
+  const width = .116 + .039 * Math.sin(u * Math.PI) - .025 * u;
   const dome = Math.max(0, 1 - cross * cross) ** .62;
   const groove = Math.exp(-(((u - .34 - .10 * cross * cross) / .028) ** 2));
   const cardiac = .008 * Math.exp(-(((u - .67) / .17) ** 2) - (cross / .36) ** 2);
   const notch = .007 * Math.exp(-(((u - .02) / .07) ** 2) - ((Math.abs(cross) - .62) / .16) ** 2);
   return v(cross * width,
-    .548 + dome * (.079 + .015 * Math.sin(u * Math.PI) - .004 * groove) + cardiac - notch,
+    .548 + dome * (.105 + .020 * Math.sin(u * Math.PI) - .008 * groove) + cardiac - notch,
     -.160 + .290 * u + .007 * cross * cross * Math.sin(u * Math.PI));
 }
 
@@ -108,7 +117,7 @@ function carapace(mesh, rows, columns, sides) {
 }
 
 function underside(mesh, sides) {
-  mesh.ellipsoid(v(0, .530, -.015), v(.116, .021, .119), DARK_RED, { segments: sides * 2, rings: 7 });
+  mesh.ellipsoid(v(0, .530, -.015), v(.116, .036, .119), DARK_RED, { segments: sides * 2, rings: 7 });
   for (let index = 0; index < 4; index++) {
     const z = -.089 + index * .048, width = .095 - Math.abs(index - 1.4) * .008;
     mesh.ellipsoid(v(0, .514, z), v(width, .008, .021), index % 2 ? 0x9b5140 : 0xab5c45,
@@ -119,17 +128,20 @@ function underside(mesh, sides) {
 }
 
 function facialParts(stalks, eyes, mouth, sides, mobile) {
-  for (const side of [-1, 1]) {
-    const stalk = [v(side * .073, .613, -.133), v(side * .085, .646, -.146),
-      v(side * .096, .691, -.165), v(side * .101, .725, -.171)];
+  const eyeRanges = [];
+  for (const { center: [x, y, z], path } of EYE_STALKS) for (const side of [-1, 1]) {
+    const stalk = path.map(([x, y, z]) => v(side * x, y, z));
     stalks.tube(stalk, [.012, .010, .007, .006], RED, sides);
-    stalks.ellipsoid(stalk[0], v(.017, .010, .018), JOINT, { segments: sides, rings: 5 });
-    const center = v(side * .101, .731, -.171);
+    stalks.ellipsoid(stalk[0], v(.017, .010, .018), JOINT, { segments: sides, rings: mobile ? 4 : 5 });
+    const center = v(side * x, y, z), start = eyes.positions.length / 3;
     eyes.ellipsoid(center, v(.0135, .017, .0155), 0x0d1416,
-      { segments: mobile ? 10 : 16, rings: mobile ? 6 : 9 });
+      { segments: mobile ? 8 : 12, rings: mobile ? 4 : 7 });
     // Restrained wet reflection: a tiny gray patch, no emissive eye lamp.
     eyes.ellipsoid(v(center.x + side * .003, center.y + .007, center.z - .011),
-      v(.003, .004, .002), 0x526264, { segments: 6, rings: 4 });
+      v(.003, .004, .002), 0x526264, { segments: mobile ? 4 : 6, rings: mobile ? 2 : 4 });
+    eyeRanges.push({ start, count: eyes.positions.length / 3 - start });
+  }
+  for (const side of [-1, 1]) {
     const outer = [v(side * .023, .560, -.158), v(side * .035, .548, -.173),
       v(side * .020, .534, -.183)];
     mouth.tube(outer, [.012, .011, .006], 0x823326, sides);
@@ -141,6 +153,7 @@ function facialParts(stalks, eyes, mouth, sides, mobile) {
     ], [.0035, .0021, .0006], 0xb45a38, mobile ? 4 : 5);
   }
   mouth.ellipsoid(v(0, .542, -.172), v(.008, .012, .005), 0x291c18, { segments: sides, rings: 5 });
+  return eyeRanges;
 }
 
 function interpolate(values, u) {
@@ -151,21 +164,23 @@ function interpolate(values, u) {
 /** Hard oval chela fingers with ridged cuticle and a genuinely pointed tip. */
 function finger(mesh, points, widths, depths, color, rows, sides) {
   const curve = new THREE.CatmullRomCurve3(points), across = v(1, 0, 0), frame = v(0, 0, 0);
+  const pigment = new THREE.Color(color), horn = new THREE.Color(HORN), tint = new THREE.Color();
   mesh.grid(rows, sides, (u, t) => {
     const center = curve.getPoint(u), tangent = curve.getTangent(u), angle = t * TAU;
     frame.crossVectors(across, tangent).normalize();
     const ridge = 1 + .10 * Math.cos(angle * 3) * Math.sin(u * Math.PI);
     return center.addScaledVector(across, Math.cos(angle) * interpolate(widths, u) * ridge)
       .addScaledVector(frame, Math.sin(angle) * interpolate(depths, u));
-  }, (u) => shade(color, .86 + .14 * Math.sin(u * Math.PI)), 0, true);
+  }, (u) => tint.copy(pigment).lerp(horn, Math.max(0, (u - .76) / .24) ** 2)
+    .multiplyScalar(.89 + .11 * Math.sin(u * Math.PI)).getHex(), 0, true);
 }
 
 function claws(palm, fixed, moving, sides, mobile) {
   palm.grid(mobile ? 8 : 12, sides * 2, (u, t) => {
     const angle = t * TAU, taper = u === 0 || u === 1 ? 0 : Math.sin(u * Math.PI) ** .36;
     const groove = 1 - .07 * Math.exp(-(((u - .28) / .045) ** 2));
-    return v(Math.sin(angle) * (.014 + .014 * Math.sin(u * Math.PI)) * taper * groove,
-      Math.cos(angle) * (.025 + .012 * Math.sin(u * Math.PI)) * taper, .035 - u * .092);
+    return v(Math.sin(angle) * (.019 + .020 * Math.sin(u * Math.PI)) * taper * groove,
+      Math.cos(angle) * (.030 + .017 * Math.sin(u * Math.PI)) * taper, .035 - u * .092);
   }, (u, t) => shade(RED, .87 + .13 * Math.max(0, Math.cos(t * TAU))), 0, false);
   for (const side of [-1, 1]) palm.ellipsoid(v(side * .016, .027, -.040), v(.007, .008, .008),
     JOINT, { segments: sides, rings: 5 });
@@ -207,7 +222,7 @@ export function createCrabAnatomy({ mobile = false } = {}) {
     'clawPalm', 'clawFixedFinger', 'clawMovingFinger', 'joint'].map((name) => [name, new PlantMesh()]));
   const hipSockets = carapace(meshes.carapace, mobile ? 12 : 20, mobile ? 18 : 28, sides);
   underside(meshes.underside, sides);
-  facialParts(meshes.eyestalks, meshes.eyes, meshes.mouthparts, sides, mobile);
+  const eyeRanges = facialParts(meshes.eyestalks, meshes.eyes, meshes.mouthparts, sides, mobile);
   claws(meshes.clawPalm, meshes.clawFixedFinger, meshes.clawMovingFinger, sides, mobile);
   meshes.joint.ellipsoid(v(0, 0, 0), v(1, .75, 1), JOINT, { segments: sides, rings: mobile ? 4 : 6 });
   const parts = Object.fromEntries(Object.entries(meshes).map(([name, mesh]) =>
@@ -221,5 +236,6 @@ export function createCrabAnatomy({ mobile = false } = {}) {
     geometry.computeBoundingBox(); geometry.computeBoundingSphere();
   }
   parts.carapace.userData.hipSocketRanges = hipSockets;
+  parts.eyes.userData.eyeRanges = eyeRanges;
   return parts;
 }

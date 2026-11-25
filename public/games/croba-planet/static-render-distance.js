@@ -42,7 +42,8 @@ function prepare(mesh){
  for(const chunk of cells.values())for(const [material,indices]of chunk.indices)chunk.indices.set(material,new Uint32Array(indices));
  const index=new THREE.BufferAttribute(new Uint32Array(Math.max(sourceCount,selectedCount)),1).setUsage(THREE.DynamicDrawUsage);
  for(let i=0;i<sourceCount;i++)index.array[i]=sourceAt(i);
- return{mesh,geometry,sourceIndex,sourceCount,originalGroups,originalRange,materials,index,chunks:[...cells.values()],initialized:false};
+ return{mesh,geometry,sourceIndex,sourceCount,originalGroups,originalRange,materials,index,chunks:[...cells.values()],initialized:false,
+  drawGroups:materials.map(materialIndex=>({start:0,count:0,materialIndex})),indexRange:{start:0,count:0}};
 }
 
 /** Cull explicit static terrain without duplicating vertices or adding draws.
@@ -60,6 +61,7 @@ export class StaticRenderDistance{
   // Validate every source before mutating any registered geometry.
   this.entries=meshes.map(prepare);this.disposed=false;
   this.matrix=new THREE.Matrix4();this.frustum=new THREE.Frustum();this.position=new THREE.Vector3();this.direction=new THREE.Vector3();
+  this.viewWorld=new THREE.Matrix4();this.projection=new THREE.Matrix4();this.maxDistance=NaN;this.fogDepth=NaN;this.invalidated=true;
   for(const entry of this.entries)entry.geometry.setIndex(entry.index);
  }
 
@@ -68,9 +70,15 @@ export class StaticRenderDistance{
   if(this.disposed)return false;
   if(!camera?.isCamera)throw new TypeError('Static render distance requires a camera.');
   if(typeof maxDistance!=='number'||Number.isNaN(maxDistance)||maxDistance<0)throw new RangeError('Render distance must be nonnegative.');
-  camera.updateMatrixWorld();this.matrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
+  camera.updateMatrixWorld();
+  const fogDepth=fogVisibilityDepth(fogDensity);
+  if(!this.invalidated&&maxDistance===this.maxDistance&&fogDepth===this.fogDepth
+   &&this.viewWorld.equals(camera.matrixWorld)&&this.projection.equals(camera.projectionMatrix))return false;
+  this.invalidated=false;this.maxDistance=maxDistance;this.fogDepth=fogDepth;
+  this.viewWorld.copy(camera.matrixWorld);this.projection.copy(camera.projectionMatrix);
+  this.matrix.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
   this.frustum.setFromProjectionMatrix(this.matrix);camera.getWorldPosition(this.position);camera.getWorldDirection(this.direction);
-  const fogDepth=fogVisibilityDepth(fogDensity);let uploaded=false;
+  let uploaded=false;
   for(const entry of this.entries){
    let changed=!entry.initialized;
    for(const chunk of entry.chunks){
@@ -79,31 +87,32 @@ export class StaticRenderDistance{
     if(visible!==chunk.visible)changed=true;chunk.visible=visible;
    }
    if(!changed)continue;
-   const {geometry,index}=entry;let count=0;geometry.clearGroups();
-   for(const material of entry.materials){
+   const {geometry,index}=entry;let count=0;geometry.groups.length=0;
+   for(let materialSlot=0;materialSlot<entry.materials.length;materialSlot++){
+    const material=entry.materials[materialSlot];
     const start=count;
     for(const chunk of entry.chunks){if(!chunk.visible)continue;const indices=chunk.indices.get(material);if(!indices)continue;
      if(!entry.hiddenVertices){index.array.set(indices,count);count+=indices.length;continue;}
      for(let i=0;i<indices.length;i+=3){if(entry.hiddenVertices[indices[i]]||entry.hiddenVertices[indices[i+1]]||entry.hiddenVertices[indices[i+2]])continue;
       index.array[count++]=indices[i];index.array[count++]=indices[i+1];index.array[count++]=indices[i+2];}
     }
-    if(count>start)geometry.addGroup(start,count-start,material);
+    if(count>start){const group=entry.drawGroups[materialSlot];group.start=start;group.count=count-start;geometry.groups.push(group);}
    }
    geometry.setDrawRange(0,count);index.clearUpdateRanges();
-   if(count){index.addUpdateRange(0,count);index.needsUpdate=true;}
+   if(count){entry.indexRange.count=count;index.updateRanges.push(entry.indexRange);index.needsUpdate=true;}
    entry.initialized=true;uploaded=true;
   }
   return uploaded;
  }
 
  /** Force the next visibility selection to be uploaded without changing data. */
- invalidate(){if(!this.disposed)for(const entry of this.entries)entry.initialized=false;}
+ invalidate(){if(!this.disposed){this.invalidated=true;for(const entry of this.entries)entry.initialized=false;}}
  /** Removed boulder caps stop drawing without rebuilding borrowed terrain. */
  setHiddenVertexRanges(mesh,ranges=[]){
   const entry=this.entries.find(entry=>entry.mesh===mesh);if(!entry||this.disposed)return;
   entry.hiddenVertices=ranges.length?new Uint8Array(entry.geometry.attributes.position.count):null;
   for(const {start,count}of ranges)entry.hiddenVertices.fill(1,start,start+count);
-  entry.initialized=false;
+  entry.initialized=false;this.invalidated=true;
  }
 
  /** Restore full source selection in the same index pool. The active buffer

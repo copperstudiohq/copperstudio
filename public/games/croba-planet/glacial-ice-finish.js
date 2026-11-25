@@ -12,7 +12,8 @@ float glacialNoise(vec2 p){
 }`;
 
 /** An opaque, static ice/snow finish composed with the material's existing
- * maps and hooks. Bubbly frost stays pale; denser sheltered ice remains blue.
+ * maps and hooks. Snow keeps its original albedo; dense ice and frost have
+ * different light responses, with a narrow smoother wet edge at the waterline.
  * Call for each actual ice/snow material, including clones: Three.js copies
  * userData but does not copy shader hooks. No geometry or texture is allocated.
  * @param {import('./vendor/three.module.js').MeshStandardMaterial} material
@@ -33,10 +34,11 @@ export function applyGlacialIceFinish(material,{snow=false}={}){
    #endif
    vGlacialWorld=(modelMatrix*glacialWorldPoint).xyz;`);
   shader.fragmentShader=`${GLACIAL_FIELD}\n${shader.fragmentShader}`.replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
-   // Use the final mapped normal, transformed out of view space, so slope and
-   // frost remain correct on rotated and nonuniformly scaled instances.
+   // Geometric normals keep the projected field and frost stable when the
+   // existing fine normal map changes. Retain its mapped normal for lighting.
    vec3 glacialNormal=inverseTransformDirection(normal,viewMatrix);
-   vec3 glacialAxis=abs(glacialNormal);
+   vec3 glacialSurfaceNormal=inverseTransformDirection(nonPerturbedNormal,viewMatrix);
+   vec3 glacialAxis=abs(glacialSurfaceNormal);
    vec2 glacialFace=glacialAxis.y>.65?vGlacialWorld.xz:
     (glacialAxis.x>glacialAxis.z?vGlacialWorld.zy:vGlacialWorld.xy);
    float glacialMacro=glacialNoise(vGlacialWorld.xz*.047+vGlacialWorld.y*.013);
@@ -46,11 +48,21 @@ export function applyGlacialIceFinish(material,{snow=false}={}){
    float glacialBranch=glacialNoise(glacialDomain*1.81+vec2(13.7,glacialMacro*3.1));
    // Warped level sets and short secondary branches avoid repeating straight
    // decorative stripes. Compression layers stay a faint internal variation.
-   float glacialCrack=1.-smoothstep(.012,.042,abs(glacialPrimary-.51));
-   float glacialFork=(1.-smoothstep(.009,.028,abs(glacialBranch-.57)))*smoothstep(.40,.64,glacialPrimary);
+   float glacialPrimaryWidth=max(fwidth(glacialPrimary),.0001);
+   float glacialBranchWidth=max(fwidth(glacialBranch),.0001);
+   float glacialCrackAA=glacialPrimaryWidth*.5,glacialForkAA=glacialBranchWidth*.5;
+   float glacialCrack=(1.-smoothstep(.012-glacialCrackAA,.042+glacialCrackAA,abs(glacialPrimary-.51)))
+    *min(1.,.030/glacialPrimaryWidth);
+   float glacialFork=(1.-smoothstep(.009-glacialForkAA,.028+glacialForkAA,abs(glacialBranch-.57)))
+    *min(1.,.019/glacialBranchWidth)*smoothstep(.40,.64,glacialPrimary);
    float glacialFracture=max(glacialCrack,glacialFork*.7);
+   // Differentiate an unfiltered height, then fade its relief separately.
+   // Differentiating the coverage above would take derivatives of derivatives.
+   float glacialRawCrack=1.-smoothstep(.012,.042,abs(glacialPrimary-.51));
+   float glacialRawFork=(1.-smoothstep(.009,.028,abs(glacialBranch-.57)))*smoothstep(.40,.64,glacialPrimary);
+   float glacialRawFracture=max(glacialRawCrack,glacialRawFork*.7);
    float glacialCompression=.5+.5*sin(vGlacialWorld.y*.72+vGlacialWorld.x*.018+glacialMacro*6.2);
-   float glacialUp=clamp(glacialNormal.y,0.,1.);
+   float glacialUp=clamp(glacialSurfaceNormal.y,0.,1.);
    float glacialWet=1.-smoothstep(.12,1.15,abs(vGlacialWorld.y-glacialWaterLevel));
    float glacialSubmerged=1.-smoothstep(glacialWaterLevel-1.4,glacialWaterLevel+.25,vGlacialWorld.y);
    float glacialFrost=smoothstep(.18,.82,glacialUp)*(.70+.30*glacialWarp);
@@ -62,24 +74,25 @@ export function applyGlacialIceFinish(material,{snow=false}={}){
    glacialIce=mix(glacialIce,vec3(.13,.33,.45),glacialFracture*(1.-glacialFrost*.6)*.16);
    float glacialGrain=clamp(dot(diffuseColor.rgb,vec3(.2126,.7152,.0722)),.18,1.);
    glacialIce*=.86+.14*glacialGrain;
-   diffuseColor.rgb=mix(diffuseColor.rgb,glacialIce,mix(.44,.58,glacialSnowMode));
-   diffuseColor.rgb*=1.-glacialWet*.045*(1.-glacialSnowMode*.7);
+   diffuseColor.rgb=mix(diffuseColor.rgb,glacialIce,.24*(1.-glacialSnowMode));
+   diffuseColor.rgb*=1.-glacialWet*.035*(1.-glacialSnowMode);
    // Shallow optical relief catches light along fracture lips without moving
    // physical vertices. Derivatives avoid additional noise or texture samples.
-   float glacialRelief=(-glacialFracture*.025+glacialWarp*.006)*(1.-glacialFrost*.55);
+   float glacialRelief=(-glacialRawFracture*.018+glacialWarp*.004)*(1.-glacialFrost*.55)*(1.-glacialSnowMode);
    vec3 glacialDx=dFdx(vGlacialWorld),glacialDy=dFdy(vGlacialWorld);
    vec3 glacialRx=cross(glacialDy,glacialNormal),glacialRy=cross(glacialNormal,glacialDx);
    float glacialDet=dot(glacialDx,glacialRx);
    vec3 glacialGradient=sign(glacialDet)*(dFdx(glacialRelief)*glacialRx+dFdy(glacialRelief)*glacialRy)/max(abs(glacialDet),.000001);
+   glacialGradient*=1.-smoothstep(.025,.12,max(glacialPrimaryWidth,glacialBranchWidth));
    glacialGradient=clamp(glacialGradient,vec3(-.25),vec3(.25));
    normal=normalize(mat3(viewMatrix)*(glacialNormal-glacialGradient));
-   float glacialRoughness=mix(.48,.88,glacialFrost);
-   glacialRoughness=mix(glacialRoughness,.92,glacialSnowMode);
-   glacialRoughness=mix(glacialRoughness,.29,glacialWet*(1.-glacialSnowMode*.75));
-   roughnessFactor=clamp(mix(roughnessFactor,glacialRoughness,.48),.24,.98);
+   float glacialRoughness=mix(.23,.84,glacialFrost);
+   glacialRoughness=mix(glacialRoughness,.88,glacialSnowMode);
+   glacialRoughness=mix(glacialRoughness,.16,glacialWet*(1.-glacialSnowMode));
+   roughnessFactor=clamp(mix(roughnessFactor,glacialRoughness,mix(.60,.12,glacialSnowMode)),.14,.98);
    metalnessFactor=0.;`);
  };
- material.customProgramCacheKey=()=>`${previousKey}|croba-glacial-ice-finish-v1:${snow?'snow':'ice'}`;
+ material.customProgramCacheKey=()=>`${previousKey}|croba-glacial-ice-finish-v2:${snow?'snow':'ice'}`;
  material.needsUpdate=true;
  return material;
 }

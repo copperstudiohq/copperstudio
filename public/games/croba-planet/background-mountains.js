@@ -56,17 +56,17 @@ export class BackgroundMountains{
   constructor(){
     this.geometry=createBackgroundMountainGeometry();this.disposed=false;
     this.material=new THREE.ShaderMaterial({vertexColors:true,side:THREE.DoubleSide,depthWrite:false,depthTest:false,toneMapped:false,fog:false,
-      uniforms:{horizon:{value:new THREE.Color(0x8daab9)}},
+      uniforms:{horizon:{value:new THREE.Color(0x8daab9)},daylight:{value:1}},
       vertexShader:`attribute float mountainHaze;varying vec3 vMountainColor;varying float vMountainHaze;
         void main(){vMountainColor=color;vMountainHaze=mountainHaze;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader:`uniform vec3 horizon;varying vec3 vMountainColor;varying float vMountainHaze;
-        void main(){gl_FragColor=vec4(mix(vMountainColor,horizon,vMountainHaze),1.);
+      fragmentShader:`uniform vec3 horizon;uniform float daylight;varying vec3 vMountainColor;varying float vMountainHaze;
+        void main(){gl_FragColor=vec4(mix(vMountainColor*mix(.10,1.,daylight),horizon,vMountainHaze),1.);
           #include <colorspace_fragment>
         }`,
     });
     this.mesh=new THREE.Mesh(this.geometry,this.material);this.mesh.name='distant-background-mountains';
     this.mesh.renderOrder=-900;this.mesh.frustumCulled=false;this.mesh.userData.backgroundOnly=true;
   }
-  update(horizon){this.material.uniforms.horizon.value.copy(horizon);}
+  update(horizon,daylight=1){this.material.uniforms.horizon.value.copy(horizon);this.material.uniforms.daylight.value=daylight;}
   dispose(){if(this.disposed)return;this.disposed=true;this.mesh.removeFromParent();this.geometry.dispose();this.material.dispose();}
 }

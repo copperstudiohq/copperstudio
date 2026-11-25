@@ -145,7 +145,7 @@ export class CrabColony {
         roughness: .7, metalness: 0, side: THREE.DoubleSide }),
       eyeGlow: own('eyeGlow', { color: 0xffffff, roughness: .12, metalness: 0 }),
     };
-    this.surfaceMaps = { armor: createCreatureSurfaceMaps('armor') };
+    this.surfaceMaps = { armor: createCreatureSurfaceMaps('armor'), shell: createCreatureSurfaceMaps('horn') };
     for (const material of [this.materials.chitin, this.materials.shell]) {
       if (!material.map || !material.normalMap || !material.roughnessMap)
         applyCreatureSurface(material, this.surfaceMaps.armor, material === this.materials.shell ? .16 : .3);
@@ -155,11 +155,13 @@ export class CrabColony {
     }
     // Scene chitin albedo already contains red pigment. Keep borrowed relief,
     // but apply baked red/tan pigment only once through neutral body/shell albedo.
-    this.materials.chitin.map = this.materials.shell.map = this.surfaceMaps.armor.map;
-    this.materials.chitin.normalScale?.setScalar(.3);
+    this.materials.chitin.map = this.surfaceMaps.armor.map;
+    this.materials.chitin.normalScale?.setScalar(.19);
+    this.materials.chitin.roughness = .62;
     const shell = this.materials.shell;
-    shell.roughness = .4; shell.metalness = .42;
-    if (shell.isMeshPhysicalMaterial) { shell.clearcoat = .38; shell.clearcoatRoughness = .25; }
+    applyCreatureSurface(shell, this.surfaceMaps.shell, .2);
+    shell.roughness = .74; shell.metalness = .12;
+    if (shell.isMeshPhysicalMaterial) { shell.clearcoat = .34; shell.clearcoatRoughness = .25; }
     const eye = this.materials.eyeGlow;
     eye.color.set(0xffffff); eye.vertexColors = true; eye.emissive?.set(0); eye.emissiveIntensity = 0;
     eye.map = eye.normalMap = eye.roughnessMap = eye.emissiveMap = null;

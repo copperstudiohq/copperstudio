@@ -113,11 +113,12 @@ export function getPlatformAt(world, x, y) {
     ? { id: getSulfuricGround(x,y)!==null?SULFURIC_LAND.id:world.forest.id, kind: getSulfuricGround(x,y)!==null?'sulfuric-land':'forest', x, y, z, rx: 0, ry: 0, seed: 0 } : undefined;
 }
 
-/** A finite apron is a ceiling, rather than a ground column, while the feet
- * are below its bottom. Its separate body sweep owns any head contact. */
+/** Finite undersides and steep cliff faces remain solid without acting as
+ * standing floors. The separate body sweep owns their side/head contacts. */
 function orangeCliffSupport(world,x,y){
   const surface=getOrangeCliffSurface(x,y,world.borders);
-  return surface&&Number.isFinite(surface.low)&&world.player?.z<surface.low-1e-6?null:surface;
+  if(!surface||surface.normal.z<1/Math.sqrt(1+.65*.65))return null;
+  return Number.isFinite(surface.low)&&world.player?.z<surface.low-1e-6?null:surface;
 }
 
 function getLandHeight(world,x,y,cliffHeight=orangeCliffSupport(world,x,y)?.z??null){
@@ -677,7 +678,9 @@ export function updateWorld(world, input, dt, options = {}) {
     Object.assign(player,resolveStructureMovement(world,beforeMovement,player));
     const cliffCandidateZ=player.z;
     Object.assign(player,resolveOrangeCliffMovement(beforeMovement,player,EYE_HEIGHT,PLAYER_RADIUS,world.borders));
-    if(!player.swimming&&player.z>cliffCandidateZ+1e-6&&beforeMovement.z>=player.z-1e-6){
+    const cliffLanding=orangeCliffSupport(world,player.x,player.y);
+    if(!player.swimming&&player.z>cliffCandidateZ+1e-6&&beforeMovement.z>=player.z-1e-6
+      &&cliffLanding&&Math.abs(player.z-cliffLanding.z)<.1){
       player.jumping=false;player.jumpTime=0;delete player.jumpBaseZ;clearForestFall(player);
     }
     if (player.swimming)

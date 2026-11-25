@@ -59,22 +59,18 @@ export function applyHogwongFur(material) {
   material.onBeforeCompile = shader => {
     previous(shader);
     shader.vertexShader = shader.vertexShader.replace('#include <common>',
-      '#include <common>\nattribute float hogwongFurMask; varying float vHogwongFur;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHogwongFur=hogwongFurMask;');
+      '#include <common>\nattribute float hogwongFurMask; attribute vec3 hogwongCoatColor; varying float vHogwongFur; varying vec3 vHogwongCoat;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHogwongFur=hogwongFurMask;vHogwongCoat=hogwongCoatColor;');
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>',
-      '#include <common>\nvarying float vHogwongFur;')
+      '#include <common>\nvarying float vHogwongFur; varying vec3 vHogwongCoat;')
       .replace('#include <color_fragment>', `#include <color_fragment>
         float furMask=clamp(vHogwongFur,0.,1.);
-        float furPhase=vMapUv.x*1190.+sin(vMapUv.y*74.)*3.5;
-        float furFibres=sin(furPhase)/(1.+fwidth(furPhase)*1.5);
-        float furClumps=sin(vMapUv.x*173.+vMapUv.y*29.)*sin(vMapUv.y*47.);
-        float coatShade=.94+furFibres*.025+furClumps*.07;
         float hideShade=dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
-        vec3 winterCoat=vec3(.80,.84,.83)*coatShade*(.94+.10*hideShade);
+        vec3 winterCoat=vHogwongCoat*(.94+.06*clamp(hideShade,0.,1.));
         diffuseColor.rgb=mix(diffuseColor.rgb,winterCoat,furMask);`)
       .replace('#include <roughnessmap_fragment>',
         '#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,max(.82,roughnessFactor),furMask);');
   };
-  material.customProgramCacheKey = () => key() + '|hogwong-white-winter-fur-v3';
+  material.customProgramCacheKey = () => key() + '|hogwong-white-winter-fur-v5';
   return material;
 }

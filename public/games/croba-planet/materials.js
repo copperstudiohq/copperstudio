@@ -529,13 +529,13 @@ export function createMaterials({ maxAnisotropy = 4, resolution = 512 } = {}) {
   const textures = new Set();
   const library = {};
   const definitions = {
-    snow: { roughness: 0.88, metalness: 0.015, normal: 0.65 },
-    ice: { roughness: 0.44, metalness: 0.08, normal: 0.65, vertexColors: true },
+    snow: { roughness: 0.88, metalness: 0, normal: 0.65 },
+    ice: { roughness: 0.44, metalness: 0, normal: 0.65, vertexColors: true },
     sand: { roughness: 0.96, metalness: 0, normal: 0.8 },
     rock: { roughness: 0.88, metalness: 0.04, normal: 0.85 },
-    whiteMetal: { roughness: 0.6, metalness: 0.25, normal: 0.55 },
-    orangeMetal: { roughness: 0.62, metalness: 0.25, normal: 0.55 },
-    darkMetal: { roughness: 0.5, metalness: 0.68, normal: 0.6 },
+    whiteMetal: { roughness: 0.47, metalness: 0.25, normal: 0.36 },
+    orangeMetal: { roughness: 0.53, metalness: 0.25, normal: 0.4 },
+    darkMetal: { roughness: 0.42, metalness: 0.68, normal: 0.4 },
     chitin: { roughness: 0.56, metalness: 0.15, normal: 0.7 },
     goldCoral: { roughness: 0.57, metalness: 0.72, normal: 0.9 },
     bark: { roughness: 0.88, metalness: 0, normal: 0.85 },
@@ -565,8 +565,8 @@ export function createMaterials({ maxAnisotropy = 4, resolution = 512 } = {}) {
       roughness: definition.roughness,
       metalness: definition.metalness,
       vertexColors: Boolean(definition.vertexColors),
-      flatShading: !['blueKelp','purpleNeedles','greenLeaves','moss','bark','chitin','goldCoral'].includes(kind),
-      envMapIntensity: kind === "goldCoral" ? 1.35 : 0.65,
+      flatShading: !['snow','ice','blueKelp','purpleNeedles','greenLeaves','moss','bark','chitin','goldCoral'].includes(kind),
+      envMapIntensity: kind === "goldCoral" ? 1.35 : kind.endsWith('Metal') ? .9 : .65,
     });
     material.name = `croba-${kind}`;
     if (["blueKelp", "purpleNeedles", "greenLeaves"].includes(kind)) {

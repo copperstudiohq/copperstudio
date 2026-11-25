@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="./building.css" />
     <link rel="stylesheet" href="./bestiary.css" />
     <link rel="stylesheet" href="./opening-flight.css" />
+    <link rel="stylesheet" href="./mobile-hud.css" />
   </head>
   <body>
     <section id="loading-screen" class="loading-screen" aria-label="Loading Croba Planet" aria-busy="true" hidden>
@@ -94,7 +95,7 @@
             <path d="M10 6v8" stroke="currentColor" stroke-width="1.4" />
           </svg>
           <b id="temperature-value">−32°</b><span>C</span></span
-        ><button
+        ><div id="mobile-tools-panel" class="tool-actions"><button
           id="sound"
           class="icon-button"
           aria-label="Turn sound on"
@@ -133,7 +134,7 @@
         ><button id="backpack-toggle" class="icon-button text-control" title="Backpack (I)" aria-label="Open backpack">BAG</button><button id="crafting-toggle" class="icon-button text-control" title="Crafting (K)" aria-label="Open crafting">CRAFT</button><button id="building-toggle" class="icon-button text-control" title="Build menu (V)" aria-label="Open build menu">BUILD</button><button id="saves-toggle" class="icon-button text-control" aria-label="Saved expeditions">SAVES</button><button id="bestiary-toggle" class="icon-button bestiary-toggle" aria-label="Open bestiary, 0 of 15 creatures identified" aria-controls="bestiary" aria-expanded="false" title="Bestiary (B)">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 4h11a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4V4Zm0 12c0-2 2-3 4-3h11M9 5v8" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="m12 9 2-2 2 2-2 2-2-2Z" fill="currentColor"/></svg>
           <span id="bestiary-badge" class="bestiary-badge" aria-hidden="true">0/15</span>
-        </button><button
+        </button><button id="mobile-map-toggle" class="icon-button text-control" aria-label="Open expedition map" aria-controls="map-panel" aria-expanded="false">MAP</button></div><button id="mobile-tools-toggle" class="mobile-tools-toggle icon-button text-control" type="button" aria-label="Open tools" aria-controls="mobile-tools-panel" aria-expanded="false">TOOLS</button><button
           id="pause"
           class="icon-button hidden"
           aria-label="Pause game"
@@ -192,6 +193,7 @@
         class="mission hidden"
         aria-label="Expedition status"
       >
+        <button id="mobile-hud-toggle" class="mobile-hud-toggle" type="button" aria-label="Show full expedition status" aria-controls="mission" aria-expanded="false">＋</button>
         <div class="eyebrow">
           YOUR EXPEDITION <span id="part-count">0 / 3</span>
         </div>
@@ -205,6 +207,7 @@
           ><span data-part="seabed"><i></i> SEABED</span>
         </div>
         <div class="biome-header"><span>BIOME</span><b id="field-biome">ARCTIC</b><span id="field-temperature" class="field-temperature">−32°C</span></div>
+        <div class="world-clock-row" aria-label="Croba local time"><span id="day-phase">Day</span><time id="world-clock" datetime="08:00">Day 1 · 08:00</time></div>
         <div class="depth-header">
           <span id="water-mode">ON THE ICE</span
           ><span>DEPTH <b id="depth-value">0.0 m</b><small id="ocean-depth" class="hidden"> / 100 m</small></span>
@@ -341,7 +344,7 @@
       <div class="planet-status">
         <span class="live-dot"></span>
         <span id="sector-size">90 ICE ISLANDS</span>
-        <span class="footer-separator"></span> DAY 01
+        <span class="footer-separator"></span> <span id="expedition-day">DAY 01</span>
       </div>
     </footer>
     <dialog id="bestiary" class="menu bestiary" aria-labelledby="bestiary-title" aria-describedby="bestiary-intro">
@@ -361,7 +364,7 @@
         <article id="catalog-woodlon" class="bestiary-card locked" aria-labelledby="catalog-woodlon-name">
           <div class="bestiary-art">
             <span class="bestiary-index">SPECIMEN 01</span><span id="catalog-woodlon-disposition" class="bestiary-status">Unrecorded</span>
-            <img src="./bestiary-models/woodlon.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <img src="./bestiary-models/woodlon.png?v=221" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
             <span id="catalog-woodlon-size" class="bestiary-size">???</span>
           </div>
           <div class="bestiary-card-copy">
@@ -373,7 +376,7 @@
         <article id="catalog-three-eye-penguin" class="bestiary-card locked" aria-labelledby="catalog-three-eye-penguin-name">
           <div class="bestiary-art">
             <span class="bestiary-index">SPECIMEN 02</span><span id="catalog-three-eye-penguin-disposition" class="bestiary-status">Unrecorded</span>
-            <img src="./bestiary-models/three-eye-penguin.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <img src="./bestiary-models/three-eye-penguin.png?v=221" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
             <span id="catalog-three-eye-penguin-size" class="bestiary-size">???</span>
           </div>
           <div class="bestiary-card-copy">
@@ -385,7 +388,7 @@
         <article id="catalog-coral-crab" class="bestiary-card locked" aria-labelledby="catalog-coral-crab-name">
           <div class="bestiary-art">
             <span class="bestiary-index">SPECIMEN 03</span><span id="catalog-coral-crab-disposition" class="bestiary-status">Unrecorded</span>
-            <img src="./bestiary-models/coral-crab.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <img src="./bestiary-models/coral-crab.png?v=221" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
             <span id="catalog-coral-crab-size" class="bestiary-size">???</span>
           </div>
           <div class="bestiary-card-copy">
@@ -409,7 +412,7 @@
         <article id="catalog-tundra-hogwong" class="bestiary-card locked" aria-labelledby="catalog-tundra-hogwong-name">
           <div class="bestiary-art">
             <span class="bestiary-index">SPECIMEN 05</span><span id="catalog-tundra-hogwong-disposition" class="bestiary-status">Unrecorded</span>
-            <img src="./bestiary-models/tundra-hogwong.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <img src="./bestiary-models/tundra-hogwong.png?v=221" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
             <span id="catalog-tundra-hogwong-size" class="bestiary-size">???</span>
           </div>
           <div class="bestiary-card-copy">
@@ -421,7 +424,7 @@
         <article id="catalog-void-fish" class="bestiary-card locked" aria-labelledby="catalog-void-fish-name">
           <div class="bestiary-art">
             <span class="bestiary-index">SPECIMEN 06</span><span id="catalog-void-fish-disposition" class="bestiary-status">Unrecorded</span>
-            <img src="./bestiary-models/void-fish.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <img src="./bestiary-models/void-fish.png?v=219" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
             <span id="catalog-void-fish-size" class="bestiary-size">???</span>
           </div>
           <div class="bestiary-card-copy">
@@ -433,7 +436,7 @@
         <article id="catalog-frost-hound" class="bestiary-card locked" aria-labelledby="catalog-frost-hound-name">
           <div class="bestiary-art">
             <span class="bestiary-index">SPECIMEN 07</span><span id="catalog-frost-hound-disposition" class="bestiary-status">Unrecorded</span>
-            <img src="./bestiary-models/frost-hound.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <img src="./bestiary-models/frost-hound.png?v=219" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
             <span id="catalog-frost-hound-size" class="bestiary-size">???</span>
           </div>
           <div class="bestiary-card-copy">
@@ -481,7 +484,7 @@
         <article id="catalog-tree-stalker" class="bestiary-card locked" aria-labelledby="catalog-tree-stalker-name">
           <div class="bestiary-art">
             <span class="bestiary-index">SPECIMEN 11</span><span id="catalog-tree-stalker-disposition" class="bestiary-status">Unrecorded</span>
-            <img src="./bestiary-models/tree-stalker.png" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
+            <img src="./bestiary-models/tree-stalker.png?v=221" width="280" height="160" alt="" aria-hidden="true" loading="lazy" decoding="async"/>
             <span id="catalog-tree-stalker-size" class="bestiary-size">???</span>
           </div>
           <div class="bestiary-card-copy">
@@ -542,7 +545,7 @@
       </div>
       <div class="bestiary-footer"><p id="bestiary-results" role="status" aria-live="polite">15 of 15 entries shown</p><button id="bestiary-back" class="primary-button">Back to Croba <span aria-hidden="true">↗</span></button></div>
     </dialog>
-    <div id="quick-slots" class="quick-slots" role="group" aria-label="Five quick slots"><button id="quick-slot-0" type="button" aria-label="Quick slot 1"><kbd>1</kbd><span id="quick-slot-icon-0"></span><small id="quick-slot-count-0"></small></button><button id="quick-slot-1" type="button" aria-label="Quick slot 2"><kbd>2</kbd><span id="quick-slot-icon-1"></span><small id="quick-slot-count-1"></small></button><button id="quick-slot-2" type="button" aria-label="Quick slot 3"><kbd>3</kbd><span id="quick-slot-icon-2"></span><small id="quick-slot-count-2"></small></button><button id="quick-slot-3" type="button" aria-label="Quick slot 4"><kbd>4</kbd><span id="quick-slot-icon-3"></span><small id="quick-slot-count-3"></small></button><button id="quick-slot-4" type="button" aria-label="Quick slot 5"><kbd>5</kbd><span id="quick-slot-icon-4"></span><small id="quick-slot-count-4"></small></button></div>
+    <div id="quick-slots" class="quick-slots" role="group" aria-label="Five quick slots"><button id="quick-slot-0" type="button" aria-label="Quick slot 1"><kbd>1</kbd><span id="quick-slot-icon-0"></span><small id="quick-slot-count-0"></small></button><button id="quick-slot-1" type="button" aria-label="Quick slot 2"><kbd>2</kbd><span id="quick-slot-icon-1"></span><small id="quick-slot-count-1"></small></button><button id="quick-slot-2" type="button" aria-label="Quick slot 3"><kbd>3</kbd><span id="quick-slot-icon-2"></span><small id="quick-slot-count-2"></small></button><button id="quick-slot-3" type="button" aria-label="Quick slot 4"><kbd>4</kbd><span id="quick-slot-icon-3"></span><small id="quick-slot-count-3"></small></button><button id="quick-slot-4" type="button" aria-label="Quick slot 5"><kbd>5</kbd><span id="quick-slot-icon-4"></span><small id="quick-slot-count-4"></small></button><button id="mobile-slots-toggle" class="mobile-slots-toggle" type="button" aria-label="Show all five quick slots" aria-controls="quick-slots" aria-expanded="false">⋯</button></div>
     <p id="equipped-hint" role="status" hidden></p>
     <div id="building-actions" class="building-actions" role="group" aria-label="Builder controls" hidden><button id="building-change" type="button">Blueprints <kbd>V</kbd></button><button id="building-rotate" type="button">Rotate <kbd>R</kbd></button><button id="building-remove" type="button">Reclaim <kbd>Q</kbd></button></div>
     <dialog id="building" class="menu survival-dialog building-dialog" aria-labelledby="building-title">

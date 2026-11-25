@@ -519,6 +519,8 @@ kbd {
   color: #b7d6d9;
 }
 .field-temperature { color: #c4d7d9; letter-spacing: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.world-clock-row { display: flex; justify-content: space-between; gap: 8px; margin: -4px 0 12px; color: #9cbdc4; font-size: .875rem; letter-spacing: .4px; }
+#world-clock { color: #c4d7d9; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .purple-forest .biome-header b, .purple-forest #biome-value { color: #dcbdf5; }
 .purple-forest .mission { border-color: #bf9bdf55; }
 #oxygen-value, #health-value, #depth-value, #part-count { font-variant-numeric: tabular-nums; }
@@ -1428,6 +1430,7 @@ kbd {
     margin-bottom: 7px;
     font-size: 7px;
   }
+  .world-clock-row { margin: -2px 0 7px; }
   .look-hint {
     bottom: 81px;
     font-size: 8px;
@@ -1629,6 +1632,7 @@ kbd {
   .mission .biome-header > span:first-child { display: none; }
   .mission .biome-header b { margin-left: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mission .field-temperature { margin-left: auto; flex-shrink: 0; }
+  .mission .world-clock-row { grid-column: 1 / -1; grid-row: 6; margin: 0; }
   .mission .depth-header, .mission .oxygen-header, .mission .health-header {
     display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
     margin: 0; font-size: 8px; line-height: 1.15; letter-spacing: .4px;
@@ -1649,7 +1653,7 @@ kbd {
     overflow-y: auto; touch-action: pan-y; z-index: 9;
   }
   .interaction { bottom: calc(176px + env(safe-area-inset-bottom)); max-width: calc(100% - 24px); font-size: 10px; padding: 9px 12px; white-space: normal; }
-  .toast { top: calc(158px + env(safe-area-inset-top)); bottom: auto; max-width: calc(100% - 24px); width: max-content; padding: 8px 12px; font-size: 10px; line-height: 1.5; }
+  .toast { top: calc(220px + env(safe-area-inset-top)); bottom: auto; max-width: calc(100% - 24px); width: max-content; padding: 8px 12px; font-size: 10px; line-height: 1.5; }
   .threat { top: calc(200px + env(safe-area-inset-top)); bottom: auto; max-width: calc(100% - 24px); }
   .menu { padding: 28px 24px; max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .menu button { min-height: 48px; }
@@ -1664,8 +1668,8 @@ kbd {
   .touch-controls { bottom: calc(10px + env(safe-area-inset-bottom)); }
   .map-toggle { bottom: calc(10px + env(safe-area-inset-bottom)); }
   .map-panel { bottom: calc(124px + env(safe-area-inset-bottom)); max-height: calc(100dvh - 210px); }
-  .toast { top: 96px; max-width: 48%; font-size: 9px; }
-  .threat { top: 132px; left: 50%; right: auto; transform: translateX(-50%); max-width: 48%; }
+  .toast { top: 150px; max-width: 48%; font-size: 9px; }
+  .threat { top: 196px; left: 50%; right: auto; transform: translateX(-50%); max-width: 48%; }
   .interaction { bottom: calc(42px + env(safe-area-inset-bottom)); max-width: 40%; font-size: 9px; }
 }
 

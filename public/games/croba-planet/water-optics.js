@@ -2,8 +2,10 @@
  * material in real seawater. Distances use render metres. This is a bounded
  * game approximation, not a calibrated oceanographic radiative-transfer model. */
 export const WATER_OPTICS=Object.freeze({
- absorption:Object.freeze([.10,.055,.035]),
- scatter:Object.freeze([.012,.035,.048]),
+ // Keep close mineral/creature pigment readable before the separate distance
+ // fog is applied. Warm light still disappears substantially faster at range.
+ absorption:Object.freeze([.075,.032,.018]),
+ scatter:Object.freeze([.010,.041,.061]),
  sulfurAbsorption:Object.freeze([.075,.085,.11]),
  sulfurScatter:Object.freeze([.045,.040,.015]),
  surfaceAbsorption:Object.freeze([.22,.09,.055]),

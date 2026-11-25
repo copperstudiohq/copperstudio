@@ -48,10 +48,10 @@ export class BackgroundFallingShips{
   this.update(new THREE.Color(0x8daab9));
  }
 
- update(horizon,time=0,reducedMotion=false){
+ update(horizon,time=0,reducedMotion=false,daylight=1){
   if(this.disposed)return;
   const clock=reducedMotion?10:Math.max(0,Number.isFinite(time)?time:0)+3;
-  const key=`${clock}:${horizon.getHex()}`;if(key===this.lastKey)return;this.lastKey=key;
+  const key=`${clock}:${horizon.getHex()}:${daylight}`;if(key===this.lastKey)return;this.lastKey=key;
   const slot=Math.floor(clock/SLOT_SECONDS),age=clock%SLOT_SECONDS;
   this.group.visible=age<FLIGHT_SECONDS;if(!this.group.visible)return;
   const route=ROUTES[slot%ROUTES.length],p=age/FLIGHT_SECONDS;
@@ -62,7 +62,7 @@ export class BackgroundFallingShips{
    .multiply(this.roll.setFromAxisAngle(FRONT,Math.sin(age*1.3)*.09));
   this.hull.updateMatrix();
   for(const[surface,material]of Object.entries(this.materials))
-   material.color.setHex(TINTS[surface]).lerp(horizon,.36);
+   material.color.setHex(TINTS[surface]).lerp(horizon,.36).multiplyScalar(.16+.84*daylight);
   const fade=Math.min(1,(FLIGHT_SECONDS-age)/2.5);
   // Each emission has a stable birth position, variation and drift. Older
   // billows spread and thin out instead of forming evenly spaced solid tiers.

@@ -2,14 +2,17 @@ import * as THREE from './vendor/three.module.js';
 import { RED_FISH_TENDRIL_SEGMENTS, RED_FISH_TENDRIL_ROOTS, redFishTendrilRestPoint, redFishTendrilRadius } from './red-fish-tendril-physics.js';
 import { redFishAppearance } from './red-fish-skin.js';
 import {getLifecycleScale} from './lifecycle-scale.js';
+import {uploadAttributePrefix} from './dynamic-attribute-upload.js';
 
-const finite = point => point && [point.x, point.y, point.z].every(Number.isFinite);
+const finite = point => point && Number.isFinite(point.x)&&Number.isFinite(point.y)&&Number.isFinite(point.z);
 
 /** One connected tube batch copies the four simulated chains. Shared rings
  * keep bends smooth; rendering never advances the physics or moves the fish. */
 export class RedFishTendrilRenderer {
   constructor(capacity, material, { mobile = false } = {}) {
     this.capacity = capacity; this.sides = mobile ? 5 : 8; this.count = 0;
+    this.ringCos=new Float64Array(this.sides+1);this.ringSin=new Float64Array(this.sides+1);
+    for(let side=0;side<=this.sides;side++){const angle=side/this.sides*Math.PI*2;this.ringCos[side]=Math.cos(angle);this.ringSin[side]=Math.sin(angle);}
     const rings = RED_FISH_TENDRIL_SEGMENTS + 1, stride = this.sides + 1;
     const vertices = capacity * RED_FISH_TENDRIL_ROOTS.length * rings * stride;
     const positions = new Float32Array(vertices * 3), normals = new Float32Array(vertices * 3);
@@ -46,14 +49,16 @@ export class RedFishTendrilRenderer {
   fish(fish, reducedMotion = false) {
     if (this.count >= this.capacity) throw new RangeError('Red fish tendril batch exceeds its prepared population.');
     const scale = fish.lengthMeters*getLifecycleScale(fish), stride = this.sides + 1, rings = this.points.length;
+    const appearance=redFishAppearance(fish);
     for (let chain = 0; chain < RED_FISH_TENDRIL_ROOTS.length; chain++) {
       redFishTendrilRestPoint(fish, chain, 0, this.rest);
       const nodes = fish.tendrilNodes?.[chain], root = nodes?.[0];
       // Held prey and teleports can move before a physics tick. Never leave
       // detached tubes at the old location while the fish is being carried.
-      const useRest = reducedMotion || !!fish.squidHeldBy || !Array.isArray(nodes) || nodes.length !== rings || !finite(root)
-        || Math.hypot(root.x - this.rest.x, root.y - this.rest.y, root.z - this.rest.z) > .03 * scale * 25
-        || nodes.some(node => !finite(node));
+      let validNodes=Array.isArray(nodes)&&nodes.length===rings;
+      if(validNodes)for(const node of nodes)if(!finite(node)){validNodes=false;break;}
+      const useRest = reducedMotion || !!fish.squidHeldBy || !validNodes || !finite(root)
+        || Math.hypot(root.x - this.rest.x, root.y - this.rest.y, root.z - this.rest.z) > .03 * scale * 25;
       for (let node = 0; node < rings; node++) {
         const point = useRest ? redFishTendrilRestPoint(fish, chain, node, this.rest) : nodes[node];
         this.points[node].set(point.x / 25, point.z / 25, point.y / 25);
@@ -79,13 +84,12 @@ export class RedFishTendrilRenderer {
         const radius = redFishTendrilRadius(fish, node) / 25;
         const start = ((this.count * RED_FISH_TENDRIL_ROOTS.length + chain) * rings + node) * stride;
         for (let side = 0; side <= this.sides; side++) {
-          const angle = side / this.sides * Math.PI * 2;
-          this.normal.copy(this.side).multiplyScalar(Math.cos(angle)).addScaledVector(this.up, Math.sin(angle));
+          this.normal.copy(this.side).multiplyScalar(this.ringCos[side]).addScaledVector(this.up,this.ringSin[side]);
           const vertex = start + side;
           this.geometry.attributes.position.setXYZ(vertex, point.x + this.normal.x * radius,
             point.y + this.normal.y * radius, point.z + this.normal.z * radius);
           this.geometry.attributes.normal.setXYZ(vertex, this.normal.x, this.normal.y, this.normal.z);
-          this.geometry.attributes.fishAppearance.setX(vertex, redFishAppearance(fish));
+          this.geometry.attributes.fishAppearance.setX(vertex,appearance);
         }
         this.axis.copy(point).addScalar(radius); this.bounds.expandByPoint(this.axis);
         this.axis.copy(point).addScalar(-radius); this.bounds.expandByPoint(this.axis);
@@ -98,8 +102,9 @@ export class RedFishTendrilRenderer {
     this.geometry.setDrawRange(0, this.count * RED_FISH_TENDRIL_ROOTS.length * RED_FISH_TENDRIL_SEGMENTS * this.sides * 6);
     this.mesh.visible = this.count > 0;
     if (!this.count) return;
-    this.geometry.attributes.position.needsUpdate = true; this.geometry.attributes.normal.needsUpdate = true;
-    this.geometry.attributes.fishAppearance.needsUpdate = true;
+    const vertices=this.count*RED_FISH_TENDRIL_ROOTS.length*this.points.length*(this.sides+1);
+    uploadAttributePrefix(this.geometry.attributes.position,vertices);uploadAttributePrefix(this.geometry.attributes.normal,vertices);
+    uploadAttributePrefix(this.geometry.attributes.fishAppearance,vertices);
     this.geometry.boundingBox ??= new THREE.Box3(); this.geometry.boundingBox.copy(this.bounds);
     this.geometry.boundingSphere ??= new THREE.Sphere(); this.bounds.getBoundingSphere(this.geometry.boundingSphere);
   }

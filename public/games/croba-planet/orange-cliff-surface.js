@@ -6,6 +6,9 @@ import {ShapeUtils,Vector2} from './vendor/three.module.js';
 
 const caches=new WeakMap(),CELL=200,SURFACE_FEET=WATER_LEVEL-EYE_HEIGHT+9,FOOT=SURFACE_FEET+10;
 const WALK_NORMAL=1/Math.sqrt(1+.65*.65),EPS=.06;
+// A visible five-metre final fracture exceeds the 48-unit jump and 14-unit
+// hand reach. Include neighboring rim segments within the full jump span.
+const RIM_RISE=125,RIM_REACH=205;
 const U=[0,.14,.20,.40,.47,.67,.73,1],P=[0,.16,.16,.40,.40,.64,.64,1];
 const wideIds=new Set(['perimeter-main-67','perimeter-main-68','perimeter-main-69','perimeter-main-70']);
 const mix=(a,b,t)=>a+(b-a)*t,key=(x,y)=>`${Math.floor(x/CELL)}:${Math.floor(y/CELL)}`;
@@ -20,6 +23,19 @@ function normal(a,b,c){
   const ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
   const x=uy*vz-uz*vy,y=uz*vx-ux*vz,z=ux*vy-uy*vx,length=Math.hypot(x,y,z);
   return length>1e-9?{x:x/length,y:y/length,z:z/length}:null;
+}
+
+function lowestNearbyRim(x,y,region,segments){
+  let lowest=Infinity;
+  for(const s of segments){
+    if(s.region!==region||x<s.minX||x>s.maxX||y<s.minY||y>s.maxY)continue;
+    const t=((x-s.a.x)*s.dx+(y-s.a.y)*s.dy)/s.lengthSq;
+    const perpendicularSq=(x-s.a.x-s.dx*t)**2+(y-s.a.y-s.dy*t)**2;
+    if(perpendicularSq>RIM_REACH**2)continue;
+    const reach=Math.sqrt((RIM_REACH**2-perpendicularSq)/s.lengthSq),lo=Math.max(0,t-reach),hi=Math.min(1,t+reach);
+    if(lo<=hi)lowest=Math.min(lowest,mix(s.a.z,s.b.z,lo),mix(s.a.z,s.b.z,hi));
+  }
+  return lowest;
 }
 
 function surface(cache,x,y){
@@ -80,6 +96,14 @@ function build(borders){
     }
     if(!changed)break;
   }
+  const rimSegments=walls.map(wall=>{
+    const nodesAtEnds=[nodes.get(nodeKey(wall,wall.start)),nodes.get(nodeKey(wall,wall.end))];
+    const[a,b]=nodesAtEnds.map(n=>point(n.x-n.nx*30,n.y-n.ny*30,n.crest));
+    const dx=b.x-a.x,dy=b.y-a.y;
+    return{a,b,dx,dy,lengthSq:dx*dx+dy*dy,region:wall.region,
+      minX:Math.min(a.x,b.x)-RIM_REACH,maxX:Math.max(a.x,b.x)+RIM_REACH,
+      minY:Math.min(a.y,b.y)-RIM_REACH,maxY:Math.max(a.y,b.y)+RIM_REACH};
+  });
   const positions=[],tops=[],cells=new Map(),ranges=[];
   const emit=(a,b,c,outward,top=false,low=0,region,floor)=>{
     let n=normal(a,b,c);if(!n)return;
@@ -108,6 +132,7 @@ function build(borders){
       const t=i/steps,x=mix(left.x,right.x,t),y=mix(left.y,right.y,t),nx=mix(left.nx,right.nx,t),ny=mix(left.ny,right.ny,t);
       const width=mix(left.width,right.width,t),toe=mix(left.toe,right.toe,t),crest=mix(left.crest,right.crest,t),low=mix(left.low,right.low,t);
       const ramp=width-54,distances=[0,24,...U.slice(1).map(u=>24+u*ramp),width],heights=[toe,toe,...P.slice(1).map(p=>mix(toe,crest,p)),crest];
+      distances[7]=width-50; // Lower lookout; the following20 units are steep rock.
       // The shared world-coordinate field carries ribs and worn notches
       // through adjacent strip endpoints; it never shifts the toe or back.
       const lane=smooth(25,80,Math.abs((x-8788.145019)*.135113205+(y+10153.603197)*.990830168));
@@ -117,7 +142,9 @@ function build(borders){
         const field=Math.sin(x*.023+y*.017+j*1.71)*.65+Math.sin(x*.047-y*.031+j*.83)*.35;
         const shift=envelope*field*Math.min(22,width*.028)*lane;
         const relief=envelope*(Math.sin(x*.031+y*.019+j*2.11)*.7+Math.sin(x*.061-y*.043+j)*.3)*28*lane;
-        return point(x-nx*(width-s-shift),y-ny*(width-s-shift),heights[j]+relief);
+        const p=point(x-nx*(width-s-shift),y-ny*(width-s-shift),heights[j]+relief);
+        if(j<8)p.z=Math.min(p.z,Math.fround((lowestNearbyRim(p.x,p.y,wall.region,rimSegments)-RIM_RISE)/25)*25);
+        return p;
       }));
       bottoms.push([point(x-nx*width,y-ny*width,low),point(x,y,low)]);
     }
@@ -149,14 +176,15 @@ function build(borders){
     const i=Math.floor((routeArea.rows.length-1)/2),t=i/(routeArea.rows.length-1),n={x:mix(routeArea.left.nx,routeArea.right.nx,t),y:mix(routeArea.left.ny,routeArea.right.ny,t)};
     const toe=routeArea.rows[i][0],inner=routeArea.rows[i].at(-1),width=Math.hypot(inner.x-toe.x,inner.y-toe.y),path=[];
     for(let step=0;step<=24;step++){
-      const s=mix(8,width-20,step/24),x=toe.x+n.x*s,y=toe.y+n.y*s,support=surface(cached,x,y);
+      const s=mix(8,width-60,step/24),x=toe.x+n.x*s,y=toe.y+n.y*s,support=surface(cached,x,y);
       if(support)path.push({x,y,z:support.z});
     }
-    if(path.length>2){
+    const summitX=toe.x+n.x*(width-20),summitY=toe.y+n.y*(width-20),summit=surface(cached,summitX,summitY);
+    if(path.length>2&&summit){
       for(const p of path)Object.freeze(p);
       cached.routes.push(Object.freeze({id:`${routeArea.wall.id}-climb`,region:routeArea.wall.region,
         approach:Object.freeze({x:toe.x-n.x*22,y:toe.y-n.y*22,z:SURFACE_FEET}),
-        foot:path[0],crest:path.at(-1),path:Object.freeze(path)}));
+        foot:path[0],lookout:path.at(-1),summit:Object.freeze({x:summitX,y:summitY,z:summit.z}),path:Object.freeze(path)}));
     }
   }
   Object.freeze(cached.routes);
@@ -170,7 +198,7 @@ export function getOrangeCliffSurface(x,y,borders=PREPARED_PERIMETER_BORDERS){
 }
 /** Static supporting/solid triangles, already converted to renderer X/Y-up/Z. */
 export function getOrangeCliffMeshData(borders=PREPARED_PERIMETER_BORDERS){return build(borders);}
-/** Read-only authored approach/foot/crest waypoints for the real walking route. */
+/** Read-only lower climbing route and its physically inaccessible upper rim. */
 export function getOrangeCliffRoutes(borders=PREPARED_PERIMETER_BORDERS){return build(borders).routes;}
 
 function blocked(cache,p,radius,bodyHeight){
@@ -207,16 +235,14 @@ export function resolveOrangeCliffMovement(from,to,bodyHeight=36,radius=5,border
     // Grounding supplies exact endpoint heights. Follow the actual intervening
     // triangles across worn slope/terrace joins instead of cutting through them.
     if((walking||mounting)&&top&&top.normal.z>=WALK_NORMAL&&(!mounting||top.z<=from.z+14))p.z=top.z;
-    if(top&&to.z<from.z&&previous.z>=top.z-EPS&&p.z<top.z){return{x:p.x,y:p.y,z:top.z};}
+    if(top&&top.normal.z>=WALK_NORMAL&&to.z<from.z&&previous.z>=top.z-EPS&&p.z<top.z){return{x:p.x,y:p.y,z:top.z};}
     if(blocked(cache,p,radius,bodyHeight)){
       let safe=(i-1)/steps,hit=t;
       for(let j=0;j<16;j++){
         const q=(safe+hit)/2,candidate={x:mix(from.x,to.x,q),y:mix(from.y,to.y,q),z:mix(from.z,to.z,q)};
         if(blocked(cache,candidate,radius,bodyHeight))hit=q;else safe=q;
       }
-      // Keep the complete swept contact pose. Retaining the requested Z here
-      // would let an ascending head cross the exact finite bottom while its
-      // horizontal coordinates correctly stopped at the collision.
+      // Keep the complete swept contact pose, including exact underside Z.
       return{x:mix(from.x,to.x,safe),y:mix(from.y,to.y,safe),z:mix(from.z,to.z,safe)};
     }
     previous=p;
