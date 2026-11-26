@@ -2,6 +2,7 @@ import { CloudRain, Gamepad2, Layers, Orbit, Pickaxe, Snowflake, Swords, Trees }
 import QuartzWordmark from "@/components/quartz-wordmark";
 import VisitCounter from "@/components/visit-counter";
 import OctoNoseChat from "@/components/octo-nose-chat";
+import TrailerShowcase from "@/components/trailer-showcase";
 
 const games = [
   {
@@ -135,19 +136,21 @@ const games = [
 export default function Home() {
   return (
     <>
-      <a className="skip-link" href="#worlds">Skip to the games</a>
+      <a className="skip-link" href="#trailers">Skip to the trailers</a>
       <header className="site-header shell">
         <a className="wordmark" href="#" aria-label="Copperstudio Games home">
           <img className="brand-mark" src="/copper-c.svg" width="32" height="32" alt="" aria-hidden="true" />
           <QuartzWordmark />
         </a>
         <nav aria-label="Main navigation">
+          <a className="nav-link" href="#trailers">Trailers</a>
           <a className="nav-link" href="#worlds">The games</a>
           <a className="nav-link" href="#octo-nose">Ask Octo</a>
           <a className="nav-link" href="#how-to-play">How to play</a>
         </nav>
       </header>
       <main>
+        <TrailerShowcase />
         <section className="hero shell" aria-labelledby="hero-title">
           <div className="eyebrow">A LITTLE COLLECTION OF BIG ADVENTURES</div>
           <div className="hero-content">

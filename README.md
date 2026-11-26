@@ -31,6 +31,10 @@ The prepared Route 53 change batch is in [`infra/route53-records.json`](infra/ro
 
 ## Browsing the collection
 
+The first section below the header presents the Croba Planet and Rain & Copper trailers, side by side on desktop and stacked on phones. Both are ordinary H.264/AAC MP4 files with playback, volume and fullscreen controls. Poster images display immediately; `preload="none"` keeps the videos from downloading until visitors choose to play them. No autoplay, video service or new backend is used.
+
+`public/trailers/` contains the spoiler-light Croba Blue Ocean cut (48.7 seconds) and the Rain & Copper version 238 cut (42 seconds). Both have `[HUMAN-MADE MUSIC]` burned into the beginning and end. Their original soundtracks and durations are preserved, with copied AAC audio streams. Croba uses the supplied BeepBox composition; Rain & Copper uses the game's Night Mode song. The website copies are compressed for delivery, and the original master videos remain separate. To replace a trailer, export H.264/yuv420p MP4 with AAC audio and faststart metadata, retain the credit, and replace its poster alongside the video. Verify decoding and mobile playback before publishing.
+
 The landing page keeps the copper and quartz identity while providing a seven-game jump menu, readable overviews and prominent Play links. Each game’s expandable details retain its longer description and feature highlights. The layout adapts from a two-column collection to single-column phone cards; Mosswake Creek, Blackroot Vale and Pond have wider desktop features. Secondary cover images load lazily. Octo’s chat includes keyboard guidance, a visible input limit and accessible links that announce a new tab.
 
 ## Octo Nose chat
