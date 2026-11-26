@@ -3,6 +3,7 @@ import QuartzWordmark from "@/components/quartz-wordmark";
 import VisitCounter from "@/components/visit-counter";
 import OctoNoseChat from "@/components/octo-nose-chat";
 import TrailerShowcase from "@/components/trailer-showcase";
+import MosswakeTrailer from "@/components/mosswake-trailer";
 
 const games = [
   {
@@ -169,13 +170,16 @@ export default function Home() {
           <div className="game-grid">
             {games.map(({ Icon, ...game }) => {
               const local = game.href.startsWith("/");
-              return (
-                <article className={"game-card " + game.color + (game.color === "sandbox" || game.color === "forest" || game.color === "pond" ? " game-featured" : "")} id={"game-" + game.number} key={game.name} aria-labelledby={"game-title-" + game.number}>
+              const artwork = (
                   <a className="game-art" href={game.href} target="_blank" rel="noopener noreferrer" aria-label={"Open " + game.name + " (opens in a new tab)"}>
                     <img src={game.image} alt={game.alt} width={game.imageWidth} height={game.imageHeight} loading={game.number === "01" ? "eager" : "lazy"} fetchPriority={game.number === "01" ? "high" : "auto"} />
                     <span className="art-label"><Icon size={16} aria-hidden="true" />{game.label}</span>
                     <span className="art-caption">{game.caption}</span>
                   </a>
+              );
+              return (
+                <article className={"game-card " + game.color + (game.color === "sandbox" || game.color === "forest" || game.color === "pond" ? " game-featured" : "")} id={"game-" + game.number} key={game.name} aria-labelledby={"game-title-" + game.number}>
+                  {game.number === "05" ? <div className="game-media">{artwork}<MosswakeTrailer /></div> : artwork}
                   <div className="game-info">
                     <div className="game-category"><span>{game.genre}</span><span className="game-host">{local ? "Plays here" : "Original site"}</span></div>
                     <h3 className="copper-text" id={"game-title-" + game.number}>{game.name}</h3>

@@ -137,6 +137,12 @@ h1 > span { font-family: 'DM Serif', Georgia, serif; font-weight: 400; font-styl
 .game-featured .game-art img { image-rendering: pixelated; }
 .game-featured.forest .game-art img, .game-featured.pond .game-art img { image-rendering: auto; }
 .game-featured .game-info { padding: 30px 32px 8px; }
+.game-media { min-width: 0; margin: 28px 0 28px 28px; }
+.game-featured .game-media .game-art { margin: 0; }
+.game-trailer { margin: 16px 0 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.game-trailer video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #101c23; }
+.game-trailer figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 14px; font-size: .875rem; line-height: 1.5; color: var(--muted); }
+.game-trailer figcaption span:first-child { color: var(--ink); font-weight: 600; }
 .octo-section { padding-top: 72px; scroll-margin-top: 24px; }
 .octo-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
 .octo-heading .eyebrow { color: var(--muted); }
@@ -221,6 +227,7 @@ kbd { display: inline-block; font-family: inherit; min-width: 24px; text-align: 
   .game-grid { --game-gap: 22px; }
   .game-info { padding: 22px 23px 0; }
   .game-featured .game-art { margin-left: 23px; }
+  .game-media { margin-left: 23px; }
   .game-featured .game-info { padding-inline: 24px; }
   .octo-layout, .play-guide { grid-template-columns: minmax(220px, .8fr) minmax(0, 1.3fr); gap: 24px; }
 }
@@ -246,6 +253,8 @@ kbd { display: inline-block; font-family: inherit; min-width: 24px; text-align: 
   .game-card h3 { font-size: 2rem; }
   .game-featured { display: flex; background: var(--surface); }
   .game-featured .game-art { margin: 0; border-radius: 0; }
+  .game-media { margin: 0; align-self: stretch; }
+  .game-trailer { margin-inline: 20px; }
   .game-featured .game-info { padding: 25px 28px 0; }
   .octo-layout { grid-template-columns: minmax(200px, .8fr) minmax(0, 1.2fr); }
   .play-guide { grid-template-columns: 1fr; gap: 24px; }
