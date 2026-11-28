@@ -19,6 +19,12 @@ const PORTAL_VINE_SPANS = WATCH_PORTALS.flatMap(({ x }) => {
   const trees = WATCH_TREES.filter((tree) => Math.abs(tree.x - x) <= PORTAL_VINE_RADIUS);
   return trees.slice(1).map((to, index) => ({ from: trees[index], to }));
 });
+const PORTAL_VINE_TREES = new Set(PORTAL_VINE_SPANS.flatMap(({ from, to }) => [from.x, to.x]));
+const PORTAL_CANOPY_VINES = [
+  { left: -22, right: 21, height: 22, wave: 5, phase: 0 },
+  { left: -13, right: 16, height: 13, wave: 5, phase: 2 },
+  { left: -19, right: 17, height: 27, wave: 4, phase: 4 }
+];
 
 function drawWatchPortalVines(ctx, watch, left) {
   for (const { from, to } of PORTAL_VINE_SPANS) {
@@ -45,6 +51,32 @@ function drawWatchPortalVines(ctx, watch, left) {
       }
       watchRect(ctx, '#df8eb7', x + curl * 3, y + length, 2, 1);
       watchRect(ctx, '#d37da9', x + curl, y + 2, 2, 1);
+    }
+  }
+}
+
+function drawPortalTreeVines(ctx, crown, seed) {
+  for (let turn = crown + 25; turn <= -5; turn += 8) {
+    for (let x = -4; x <= 3; x++) {
+      const y = turn + Math.floor((x + 4) / 2);
+      watchRect(ctx, '#85385f', x, y, 2, 2);
+      watchRect(ctx, '#cd709f', x, y, 1, 1);
+    }
+    watchRect(ctx, '#a34c79', 3, turn + 4, 2, 3);
+    watchRect(ctx, '#963f6e', -5, turn + 5, 2, 2);
+    watchRect(ctx, '#df89b4', 4, turn + 5, 2, 1);
+  }
+
+  for (const { left, right, height, wave, phase } of PORTAL_CANOPY_VINES) {
+    for (let x = left; x <= right; x++) {
+      const y = crown + height + Math.round(wave * Math.sin(x / 6 + phase + (seed % 7) / 8));
+      watchRect(ctx, '#803b61', x, y, 2, 2);
+      watchRect(ctx, '#bc5f92', x, y, 1, 1);
+      if ((x - left + phase) % 7 === 1) {
+        watchRect(ctx, '#a94b7d', x - 1, y + 1, 4, 2);
+        watchRect(ctx, '#e08bb6', x, y + 1, 2, 1);
+        watchRect(ctx, '#b75b90', x + 2, y + 3, 2, 2);
+      }
     }
   }
 }
@@ -101,6 +133,7 @@ function drawWatchBirch(ctx, tree, watch) {
     watchRect(ctx, '#777e6e', -reach, crown + 28 - reach, 2, 2);
   }
   drawWatchBirchCrown(ctx, x, crown);
+  if (PORTAL_VINE_TREES.has(x)) drawPortalTreeVines(ctx, crown, x);
   if (cut && !felled) {
     watchRect(ctx, '#5f413b', cut.direction > 0 ? -3 : 0, -5, cut.hits + 1, 2);
     watchRect(ctx, '#d6ad7a', cut.direction > 0 ? -3 : 1, -5, 2, 1);
