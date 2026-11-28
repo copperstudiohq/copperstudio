@@ -14,6 +14,40 @@ const BIRCH_LEAF_CLUSTERS = [
 ];
 const GREEN_BIRCH = ['#2a4035', '#3c5744', '#55704e', '#718957', '#93a96b'];
 const GOLD_BIRCH = ['#3e4534', '#565937', '#777347', '#9e8d52', '#c2a76a'];
+const PORTAL_VINE_RADIUS = 275;
+const PORTAL_VINE_SPANS = WATCH_PORTALS.flatMap(({ x }) => {
+  const trees = WATCH_TREES.filter((tree) => Math.abs(tree.x - x) <= PORTAL_VINE_RADIUS);
+  return trees.slice(1).map((to, index) => ({ from: trees[index], to }));
+});
+
+function drawWatchPortalVines(ctx, watch, left) {
+  for (const { from, to } of PORTAL_VINE_SPANS) {
+    if (to.x < left || from.x >= left + VIEW_WIDTH
+        || watch.treeCuts[from.x]?.hits === WATCH_TREE_HITS || watch.treeCuts[to.x]?.hits === WATCH_TREE_HITS) continue;
+    const startX = from.x + 13;
+    const startY = watchGround(from.x) - from.height + 22;
+    const endY = watchGround(to.x) - to.height + 21;
+    const width = to.x - 13 - startX;
+    const sag = 8 + width * 0.18;
+    for (let step = 0; step <= width; step++) {
+      const t = step / width;
+      const bend = 4 * t * (1 - t);
+      const x = startX + step;
+      const y = Math.round(startY + (endY - startY) * t + bend * sag);
+      watchRect(ctx, '#84375f', x, y, 2, 2);
+      watchRect(ctx, '#c35f94', x, y, 1, 1);
+      if (bend > 0.4) watchRect(ctx, '#a64e7b', x, y + bend * 4, 1, 1);
+      if (step < 3 || step > width - 3 || (step + from.x) % 8 !== 0) continue;
+      const length = 4 + Math.floor(pixelNoise(from.x, step) * 6);
+      const curl = step % 3 === 0 ? 1 : -1;
+      for (let drop = 1; drop <= length; drop++) {
+        watchRect(ctx, '#9f4475', x + Math.round(curl * (drop / length) ** 2 * 3), y + drop, 2, 1);
+      }
+      watchRect(ctx, '#df8eb7', x + curl * 3, y + length, 2, 1);
+      watchRect(ctx, '#d37da9', x + curl, y + 2, 2, 1);
+    }
+  }
+}
 
 function drawWatchBirchCrown(ctx, x, top) {
   const colors = (x < WATCH_BRIDGE.left - 220 && x > 385) || x > 1536 ? GOLD_BIRCH : GREEN_BIRCH;
@@ -1415,6 +1449,7 @@ export function drawCreekWatch(ctx, watch) {
   const onScreen = (x, margin) => x >= left - margin && x < left + VIEW_WIDTH + margin;
   ctx.save();
   ctx.translate(-left, 0);
+  drawWatchPortalVines(ctx, watch, left);
   for (const tree of WATCH_TREES) if (onScreen(tree.x, tree.height + 24)) drawWatchBirch(ctx, tree, watch);
   if (onScreen(WATCH_SIGNAL, 86)) drawWatchBridge(ctx);
   if (onScreen(WATCH_SIGNAL, 46)) drawWatchSignal(ctx, watch);
