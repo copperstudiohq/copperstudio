@@ -1644,7 +1644,7 @@ function makeBackdrop() {
 makeBackdrop();
 const bareSky = new Uint32Array(SKY.buffer).slice();
 drawGroves();
-const FOREST_FOG_PIXEL = 4;
+const FOREST_FOG_PIXEL = 2;
 const FOREST_FOG_COLORS = [[9, 17, 23], [13, 23, 30], [18, 29, 38], [26, 39, 48], [36, 49, 58]];
 const fogColumns = Math.ceil(WIDTH / FOREST_FOG_PIXEL);
 const fogRows = Math.ceil(HEIGHT / FOREST_FOG_PIXEL);
