@@ -27,7 +27,7 @@ export const CREATURES = { lizard: 'Copperback', duck: 'Duck', blob: 'Tri Blob',
 export const SCENERY = {
   birch: { label: 'Birch', width: 28, height: 38 },
   hut: { label: 'Hut', width: 48, height: 34 },
-  pump: { label: 'Pump', width: 26, height: 20 },
+  houses: { label: 'House Row', width: 56, height: 25 },
   posts: { label: 'Fence', width: 18, height: 10 },
   dock: { label: 'Dock', width: 46, height: 16 }
 };

@@ -178,6 +178,8 @@ function arrowBoxEntry(x, y, nextX, nextY, left, top, right, bottom) {
 }
 
 export class CreekWatch {
+  #lastChop = null;
+
   constructor() {
     this.reset();
   }
@@ -191,6 +193,7 @@ export class CreekWatch {
     this.coins = 6;
     this.wood = 0;
     this.treeCuts = {};
+    this.#lastChop = null;
     this.signal = WATCH_HEALTH;
     this.playerHealth = WATCH_PLAYER_HEALTH;
     this.playerHurtAt = WATCH_NO_ACTION;
@@ -239,6 +242,10 @@ export class CreekWatch {
 
   get phaseProgress() {
     return Math.min(1, this.phaseTick / this.duration);
+  }
+
+  get lastChop() {
+    return this.#lastChop;
   }
 
   get bloodMoon() {
@@ -478,7 +485,9 @@ export class CreekWatch {
     const cut = this.treeCuts[tree.x];
     if (cut && (cut.hits >= WATCH_TREE_HITS || this.tick - cut.at < WATCH_CHOP_INTERVAL)) return false;
     const hits = (cut?.hits ?? 0) + 1;
-    this.treeCuts[tree.x] = { hits, at: this.tick, direction: this.player.x <= tree.x ? 1 : -1 };
+    const direction = this.player.x <= tree.x ? 1 : -1;
+    this.treeCuts[tree.x] = { hits, at: this.tick, direction };
+    this.#lastChop = { at: this.tick, direction };
     if (hits === WATCH_TREE_HITS) {
       this.wood += tree.wood;
       this.message = `Birch felled. Collected ${tree.wood} wood.`;

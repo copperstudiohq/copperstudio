@@ -1,4 +1,4 @@
-import { HEIGHT, POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
+import { HEIGHT, POND_LEVEL, VIEW_WIDTH, pixelNoise, quarryHeight } from './simulation.js';
 import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow, sceneOval } from './art.js';
 import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_COIN_TOSS_TICKS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_FLYER_HEALTH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TREES, WATCH_TREE_FALL_TICKS, WATCH_TREE_HITS, WATCH_VENDORS, WATCH_WALL_TOWER_HEALTH, WATCH_WALL_TOWER_PLATFORM, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
 import { drawVendorPortraitImage } from './vendor-portraits.js';
@@ -6,6 +6,34 @@ import { drawVendorPortraitImage } from './vendor-portraits.js';
 function watchRect(ctx, color, x, y, width, height) {
   ctx.fillStyle = color;
   ctx.fillRect(Math.round(x), Math.round(y), width, height);
+}
+
+const BIRCH_LEAF_CLUSTERS = [
+  [-15, 23, 10, 9], [1, 26, 13, 10], [15, 23, 12, 10],
+  [-18, 16, 10, 9], [12, 14, 13, 11], [0, 10, 13, 12], [-9, 11, 10, 9]
+];
+const GREEN_BIRCH = ['#2a4035', '#3c5744', '#55704e', '#718957', '#93a96b'];
+const GOLD_BIRCH = ['#3e4534', '#565937', '#777347', '#9e8d52', '#c2a76a'];
+
+function drawWatchBirchCrown(ctx, x, top) {
+  const colors = (x < WATCH_BRIDGE.left - 220 && x > 385) || x > 1536 ? GOLD_BIRCH : GREEN_BIRCH;
+  for (const [index, [cx, cy, rx, ry]] of BIRCH_LEAF_CLUSTERS.entries()) {
+    const leafX = cx + Math.round((pixelNoise(x, index) - 0.5) * 6);
+    const leafY = top + cy + Math.round((pixelNoise(x, index + 9) - 0.5) * 6);
+    sceneOval(ctx, colors[0], leafX, leafY, rx, ry);
+    sceneOval(ctx, colors[1], leafX, leafY - 1, rx - 1, ry - 1);
+    sceneOval(ctx, colors[2], leafX - 1, leafY - 3, rx - 3, ry - 3);
+    for (let leaf = 0; leaf < 9; leaf++) {
+      const seed = index * 31 + leaf;
+      const dx = Math.round((pixelNoise(x, seed + 21) * 2 - 1) * (rx - 2));
+      const dy = Math.round((pixelNoise(x, seed + 173) * 2 - 1) * (ry - 3));
+      const color = dy < 0 ? colors[3 + leaf % 2] : colors[1 + leaf % 2];
+      watchRect(ctx, color, leafX + dx, leafY + dy - 2, 2 + leaf % 3, 1);
+      watchRect(ctx, color, leafX + dx + 1, leafY + dy - 1, 1 + leaf % 2, 1);
+    }
+    watchRect(ctx, colors[1], leafX - rx + 1, leafY + 4, 4, 2);
+    watchRect(ctx, colors[2], leafX + rx - 3, leafY + 1, 4, 2);
+  }
 }
 
 function drawWatchBirch(ctx, tree, watch) {
@@ -38,18 +66,7 @@ function drawWatchBirch(ctx, tree, watch) {
     watchRect(ctx, '#918e79', reach - 1, crown + 35 - reach, 2, 2);
     watchRect(ctx, '#777e6e', -reach, crown + 28 - reach, 2, 2);
   }
-  const autumn = (x < WATCH_BRIDGE.left - 220 && x > 385) || x > 1536;
-  const leaf = autumn ? '#666447' : '#435f4e';
-  const shine = autumn ? '#9b8757' : '#748d5b';
-  sceneOval(ctx, '#2d463b', -9, crown + 19, 13, 10);
-  sceneOval(ctx, leaf, -10, crown + 16, 11, 7);
-  sceneOval(ctx, '#344e40', 10, crown + 24, 12, 9);
-  sceneOval(ctx, leaf, 11, crown + 20, 10, 8);
-  sceneOval(ctx, leaf, 1, crown + 9, 12, 9);
-  sceneOval(ctx, shine, -2, crown + 7, 8, 4);
-  watchRect(ctx, shine, -14, crown + 13, 6, 2);
-  watchRect(ctx, shine, 9, crown + 17, 8, 2);
-  watchRect(ctx, '#4f6250', -2, crown + 22, 6, 2);
+  drawWatchBirchCrown(ctx, x, crown);
   if (cut && !felled) {
     watchRect(ctx, '#5f413b', cut.direction > 0 ? -3 : 0, -5, cut.hits + 1, 2);
     watchRect(ctx, '#d6ad7a', cut.direction > 0 ? -3 : 1, -5, 2, 1);
@@ -779,10 +796,37 @@ function drawWatchPigeon(ctx, { x, direction, walking }, tick) {
   ctx.restore();
 }
 
-function drawWatchPlayer(ctx, x, y, direction, hemSway, weapon, swingAge) {
+const WATCH_AXE_POSES = [
+  [3, -9, 1.04], [3, -15, -1.55], [4, -19, -2.20],
+  [8, -11, 0.14], [7, -8, 0.39], [4, -8, 0.95]
+];
+
+function drawWatchAxe(ctx, [handX, handY, angle]) {
+  for (let step = 0; step <= 5; step++) {
+    watchRect(ctx, step < 3 ? '#a86149' : '#c78460', 3 + (handX - 3) * step / 5,
+      -13 + (handY + 13) * step / 5, 3, 2);
+  }
   ctx.save();
-  ctx.translate(Math.round(x), y);
-  ctx.scale(direction, 1);
+  ctx.translate(handX, handY);
+  ctx.rotate(angle);
+  watchRect(ctx, '#674839', -3, -1, 15, 3);
+  watchRect(ctx, '#bd9060', -2, -1, 14, 1);
+  watchRect(ctx, '#4a565d', 8, -2, 5, 7);
+  watchRect(ctx, '#75878c', 9, 1, 5, 5);
+  watchRect(ctx, '#a9b8b6', 8, 5, 7, 3);
+  watchRect(ctx, '#d6e4de', 8, 7, 7, 1);
+  ctx.restore();
+  watchRect(ctx, '#e3a97d', handX - 1, handY - 1, 3, 3);
+}
+
+function drawWatchPlayer(ctx, watch) {
+  const { x, direction, step } = watch.player;
+  const { weapon, lastChop } = watch;
+  const chopPose = lastChop && WATCH_AXE_POSES[Math.floor((watch.tick - lastChop.at) / 2)];
+  const hemSway = (step >> 2) % 2;
+  ctx.save();
+  ctx.translate(Math.round(x), watchGround(x));
+  ctx.scale(chopPose ? lastChop.direction : direction, 1);
   watchRect(ctx, '#231e29', -8, -1, 16, 2);
 
   const edge = '#372634';
@@ -807,7 +851,10 @@ function drawWatchPlayer(ctx, x, y, direction, hemSway, weapon, swingAge) {
   watchRect(ctx, '#d89265', 5, -21, 1, 5);
   watchRect(ctx, '#231c29', 1, -21, 4, 5);
   watchRect(ctx, '#231c29', 2, -16, 3, 1);
-  if (weapon) {
+  if (chopPose) {
+    drawWatchAxe(ctx, chopPose);
+  } else if (weapon) {
+    const swingAge = watch.tick - watch.swingAt;
     const swinging = swingAge < WATCH_SWING_TICKS;
     const angle = swinging ? -1.6 + 2.45 * swingAge / WATCH_SWING_TICKS : -0.74;
     ctx.translate(5, -10);
@@ -1424,8 +1471,8 @@ export function drawCreekWatch(ctx, watch) {
   }
   for (const flyer of watch.flyers ?? []) if (flyer.hp > 0 && onScreen(flyer.x, 48)) drawTriFlyer(ctx, flyer, watch.tick);
   for (const shot of watch.shots) drawWatchArrow(ctx, shot, watch);
-  const { x, direction, step } = watch.player;
+  const { x } = watch.player;
   if (watch.tick - watch.playerHurtAt < 10) sceneGlow(ctx, '#ff877caa', x, watchGround(x) - 13, 17);
-  drawWatchPlayer(ctx, x, watchGround(x), direction, (step >> 2) % 2, watch.weapon, watch.tick - watch.swingAt);
+  drawWatchPlayer(ctx, watch);
   ctx.restore();
 }

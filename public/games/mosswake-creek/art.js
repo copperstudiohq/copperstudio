@@ -33,10 +33,10 @@ const PALETTES = {
 const DECORATIONS = [
   ...CREEK_HUTS.map((x) => ({ x, type: 'hut' })),
   { x: 253, type: 'posts' },
-  { x: VIEW_WIDTH + 137, type: 'pump' }, { x: VIEW_WIDTH + 190, type: 'pump' },
-  { x: START_VIEW + 62, type: 'pump' },
+  { x: VIEW_WIDTH + 164, type: 'houses' },
+  { x: START_VIEW + 62, type: 'houses' },
   { x: START_VIEW + 101, type: 'posts' }, { x: START_VIEW + 351, type: 'posts' },
-  { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'pump' }
+  { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'houses' }
 ];
 const POND_DOCK = { type: 'dock', x: START_VIEW + 258, y: 128 };
 const TRI_IRIS = '#e89147';
@@ -593,6 +593,41 @@ function drawHut(ctx, paint, x, y, converted) {
   paint('#916744', x - 13, y - 2, 14, 2);
 }
 
+const ROW_HOUSES = [
+  { offset: -19, wall: '#aa9478', seam: '#89745f', roof: '#795b4d', door: -6 },
+  { offset: 0, wall: '#9da592', seam: '#788575', roof: '#555e5e', door: 2 },
+  { offset: 19, wall: '#a28270', seam: '#87695d', roof: '#84604f', door: -6 }
+];
+
+function drawHouseRow(ctx, paint, x, y, converted) {
+  for (const { offset, wall, seam, roof, door } of ROW_HOUSES) {
+    const front = x + offset;
+    paint('#48413d', front - 9, y - 17, 18, 17);
+    paint(wall, front - 8, y - 16, 16, 14);
+    for (let board = 6; board <= 14; board += 4) {
+      paint(seam, front - 8, y - board, 16, 1);
+    }
+    paint('#6d665a', front - 8, y - 2, 16, 1);
+    for (let course = 0; course < 4; course++) {
+      const half = 2 + course * 2;
+      const shingleY = y - 25 + course * 2;
+      paint('#463b3c', front - half - 1, shingleY, half * 2 + 2, 2);
+      paint(roof, front - half, shingleY, half * 2, 1);
+    }
+    paint('#41393b', front - 9, y - 17, 18, 2);
+    paint(roof, front - 8, y - 17, 16, 1);
+
+    paint('#4b3e3a', front + door - 1, y - 12, 7, 11);
+    paint('#745642', front + door, y - 11, 5, 10);
+    paint('#b59465', front + door + 3, y - 6, 1, 1);
+    const window = front + (door < 0 ? 1 : -7);
+    paint('#514642', window, y - 12, 7, 7);
+    rect(ctx, converted ? '#9bb8d3' : '#d6b889', window + 1, y - 11, 5, 5);
+    paint('#61514a', window + 3, y - 11, 1, 5);
+    paint('#83766c', front + door - 2, y - 1, 8, 1);
+  }
+}
+
 function drawScenery(ctx, type, x, y, converted) {
   const paint = sceneBrush(ctx, converted);
   if (type === 'birch') {
@@ -613,21 +648,8 @@ function drawScenery(ctx, type, x, y, converted) {
       paint('#563d36', x + 11 + step * 2, y - 2 - step * 3, 4, 4);
       paint('#ba8556', x + 11 + step * 2, y - 3 - step * 3, 4, 1);
     }
-  } else if (type === 'pump') {
-    paint('#393035', x - 12, y - 3, 25, 3);
-    paint('#55565c', x - 11, y - 13, 15, 11);
-    paint('#754c3e', x - 10, y - 15, 12, 4);
-    paint('#b97d52', x - 8, y - 15, 9, 2);
-    paint('#373c46', x - 9, y - 10, 10, 6);
-    paint('#acaa88', x - 8, y - 9, 1, 1);
-    paint('#acaa88', x, y - 5, 1, 1);
-    paint('#35534f', x + 2, y - 19, 4, 17);
-    paint('#638676', x + 3, y - 18, 1, 15);
-    paint('#65534c', x + 4, y - 19, 8, 3);
-    paint('#bf8b5d', x + 6, y - 19, 5, 1);
-    paint('#7c6859', x + 7, y - 11, 5, 4);
-    rect(ctx, converted ? '#9cbfe0' : '#d0a786', x + 9, y - 10, 2, 2);
-    paint('#70635a', x + 5, y - 5, 8, 3);
+  } else if (type === 'houses') {
+    drawHouseRow(ctx, paint, x, y, converted);
   } else if (type === 'hut') {
     drawHut(ctx, paint, x, y, converted);
   } else if (type === 'posts') {
