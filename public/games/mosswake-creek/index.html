@@ -1999,32 +1999,59 @@ function drawHut(ctx, paint, x, y, converted) {
 }
 
 const ROW_HOUSE_CENTERS = [-17, 0, 17];
+const ROW_HOUSE_ROOF = [
+  { inset: 5, slate: '#628789', highlight: '#7a9fa0' },
+  { inset: 4, slate: '#51797e', highlight: '#658d91' },
+  { inset: 2, slate: '#456d73', highlight: '#5b8387' },
+  { inset: 1, slate: '#3f646b', highlight: '#52787d' }
+];
 
 function drawHouseRow(ctx, paint, x, y, converted) {
   const { width, height } = SCENERY.houses;
   const left = x - width / 2;
-  paint('#aa9478', left + 1, y - 16, width - 1, 16);
-  for (let board = 4; board <= 14; board += 3) {
-    paint('#9e886e', left + 1, y - board, width - 1, 1);
+  const wallLeft = left + 1;
+  paint('#54a3ac', wallLeft, y - 16, width - 1, 16);
+  paint('#478a95', wallLeft, y - 16, width - 1, 2);
+  for (let board = 0; board < 5; board++) {
+    const seamY = y - 13 + board * 3;
+    paint('#448d99', wallLeft, seamY, width - 1, 1);
+    for (let mark = 0; mark < 6; mark++) {
+      const chipX = wallLeft + 1 + Math.floor(pixelNoise(board, mark) * (width - 5));
+      const grain = mark % 3 === 0 ? '#72bac0' : '#61acb5';
+      paint(grain, chipX, seamY - 1, 1 + mark % 3, 1);
+    }
   }
 
-  const glass = converted ? '#9bb8d3' : '#d6b889';
+  const glass = converted ? '#86a6c7' : '#91b9bc';
+  const reflection = converted ? '#ccd7e8' : '#bbd6cf';
   for (const offset of ROW_HOUSE_CENTERS) {
     const front = x + offset;
-    paint('#81634e', front - 2, y - 11, 5, 10);
-    paint('#966f56', front - 1, y - 10, 3, 3);
-    paint('#c7a877', front + 1, y - 5, 1, 1);
-    paint('#9a8269', front - 3, y - 1, 7, 1);
-    rect(ctx, glass, front - 7, y - 10, 3, 4);
-    rect(ctx, glass, front + 5, y - 10, 3, 4);
+    paint('#3e7983', front - 2, y - 11, 5, 10);
+    paint('#57929c', front - 1, y - 10, 3, 3);
+    paint('#4b8791', front - 1, y - 5, 2, 3);
+    paint('#c3a871', front + 1, y - 5, 1, 1);
+    paint('#789497', front - 3, y - 1, 7, 1);
+    for (const pane of [front - 7, front + 5]) {
+      rect(ctx, glass, pane, y - 10, 3, 4);
+      rect(ctx, reflection, pane, y - 10, 2, 1);
+      rect(ctx, reflection, pane + 1, y - 9, 1, 1);
+      paint('#77a5ab', pane - 1, y - 6, 5, 1);
+    }
   }
 
   const ridge = y - height;
-  paint('#a07860', left + 5, ridge, width - 10, 2);
-  paint('#946b55', left + 4, ridge + 2, width - 8, 2);
-  paint('#89624f', left + 2, ridge + 4, width - 4, 2);
-  paint('#7e5a4a', left + 1, ridge + 6, width - 2, 2);
-  paint('#926951', left, ridge + 8, width, 2);
+  for (const [course, { inset, slate, highlight }] of ROW_HOUSE_ROOF.entries()) {
+    const start = left + inset;
+    const end = left + width - inset;
+    const tileY = ridge + course * 2;
+    paint(slate, start, tileY, end - start, 2);
+    for (let tile = start + (course % 2 ? 2 : 4); tile < end - 2; tile += 6) {
+      paint(highlight, tile - 1, tileY, 3, 1);
+      paint('#3d676d', tile - 2, tileY + 1, 1, 1);
+    }
+  }
+  paint('#67989d', left, ridge + 8, width, 1);
+  paint('#527e84', left, ridge + 9, width, 1);
 }
 
 function drawScenery(ctx, type, x, y, converted) {
