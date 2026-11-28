@@ -239,7 +239,7 @@ function makeBackdrop() {
 makeBackdrop();
 const bareSky = new Uint32Array(SKY.buffer).slice();
 drawGroves();
-const FOREST_FOG_COLORS = [[9, 17, 23], [13, 23, 30], [18, 29, 38], [26, 39, 48], [36, 49, 58]];
+const FOREST_FOG_COLORS = [[14, 24, 32], [17, 28, 36], [20, 32, 40], [23, 35, 44]];
 const watchForestBackdrop = new Uint32Array(SIZE);
 for (let x = 0; x < WIDTH; x++) {
   const treeline = 50 + Math.sin(x * 0.027) * 7 + Math.sin(x * 0.1) * 4;
@@ -247,11 +247,11 @@ for (let x = 0; x < WIDTH; x++) {
     const index = y * WIDTH + x;
     const birch = DISTANT_BIRCH[index];
     const depth = Math.min(1, Math.max(0, (y - treeline) / 27));
-    const blend = birch ? 0.48 + depth * 0.18 : 0.22 + depth * 0.6;
+    const blend = birch ? 0.35 + depth * 0.16 : 0.16 + depth * 0.5;
     const [r, g, b] = channels(birch || bareSky[index]);
-    const bank = pixelNoise(Math.floor(x / 3) + 29, Math.floor(y / 2) + 41);
+    const bank = 0.5 + Math.sin(x * 0.068 + y * 0.11) * 0.23 + Math.sin(x * 0.019 - y * 0.2) * 0.17;
     const fleck = pixelNoise(x + 73, y + 17);
-    const tone = Math.floor((bank * 0.68 + fleck * 0.32) * FOREST_FOG_COLORS.length);
+    const tone = Math.floor((bank * 0.88 + fleck * 0.12) * FOREST_FOG_COLORS.length);
     const [fr, fg, fb] = FOREST_FOG_COLORS[tone];
     watchForestBackdrop[index] = rgb(
       Math.round(r + (fr - r) * blend),
