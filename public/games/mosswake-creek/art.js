@@ -593,42 +593,33 @@ function drawHut(ctx, paint, x, y, converted) {
   paint('#916744', x - 13, y - 2, 14, 2);
 }
 
-const ROW_HOUSES = [
-  { offset: -17, wall: '#aa9478', seam: '#89745f', door: -6 },
-  { offset: 0, wall: '#9da592', seam: '#788575', door: 2 },
-  { offset: 17, wall: '#a28270', seam: '#87695d', door: -6 }
-];
+const ROW_HOUSE_CENTERS = [-17, 0, 17];
 
 function drawHouseRow(ctx, paint, x, y, converted) {
   const { width, height } = SCENERY.houses;
   const left = x - width / 2;
-  paint('#48413d', left, y - 3, width, 3);
-  for (const { offset, wall, seam, door } of ROW_HOUSES) {
+  paint('#aa9478', left + 1, y - 16, width - 1, 16);
+  for (let board = 4; board <= 14; board += 3) {
+    paint('#9e886e', left + 1, y - board, width - 1, 1);
+  }
+
+  const glass = converted ? '#9bb8d3' : '#d6b889';
+  for (const offset of ROW_HOUSE_CENTERS) {
     const front = x + offset;
-    paint('#48413d', front - 9, y - 16, 18, 13);
-    paint(wall, front - 8, y - 16, 16, 14);
-    for (let board = 6; board <= 14; board += 4) {
-      paint(seam, front - 8, y - board, 16, 1);
-    }
-    paint('#6d665a', front - 8, y - 2, 16, 1);
-    paint('#4b3e3a', front + door - 1, y - 12, 7, 11);
-    paint('#745642', front + door, y - 11, 5, 10);
-    paint('#b59465', front + door + 3, y - 6, 1, 1);
-    const window = front + (door < 0 ? 1 : -7);
-    paint('#514642', window, y - 12, 7, 7);
-    rect(ctx, converted ? '#9bb8d3' : '#d6b889', window + 1, y - 11, 5, 5);
-    paint('#61514a', window + 3, y - 11, 1, 5);
-    paint('#83766c', front + door - 2, y - 1, 8, 1);
+    paint('#81634e', front - 2, y - 11, 5, 10);
+    paint('#966f56', front - 1, y - 10, 3, 3);
+    paint('#c7a877', front + 1, y - 5, 1, 1);
+    paint('#9a8269', front - 3, y - 1, 7, 1);
+    rect(ctx, glass, front - 7, y - 10, 3, 4);
+    rect(ctx, glass, front + 5, y - 10, 3, 4);
   }
 
   const ridge = y - height;
-  paint('#52403d', left + 5, ridge, width - 10, 2);
-  paint('#a07860', left + 6, ridge + 1, width - 12, 1);
-  paint('#85614f', left + 4, ridge + 2, width - 8, 2);
-  paint('#765347', left + 2, ridge + 4, width - 4, 2);
-  paint('#6f4e45', left + 1, ridge + 6, width - 2, 2);
-  paint('#41393b', left, ridge + 8, width, 2);
-  paint('#936c54', left + 1, ridge + 8, width - 2, 1);
+  paint('#a07860', left + 5, ridge, width - 10, 2);
+  paint('#946b55', left + 4, ridge + 2, width - 8, 2);
+  paint('#89624f', left + 2, ridge + 4, width - 4, 2);
+  paint('#7e5a4a', left + 1, ridge + 6, width - 2, 2);
+  paint('#926951', left, ridge + 8, width, 2);
 }
 
 function drawScenery(ctx, type, x, y, converted) {
