@@ -239,6 +239,22 @@ function makeBackdrop() {
 makeBackdrop();
 const bareSky = new Uint32Array(SKY.buffer).slice();
 drawGroves();
+const watchForestBackdrop = new Uint32Array(SIZE);
+for (let x = 0; x < WIDTH; x++) {
+  const treeline = 50 + Math.sin(x * 0.027) * 7 + Math.sin(x * 0.1) * 4;
+  for (let y = 0; y < HEIGHT; y++) {
+    const index = y * WIDTH + x;
+    const birch = DISTANT_BIRCH[index];
+    const depth = Math.min(1, Math.max(0, (y - treeline) / 27));
+    const blend = birch ? 0.48 + depth * 0.18 : depth * 0.82;
+    const [r, g, b] = channels(birch || bareSky[index]);
+    watchForestBackdrop[index] = rgb(
+      Math.round(r + (10 - r) * blend),
+      Math.round(g + (19 - g) * blend),
+      Math.round(b + (26 - b) * blend),
+    );
+  }
+}
 const packedSky = new Uint32Array(SKY.buffer);
 function tintSky(color) {
   const [r, g, b] = channels(color);
@@ -310,7 +326,7 @@ function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly) {
       if (!liquid) liquidDepth[x] = 0;
       if (material !== EMPTY && material !== EMBER && !liquid && surface[x] === HEIGHT) surface[x] = y;
       if (material === EMPTY) {
-        if (distantBirchesOnly) pixels[j] = DISTANT_BIRCH[i] || bareSky[i];
+        if (distantBirchesOnly) pixels[j] = watchForestBackdrop[i];
         else if (BIRCH_PIXELS[i] && !frame.birchCuts[i]) pixels[j] = treePixel(i, triMap);
         else if (frame.ridgeCuts[i]) pixels[j] = converted ? triAtmosphere[i] : ATMOSPHERE[i];
         else pixels[j] = converted ? triBareSky[i] : bareSky[i];
@@ -424,13 +440,14 @@ const SCENE_STARS = Array.from({ length: 38 }, (_, index) => ({
 const MOON_COLORS = ['#a4b6fa80', '#a2acd0', '#e0e5e9', '#b4bed4', '#bec6d8', '#a5b1d0'];
 const BLOOD_MOON_COLORS = ['#f447598f', '#a83e57', '#ff9888', '#d75c65', '#df686c', '#b3445b'];
 
-export function drawSceneSky(ctx, night, progress, bloodMoon = false) {
+export function drawSceneSky(ctx, night, progress, bloodMoon = false, { forestBackdrop = false } = {}) {
   const arc = Math.sin(progress * Math.PI);
   const x = Math.round(20 + progress * (VIEW_WIDTH - 40));
   const y = Math.round(42 - arc * 23);
   const haze = ctx.createLinearGradient(0, 0, 0, HEIGHT);
   haze.addColorStop(0, night ? (bloodMoon ? '#3c142acf' : '#171639cf') : `rgba(90, 150, 163, ${0.24 + arc * 0.28})`);
-  haze.addColorStop(0.37, night ? (bloodMoon ? '#7121378c' : '#30264b8c') : `rgba(240, 153, 104, ${0.48 - arc * 0.26})`);
+  const dayHorizon = forestBackdrop ? `rgba(118, 142, 152, ${0.18 - arc * 0.09})` : `rgba(240, 153, 104, ${0.48 - arc * 0.26})`;
+  haze.addColorStop(0.37, night ? (bloodMoon ? '#7121378c' : '#30264b8c') : dayHorizon);
   haze.addColorStop(1, night ? (bloodMoon ? '#40183172' : '#1e143772') : '#643e3409');
   rect(ctx, haze, 0, 0, VIEW_WIDTH, HEIGHT);
   if (night) {
