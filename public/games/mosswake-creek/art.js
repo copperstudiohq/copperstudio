@@ -38,16 +38,26 @@ const DECORATIONS = [
   { x: START_VIEW + 101, type: 'posts' }, { x: START_VIEW + 351, type: 'posts' },
   { x: START_VIEW + VIEW_WIDTH * 2 + 90, type: 'posts' }, { x: START_VIEW + VIEW_WIDTH * 2 + 291, type: 'houses' },
   { x: VIEW_WIDTH + 292, type: 'posts' }, { x: VIEW_WIDTH * 3 + 243, type: 'houses' },
-  { x: VIEW_WIDTH * 4 + 172, type: 'posts' }, { x: VIEW_WIDTH * 10 + 185, type: 'houses' },
+  { x: VIEW_WIDTH * 4 + 294, type: 'posts' }, { x: VIEW_WIDTH * 10 + 185, type: 'houses' },
   { x: VIEW_WIDTH * 11 + 248, type: 'posts' }, { x: VIEW_WIDTH * 13 + 216, type: 'houses' }
 ];
 const ROAD_SECTIONS = [[1, 126, 229], [3, 123, 233], [4, 45, 263], [6, 143, 216],
   [7, 18, 93], [8, 100, 267], [10, 62, 236], [11, 144, 248], [13, 132, 247]];
+const ROAD_MAX_WIDTH = 12;
 const roadWidth = new Uint8Array(WIDTH);
+const roadPosts = new Uint8Array(WIDTH);
 for (const [area, start, end] of ROAD_SECTIONS) {
-  const offset = area * VIEW_WIDTH;
-  for (let x = start; x < end; x++) {
-    roadWidth[offset + x] = Math.min(8, 1 + Math.floor(Math.min(x - start, end - x - 1) / 2));
+  const first = area * VIEW_WIDTH + start;
+  const last = area * VIEW_WIDTH + end - 1;
+  for (let x = first; x <= last; x++) {
+    const taper = Math.min(x - first, last - x);
+    const wear = taper < 24 && pixelNoise(x, 29) < 0.24 ? 1 : 0;
+    roadWidth[x] = Math.max(1, Math.min(ROAD_MAX_WIDTH, 1 + Math.floor(taper / 2) - wear));
+  }
+  for (let x = first + 32; x < last - 24; x += 62) {
+    if (DECORATIONS.some((decoration) => Math.abs(decoration.x - x) < 28)) continue;
+    roadPosts[x] = 1;
+    roadPosts[x + 1] = 2;
   }
 }
 const POND_DOCK = { type: 'dock', x: START_VIEW + 258, y: 128 };
@@ -412,15 +422,53 @@ const GROUND_COLORS = {
   normal: [rgb(82, 105, 70), rgb(117, 134, 91), rgb(142, 155, 104)],
   tri: [rgb(203, 82, 148), rgb(234, 128, 174), rgb(240, 149, 191)],
   road: {
-    asphalt: [rgb(58, 61, 65), rgb(65, 68, 72), rgb(74, 77, 80)],
-    shoulder: rgb(86, 89, 77), edge: rgb(147, 148, 135), stripe: rgb(199, 194, 172)
+    asphalt: [rgb(49, 54, 59), rgb(63, 68, 73), rgb(75, 80, 83)],
+    shoulder: [rgb(65, 77, 65), rgb(93, 92, 77), rgb(118, 112, 89)],
+    edge: rgb(151, 156, 149), stripe: rgb(211, 204, 178), fadedStripe: rgb(136, 138, 127),
+    wet: rgb(82, 101, 110), glint: rgb(107, 129, 131),
+    post: [rgb(63, 71, 75), rgb(130, 141, 136), rgb(184, 187, 172), rgb(179, 91, 75)]
   },
   triRoad: {
-    asphalt: [rgb(78, 45, 66), rgb(91, 51, 76), rgb(108, 56, 88)],
-    shoulder: rgb(110, 63, 85), edge: rgb(160, 92, 126), stripe: rgb(214, 136, 172)
+    asphalt: [rgb(68, 36, 57), rgb(88, 45, 71), rgb(106, 57, 86)],
+    shoulder: [rgb(101, 56, 88), rgb(115, 65, 94), rgb(140, 77, 107)],
+    edge: rgb(158, 99, 131), stripe: rgb(218, 140, 174), fadedStripe: rgb(158, 85, 124),
+    wet: rgb(124, 75, 109), glint: rgb(154, 97, 131),
+    post: [rgb(82, 43, 66), rgb(132, 76, 108), rgb(176, 107, 143), rgb(231, 120, 158)]
   },
   fringe: [rgb(158, 58, 119), rgb(234, 113, 171), rgb(204, 82, 149), rgb(244, 151, 193), rgb(99, 179, 255)]
 };
+
+function paintRoadColumn(paint, quarry, x, ground, width) {
+  const road = quarry.isTriAt(x, ground) ? GROUND_COLORS.triRoad : GROUND_COLORS.road;
+  const farEdge = -Math.ceil(width * 2 / 3);
+  const nearEdge = farEdge + width - 1;
+  const wetPatch = quarry.weather !== 'off' ? pixelNoise(Math.floor(x / 9), 47) : 0;
+  for (let row = farEdge; row <= nearEdge; row++) {
+    const y = ground + row;
+    if (quarry.at(x, y) !== (row < 0 ? EMPTY : ROCK)) continue;
+    const grain = pixelNoise(x, y);
+    const tireTrack = row === -5 || row === 0;
+    let color = road.asphalt[grain < (tireTrack ? 0.7 : 0.12) ? 0 : grain > 0.91 ? 2 : 1];
+    if (row === farEdge || row === nearEdge) {
+      color = road.shoulder[grain < 0.36 ? 0 : grain > 0.91 ? 2 : 1];
+    } else if (width >= 10 && (row === farEdge + 1 || row === nearEdge - 1)) {
+      if (grain > 0.06) color = road.edge;
+    } else if (width >= 8 && row === -3 && x % 30 < 17) {
+      if (grain > 0.06) color = grain > 0.22 ? road.stripe : road.fadedStripe;
+    } else if (width >= 10 && (row === -6 || row === 1) && wetPatch > 0.67) {
+      color = wetPatch > 0.85 && grain > 0.65 ? road.glint : road.wet;
+    }
+    paint(color, x, y, 1, 1);
+  }
+  const post = roadPosts[x];
+  if (!post) return;
+  for (let row = farEdge - 8; row < farEdge; row++) {
+    const y = ground + row;
+    if (quarry.at(x, y) !== EMPTY) continue;
+    const color = row === farEdge - 7 && post === 1 ? 3 : row === farEdge - 8 ? 2 : post;
+    paint(road.post[color], x, y, 1, 1);
+  }
+}
 
 function paintGroundDetails(frame, quarry, left) {
   const { detailPixels, detailCuts, pixels } = frame;
@@ -455,18 +503,7 @@ function paintGroundDetails(frame, quarry, left) {
     const material = quarry.at(x, y);
     const width = roadWidth[x];
     if (width && y === quarryHeight(x) && material === ROCK) {
-      const road = quarry.isTriAt(x, y) ? GROUND_COLORS.triRoad : GROUND_COLORS.road;
-      const back = Math.ceil(width / 2);
-      const front = width - back;
-      for (let row = -back; row < front; row++) {
-        if (quarry.at(x, y + row) !== (row < 0 ? EMPTY : ROCK)) continue;
-        const grain = pixelNoise(x, y + row);
-        let color = road.asphalt[grain < 0.16 ? 0 : grain > 0.89 ? 2 : 1];
-        if (row === -back || row === front - 1) color = road.shoulder;
-        else if (width >= 6 && row === front - 2 && grain > 0.07) color = road.edge;
-        else if (width >= 5 && row === -1 && x % 22 < 12 && grain > 0.1) color = road.stripe;
-        paint(color, x, y + row, 1, 1);
-      }
+      paintRoadColumn(paint, quarry, x, y, width);
       continue;
     }
     if ((material !== ROCK && material !== GRASS)
