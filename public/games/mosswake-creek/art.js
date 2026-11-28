@@ -239,19 +239,34 @@ function makeBackdrop() {
 makeBackdrop();
 const bareSky = new Uint32Array(SKY.buffer).slice();
 drawGroves();
+const FOREST_FOG_PIXEL = 4;
+const FOREST_FOG_COLORS = [[9, 17, 23], [13, 23, 30], [18, 29, 38], [26, 39, 48], [36, 49, 58]];
+const fogColumns = Math.ceil(WIDTH / FOREST_FOG_PIXEL);
+const fogRows = Math.ceil(HEIGHT / FOREST_FOG_PIXEL);
+const forestFog = Uint8Array.from({ length: fogColumns * fogRows }, (_, index) => {
+  const x = index % fogColumns;
+  const y = Math.floor(index / fogColumns);
+  const bank = pixelNoise(Math.floor(x / 3) + 29, Math.floor(y / 2) + 41);
+  const fleck = pixelNoise(x + 73, y + 17);
+  return Math.floor((bank * 0.68 + fleck * 0.32) * FOREST_FOG_COLORS.length);
+});
 const watchForestBackdrop = new Uint32Array(SIZE);
 for (let x = 0; x < WIDTH; x++) {
-  const treeline = 50 + Math.sin(x * 0.027) * 7 + Math.sin(x * 0.1) * 4;
+  const fogColumn = Math.floor(x / FOREST_FOG_PIXEL);
+  const sampleX = fogColumn * FOREST_FOG_PIXEL + FOREST_FOG_PIXEL / 2;
+  const treeline = 50 + Math.sin(sampleX * 0.027) * 7 + Math.sin(sampleX * 0.1) * 4;
   for (let y = 0; y < HEIGHT; y++) {
     const index = y * WIDTH + x;
     const birch = DISTANT_BIRCH[index];
-    const depth = Math.min(1, Math.max(0, (y - treeline) / 27));
+    const fogRow = Math.floor(y / FOREST_FOG_PIXEL);
+    const depth = Math.min(1, Math.max(0, (fogSampleY(y) - treeline) / 27));
     const blend = birch ? 0.48 + depth * 0.18 : 0.22 + depth * 0.6;
     const [r, g, b] = channels(birch || bareSky[index]);
+    const [fr, fg, fb] = FOREST_FOG_COLORS[forestFog[fogRow * fogColumns + fogColumn]];
     watchForestBackdrop[index] = rgb(
-      Math.round(r + (10 - r) * blend),
-      Math.round(g + (19 - g) * blend),
-      Math.round(b + (26 - b) * blend),
+      Math.round(r + (fr - r) * blend),
+      Math.round(g + (fg - g) * blend),
+      Math.round(b + (fb - b) * blend),
     );
   }
 }
@@ -310,8 +325,12 @@ function ichorPixel(x, y, depth, tick, grain) {
 
 const CANOPY_SHADE_FADE = 46;
 
+function fogSampleY(y) {
+  return y - y % FOREST_FOG_PIXEL + FOREST_FOG_PIXEL / 2;
+}
+
 function canopyShadeLevel(level, depth) {
-  const progress = Math.min(1, (depth + 1) / CANOPY_SHADE_FADE);
+  const progress = Math.min(1, Math.max(0, (depth + 1) / CANOPY_SHADE_FADE));
   return Math.round(level * progress ** 2 * (3 - 2 * progress));
 }
 
@@ -351,7 +370,7 @@ function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly, canopyShade)
         if (distantBirchesOnly) {
           const level = canopyShade?.strength[x];
           const belowCanopy = level && y >= canopyShade.top[x] && y < canopyShade.bottom[x];
-          pixels[j] = watchBackdropPixel(i, belowCanopy ? canopyShadeLevel(level, y - canopyShade.top[x]) : 0);
+          pixels[j] = watchBackdropPixel(i, belowCanopy ? canopyShadeLevel(level, fogSampleY(y) - canopyShade.top[x]) : 0);
         }
         else if (BIRCH_PIXELS[i] && !frame.birchCuts[i]) pixels[j] = treePixel(i, triMap);
         else if (frame.ridgeCuts[i]) pixels[j] = converted ? triAtmosphere[i] : ATMOSPHERE[i];
@@ -503,10 +522,11 @@ function drawCanopyHaze(ctx, haze, forestHaze, { strength, top, bottom }, left) 
       rect(ctx, haze, start, 0, width, upper);
       rect(ctx, haze, start, lower, width, HEIGHT - lower);
       const fadeHeight = Math.min(CANOPY_SHADE_FADE - 1, lower - upper);
-      for (let row = 0; row < fadeHeight; row += 4) {
-        const height = Math.min(4, fadeHeight - row);
-        const level = canopyShadeLevel(shade, row + (height - 1) / 2);
-        drawHazeBand(start, upper + row, width, height, level);
+      for (let y = upper; y < upper + fadeHeight;) {
+        const height = Math.min(FOREST_FOG_PIXEL - y % FOREST_FOG_PIXEL, upper + fadeHeight - y);
+        const level = canopyShadeLevel(shade, fogSampleY(y) - upper);
+        drawHazeBand(start, y, width, height, level);
+        y += height;
       }
       if (lower > upper + fadeHeight) {
         drawHazeBand(start, upper + fadeHeight, width, lower - upper - fadeHeight, shade);
