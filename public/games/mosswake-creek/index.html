@@ -4466,6 +4466,22 @@ const PORTAL_CANOPY_VINES = [
   { left: -19, right: 17, height: 27, wave: 4, phase: 4 }
 ];
 
+function drawPortalTreeShade(ctx, tree) {
+  const ground = watchGround(tree.x);
+  const belowCanopy = tree.height - 24;
+  ctx.save();
+  ctx.translate(tree.x, ground - belowCanopy * 0.44);
+  ctx.scale(1, belowCanopy / 56);
+  sceneGlow(ctx, '#151324a3', 0, 0, 36);
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(tree.x, ground + 1);
+  ctx.scale(1, 0.22);
+  sceneGlow(ctx, '#17121bb0', 0, 0, 39);
+  ctx.restore();
+}
+
 function drawWatchPortalVines(ctx, watch, left) {
   for (const { from, to } of PORTAL_VINE_SPANS) {
     if (to.x < left || from.x >= left + VIEW_WIDTH
@@ -5922,6 +5938,10 @@ function drawCreekWatch(ctx, watch) {
   const onScreen = (x, margin) => x >= left - margin && x < left + VIEW_WIDTH + margin;
   ctx.save();
   ctx.translate(-left, 0);
+  for (const tree of WATCH_TREES) {
+    if (onScreen(tree.x, 39) && PORTAL_VINE_TREES.has(tree.x)
+        && watch.treeCuts[tree.x]?.hits !== WATCH_TREE_HITS) drawPortalTreeShade(ctx, tree);
+  }
   drawWatchPortalVines(ctx, watch, left);
   for (const tree of WATCH_TREES) if (onScreen(tree.x, tree.height + 24)) drawWatchBirch(ctx, tree, watch);
   if (onScreen(WATCH_SIGNAL, 86)) drawWatchBridge(ctx);
