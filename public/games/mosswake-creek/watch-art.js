@@ -26,27 +26,42 @@ const PORTAL_CANOPY_VINES = [
   { left: -19, right: 17, height: 27, wave: 4, phase: 4 }
 ];
 
-const CANOPY_SHADE_REACH = 28;
-const CANOPY_SHADE_EDGE = 8;
+const FOREST_SHADE_REACH = 48;
+const FOREST_SHADE_EDGE = 12;
+const FOREST_SHADE_HEIGHT = 80;
 
 export function updateWatchCanopyShade(watch, { strength, top, bottom }) {
   strength.fill(0);
-  for (const tree of WATCH_TREES) {
+  for (const [index, tree] of WATCH_TREES.entries()) {
     if (watch.treeCuts[tree.x]?.hits === WATCH_TREE_HITS) continue;
-    const crown = watchGround(tree.x) - tree.height;
-    const start = Math.max(0, tree.x - CANOPY_SHADE_REACH + 1);
-    const end = Math.min(strength.length, tree.x + CANOPY_SHADE_REACH);
-    for (let x = start; x < end; x++) {
-      const distance = Math.abs(x - tree.x);
-      const level = Math.round(255 * Math.min(1, (CANOPY_SHADE_REACH - distance) / CANOPY_SHADE_EDGE));
-      if (level <= strength[x]) continue;
-      strength[x] = level;
-      top[x] = crown + 26 + Math.round(8 * (1 - (distance / CANOPY_SHADE_REACH) ** 2));
-      bottom[x] = watchGround(x);
-    }
+    const previous = WATCH_TREES[index - 1];
+    const next = WATCH_TREES[index + 1];
+    let start = Math.max(0, tree.x - FOREST_SHADE_REACH);
+    let end = Math.min(strength.length, tree.x + FOREST_SHADE_REACH + 1);
+    // Use the original tree positions so a felled tree's neighbors leave a clearing.
+    if (previous) start = Math.max(start, Math.ceil((previous.x + tree.x) / 2));
+    if (next) end = Math.min(end, Math.ceil((tree.x + next.x) / 2));
+    strength.fill(255, start, end);
   }
   strength.fill(0, WATCH_BRIDGE.left, WATCH_BRIDGE.right + 1);
   for (const { x } of WATCH_CAMPS) strength.fill(0, x - 22, x + 23);
+
+  for (let start = 0; start < strength.length;) {
+    if (strength[start] === 0) {
+      start++;
+      continue;
+    }
+    let end = start + 1;
+    while (end < strength.length && strength[end] !== 0) end++;
+    for (let x = start; x < end; x++) {
+      const fromEdge = Math.min(x - start + 1, end - x);
+      if (fromEdge < FOREST_SHADE_EDGE) strength[x] = Math.round(255 * fromEdge / FOREST_SHADE_EDGE);
+      bottom[x] = watchGround(x);
+      const contour = Math.sin(x * 0.058) * 4 + Math.sin(x * 0.19) * 2 + (pixelNoise(Math.floor(x / 5), 18) - 0.5) * 3;
+      top[x] = Math.max(0, bottom[x] - FOREST_SHADE_HEIGHT + Math.round(contour));
+    }
+    start = end;
+  }
 }
 
 function drawWatchPortalVines(ctx, watch, left) {

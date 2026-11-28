@@ -246,7 +246,7 @@ for (let x = 0; x < WIDTH; x++) {
     const index = y * WIDTH + x;
     const birch = DISTANT_BIRCH[index];
     const depth = Math.min(1, Math.max(0, (y - treeline) / 27));
-    const blend = birch ? 0.48 + depth * 0.18 : depth * 0.82;
+    const blend = birch ? 0.48 + depth * 0.18 : 0.22 + depth * 0.6;
     const [r, g, b] = channels(birch || bareSky[index]);
     watchForestBackdrop[index] = rgb(
       Math.round(r + (10 - r) * blend),
@@ -308,6 +308,13 @@ function ichorPixel(x, y, depth, tick, grain) {
   return rgb(220 - shade * 2 + gloss, 161 - shade * 2 + gloss, 143 - shade + gloss);
 }
 
+const CANOPY_SHADE_FADE = 46;
+
+function canopyShadeLevel(level, depth) {
+  const progress = Math.min(1, (depth + 1) / CANOPY_SHADE_FADE);
+  return Math.round(level * progress ** 2 * (3 - 2 * progress));
+}
+
 function watchBackdropPixel(index, darkness) {
   const normal = DISTANT_BIRCH[index] || bareSky[index];
   if (!darkness) return normal;
@@ -344,7 +351,7 @@ function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly, canopyShade)
         if (distantBirchesOnly) {
           const level = canopyShade?.strength[x];
           const belowCanopy = level && y >= canopyShade.top[x] && y < canopyShade.bottom[x];
-          pixels[j] = watchBackdropPixel(i, belowCanopy ? level : 0);
+          pixels[j] = watchBackdropPixel(i, belowCanopy ? canopyShadeLevel(level, y - canopyShade.top[x]) : 0);
         }
         else if (BIRCH_PIXELS[i] && !frame.birchCuts[i]) pixels[j] = treePixel(i, triMap);
         else if (frame.ridgeCuts[i]) pixels[j] = converted ? triAtmosphere[i] : ATMOSPHERE[i];
@@ -469,6 +476,16 @@ function sceneHaze(ctx, night, bloodMoon, arc, dayHorizon) {
 
 function drawCanopyHaze(ctx, haze, forestHaze, { strength, top, bottom }, left) {
   const baseAlpha = ctx.globalAlpha;
+  const drawHazeBand = (x, y, width, height, shade) => {
+    if (shade < 255) {
+      ctx.globalAlpha = baseAlpha * (1 - shade / 255);
+      rect(ctx, haze, x, y, width, height);
+    }
+    if (shade > 0) {
+      ctx.globalAlpha = baseAlpha * shade / 255;
+      rect(ctx, forestHaze, x, y, width, height);
+    }
+  };
   ctx.save();
   for (let start = 0; start < VIEW_WIDTH;) {
     const column = left + start;
@@ -485,12 +502,15 @@ function drawCanopyHaze(ctx, haze, forestHaze, { strength, top, bottom }, left) 
     } else {
       rect(ctx, haze, start, 0, width, upper);
       rect(ctx, haze, start, lower, width, HEIGHT - lower);
-      if (shade < 255) {
-        ctx.globalAlpha = baseAlpha * (1 - shade / 255);
-        rect(ctx, haze, start, upper, width, lower - upper);
+      const fadeHeight = Math.min(CANOPY_SHADE_FADE - 1, lower - upper);
+      for (let row = 0; row < fadeHeight; row += 4) {
+        const height = Math.min(4, fadeHeight - row);
+        const level = canopyShadeLevel(shade, row + (height - 1) / 2);
+        drawHazeBand(start, upper + row, width, height, level);
       }
-      ctx.globalAlpha = baseAlpha * shade / 255;
-      rect(ctx, forestHaze, start, upper, width, lower - upper);
+      if (lower > upper + fadeHeight) {
+        drawHazeBand(start, upper + fadeHeight, width, lower - upper - fadeHeight, shade);
+      }
     }
     start = end;
   }
