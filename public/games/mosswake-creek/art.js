@@ -594,15 +594,18 @@ function drawHut(ctx, paint, x, y, converted) {
 }
 
 const ROW_HOUSES = [
-  { offset: -19, wall: '#aa9478', seam: '#89745f', roof: '#795b4d', door: -6 },
+  { offset: -17, wall: '#aa9478', seam: '#89745f', roof: '#795b4d', door: -6 },
   { offset: 0, wall: '#9da592', seam: '#788575', roof: '#555e5e', door: 2 },
-  { offset: 19, wall: '#a28270', seam: '#87695d', roof: '#84604f', door: -6 }
+  { offset: 17, wall: '#a28270', seam: '#87695d', roof: '#84604f', door: -6 }
 ];
 
 function drawHouseRow(ctx, paint, x, y, converted) {
+  const { width } = SCENERY.houses;
+  paint('#41393b', x - width / 2, y - 18, width, 3);
+  paint('#48413d', x - width / 2, y - 3, width, 3);
   for (const { offset, wall, seam, roof, door } of ROW_HOUSES) {
     const front = x + offset;
-    paint('#48413d', front - 9, y - 17, 18, 17);
+    paint('#48413d', front - 9, y - 16, 18, 13);
     paint(wall, front - 8, y - 16, 16, 14);
     for (let board = 6; board <= 14; board += 4) {
       paint(seam, front - 8, y - board, 16, 1);
@@ -614,9 +617,6 @@ function drawHouseRow(ctx, paint, x, y, converted) {
       paint('#463b3c', front - half - 1, shingleY, half * 2 + 2, 2);
       paint(roof, front - half, shingleY, half * 2, 1);
     }
-    paint('#41393b', front - 9, y - 17, 18, 2);
-    paint(roof, front - 8, y - 17, 16, 1);
-
     paint('#4b3e3a', front + door - 1, y - 12, 7, 11);
     paint('#745642', front + door, y - 11, 5, 10);
     paint('#b59465', front + door + 3, y - 6, 1, 1);

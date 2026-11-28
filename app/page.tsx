@@ -81,7 +81,7 @@ const games = [
   {
     number: "05", shortName: "Mosswake Creek", name: "Rain & Copper: Mosswake Creek", label: "Build. Break. Make it rain.", genre: "2D sandbox & creek defense",
     description: [
-      "Return to Mosswake’s birch-lined pond, with its copper-roofed hut, dock, and wandering ducks. Paint falling copper and sand, pour flowing water, build basalt dams, and chip the landscape apart pixel by pixel. Explore five connected areas, change the rain, and place rows of simple houses in normal and Tri variants.",
+      "Return to Mosswake’s birch-lined pond, with its copper-roofed hut, dock, and wandering ducks. Paint falling copper and sand, pour flowing water, build basalt dams, and chip the landscape apart pixel by pixel. Explore five connected areas, change the rain, and place rows of connected houses in normal and Tri variants.",
       "Enter Creek Watch as a faceless figure in a copper robe. Hire archers and hammer-carrying builders at the tents: guards gather and deliver copper, while your builder orders keep repairing and upgrading existing walls at the normal prices. Turn reinforced walls into 200-copper towers with raised archer platforms. Arrows arc under gravity, and moving targets can dodge them. Chop tall birches and sell the wood at the bridge market. Survive endless raids, including infectious Tri Flyers from night 40 and Ichor Sprayers from both sides. Opus and Flyers can hurt you and knock copper loose. Upgrade your blue campfire to a tent for 7 copper, then spend 100 copper on the signal tower and its wooden dining room with four usable chairs. Named saves keep your watch, builder orders and paid work; Sandbox edits last for the tab.",
     ],
     highlights: [
