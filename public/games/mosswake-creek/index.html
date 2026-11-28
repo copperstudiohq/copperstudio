@@ -4569,11 +4569,16 @@ const PORTAL_CANOPY_VINES = [
 const FOREST_SHADE_REACH = 48;
 const FOREST_SHADE_EDGE = 12;
 const FOREST_SHADE_HEIGHT = 80;
+const FOREST_CLEAR_FADE_TICKS = WATCH_TREE_FALL_TICKS * 2;
 
 function updateWatchCanopyShade(watch, { strength, top, bottom }) {
   strength.fill(0);
   for (const [index, tree] of WATCH_TREES.entries()) {
-    if (watch.treeCuts[tree.x]?.hits === WATCH_TREE_HITS) continue;
+    const cut = watch.treeCuts[tree.x];
+    const elapsed = cut?.hits === WATCH_TREE_HITS ? watch.tick - cut.at : 0;
+    const fade = Math.max(0, Math.min(1, elapsed / FOREST_CLEAR_FADE_TICKS));
+    const level = Math.round(255 * (1 - fade ** 2 * (3 - 2 * fade)));
+    if (!level) continue;
     const previous = WATCH_TREES[index - 1];
     const next = WATCH_TREES[index + 1];
     let start = Math.max(0, tree.x - FOREST_SHADE_REACH);
@@ -4581,25 +4586,29 @@ function updateWatchCanopyShade(watch, { strength, top, bottom }) {
     // Use the original tree positions so a felled tree's neighbors leave a clearing.
     if (previous) start = Math.max(start, Math.ceil((previous.x + tree.x) / 2));
     if (next) end = Math.min(end, Math.ceil((tree.x + next.x) / 2));
-    strength.fill(255, start, end);
+    strength.fill(level, start, end);
   }
   strength.fill(0, WATCH_BRIDGE.left, WATCH_BRIDGE.right + 1);
   for (const { x } of WATCH_CAMPS) strength.fill(0, x - 22, x + 23);
 
+  let previousLevel = 0;
   for (let start = 0; start < strength.length;) {
-    if (strength[start] === 0) {
-      start++;
-      continue;
-    }
+    const level = strength[start];
     let end = start + 1;
-    while (end < strength.length && strength[end] !== 0) end++;
-    for (let x = start; x < end; x++) {
-      const fromEdge = Math.min(x - start + 1, end - x);
-      if (fromEdge < FOREST_SHADE_EDGE) strength[x] = Math.round(255 * fromEdge / FOREST_SHADE_EDGE);
-      bottom[x] = watchGround(x);
-      const contour = Math.sin(x * 0.058) * 4 + Math.sin(x * 0.19) * 2 + (pixelNoise(Math.floor(x / 5), 18) - 0.5) * 3;
-      top[x] = Math.max(0, bottom[x] - FOREST_SHADE_HEIGHT + Math.round(contour));
+    while (end < strength.length && strength[end] === level) end++;
+    if (level > 0) {
+      const leftDrop = Math.max(0, level - previousLevel);
+      const rightDrop = Math.max(0, level - (strength[end] ?? 0));
+      for (let x = start; x < end; x++) {
+        const leftFade = Math.max(0, 1 - (x - start + 1) / FOREST_SHADE_EDGE);
+        const rightFade = Math.max(0, 1 - (end - x) / FOREST_SHADE_EDGE);
+        strength[x] = Math.round(level - Math.max(leftDrop * leftFade, rightDrop * rightFade));
+        bottom[x] = watchGround(x);
+        const contour = Math.sin(x * 0.058) * 4 + Math.sin(x * 0.19) * 2 + (pixelNoise(Math.floor(x / 5), 18) - 0.5) * 3;
+        top[x] = Math.max(0, bottom[x] - FOREST_SHADE_HEIGHT + Math.round(contour));
+      }
     }
+    previousLevel = level;
     start = end;
   }
 }
