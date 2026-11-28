@@ -26,6 +26,39 @@ const PORTAL_CANOPY_VINES = [
   { left: -19, right: 17, height: 27, wave: 4, phase: 4 }
 ];
 
+const FOREST_TREE_REACH = 48;
+const FOREST_EDGE_FADE = 12;
+
+export function updateWatchForestCover(watch, cover) {
+  cover.fill(0);
+  for (const [index, tree] of WATCH_TREES.entries()) {
+    if (watch.treeCuts[tree.x]?.hits === WATCH_TREE_HITS) continue;
+    const previous = WATCH_TREES[index - 1];
+    const next = WATCH_TREES[index + 1];
+    let start = Math.max(0, tree.x - FOREST_TREE_REACH);
+    let end = Math.min(cover.length, tree.x + FOREST_TREE_REACH + 1);
+    if (previous) start = Math.max(start, Math.ceil((previous.x + tree.x) / 2));
+    if (next) end = Math.min(end, Math.ceil((tree.x + next.x) / 2));
+    cover.fill(255, start, end);
+  }
+  cover.fill(0, WATCH_BRIDGE.left, WATCH_BRIDGE.right + 1);
+  for (const { x } of WATCH_CAMPS) cover.fill(0, x - 22, x + 23);
+
+  for (let start = 0; start < cover.length;) {
+    if (cover[start] === 0) {
+      start++;
+      continue;
+    }
+    let end = start + 1;
+    while (end < cover.length && cover[end] !== 0) end++;
+    for (let x = start; x < end; x++) {
+      const fromEdge = Math.min(x - start + 1, end - x);
+      if (fromEdge < FOREST_EDGE_FADE) cover[x] = Math.round(255 * fromEdge / FOREST_EDGE_FADE);
+    }
+    start = end;
+  }
+}
+
 function drawWatchPortalVines(ctx, watch, left) {
   for (const { from, to } of PORTAL_VINE_SPANS) {
     if (to.x < left || from.x >= left + VIEW_WIDTH
@@ -148,9 +181,9 @@ function drawWatchBirch(ctx, tree, watch) {
   }
 }
 
-function drawWatchSky(ctx, watch) {
+function drawWatchSky(ctx, watch, forestCover) {
   const night = watch.phase === 'night';
-  const x = drawSceneSky(ctx, night, watch.phaseProgress, watch.bloodMoon, { forestBackdrop: true });
+  const x = drawSceneSky(ctx, night, watch.phaseProgress, watch.bloodMoon, { forestCover, left: watch.camera });
   const worldX = watch.camera + x;
   const reflectionX = Math.max(WATCH_BRIDGE.left + 39, Math.min(WATCH_BRIDGE.right - 29, worldX));
   for (let row = 0; row < 12; row++) {
@@ -1472,12 +1505,12 @@ function drawWatchArrow(ctx, shot, watch) {
   watchRect(ctx, '#f8edd0', x, y, 1, 1);
 }
 
-export function drawCreekWatch(ctx, watch) {
+export function drawCreekWatch(ctx, watch, forestCover) {
   if (watch.insideTower) {
     drawTowerDiningRoom(ctx, watch);
     return;
   }
-  drawWatchSky(ctx, watch);
+  drawWatchSky(ctx, watch, forestCover);
   const left = watch.camera;
   const onScreen = (x, margin) => x >= left - margin && x < left + VIEW_WIDTH + margin;
   ctx.save();
