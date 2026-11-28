@@ -2013,13 +2013,22 @@ const ROW_PINK_VINES = [
   { root: 23, rise: 21, lean: -3, bend: 2 }
 ];
 const ROW_PINK_CLUMPS = [
-  [-27, -2, 3, 2], [-19, -4, 3, 2], [-11, -22, 3, 2],
-  [4, -1, 4, 2], [13, -15, 3, 2], [21, -8, 3, 3], [27, -3, 3, 3]
+  [-27, -2, 3, 2], [-19, -4, 3, 2], [-11, -22, 3, 2, 0],
+  [4, -1, 4, 2, 48], [13, -15, 3, 2], [21, -8, 3, 3, 95], [27, -3, 3, 3]
 ];
 const ROW_HEARTBEAT_PERIOD = 48;
 // The stronger beat leads, followed by a smaller beat and a resting interval.
 const ROW_HEARTBEAT_SWELL = [0, 0.42, 0.8, 1, 0.95, 0.77, 0.52, 0.26, 0.1, 0,
   0, 0.22, 0.46, 0.72, 0.64, 0.51, 0.3, 0.13];
+
+function rowBreathSwell(tick) {
+  const phase = tick % 150;
+  const inhaleEnd = 46;
+  const exhaleEnd = 126;
+  if (phase >= exhaleEnd) return 0;
+  const progress = phase < inhaleEnd ? phase / inhaleEnd : (exhaleEnd - phase) / (exhaleEnd - inhaleEnd);
+  return (1 - Math.cos(progress * Math.PI)) / 2;
+}
 
 function drawHouseGrowth(ctx, x, y, tick) {
   for (const { root, rise, lean, bend } of ROW_PINK_VINES) {
@@ -2035,9 +2044,11 @@ function drawHouseGrowth(ctx, x, y, tick) {
       }
     }
   }
-  for (const [i, [dx, dy, rx, ry]] of ROW_PINK_CLUMPS.entries()) {
-    const swell = ROW_HEARTBEAT_SWELL[(tick + i * 2) % ROW_HEARTBEAT_PERIOD] ?? 0;
-    const lift = Math.round(swell);
+  for (const [i, [dx, dy, rx, ry, breathOffset]] of ROW_PINK_CLUMPS.entries()) {
+    const breathing = breathOffset !== undefined;
+    const swell = breathing ? rowBreathSwell(tick + breathOffset)
+      : ROW_HEARTBEAT_SWELL[(tick + i * 2) % ROW_HEARTBEAT_PERIOD] ?? 0;
+    const lift = Math.round(swell * (breathing ? 2 : 1));
     const radiusX = rx + Math.round(1.6 * swell);
     const radiusY = ry + lift;
     const centerX = x + dx;
