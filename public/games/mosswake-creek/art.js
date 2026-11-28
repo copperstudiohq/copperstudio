@@ -601,36 +601,77 @@ const ROW_HOUSE_ROOF = [
   { inset: 1, slate: '#3f646b', highlight: '#52787d' }
 ];
 
-function drawHouseRow(ctx, paint, x, y, converted) {
+const ROW_PINK_VINES = [
+  { root: -22, rise: 19, lean: 3, bend: 0 },
+  { root: -6, rise: 24, lean: -3, bend: 4 },
+  { root: 9, rise: 15, lean: 4, bend: 1 },
+  { root: 23, rise: 21, lean: -3, bend: 2 }
+];
+const ROW_PINK_CLUMPS = [
+  [-27, -2, 3, 2], [-19, -4, 3, 2], [-11, -22, 3, 2],
+  [4, -1, 4, 2], [13, -15, 3, 2], [21, -8, 3, 3], [27, -3, 3, 3]
+];
+const ROW_CLUMP_PULSE = ['#b44b82', '#ce6098', '#e27ab0', '#f095c1', '#ffafd5'];
+
+function drawHouseGrowth(ctx, x, y, tick) {
+  for (const { root, rise, lean, bend } of ROW_PINK_VINES) {
+    for (let step = 0; step < rise; step++) {
+      const vineX = x + root + Math.round(step / rise * lean + Math.sin((step + bend) / 2.6) * 2);
+      const vineY = y - step - 2;
+      rect(ctx, '#84375f', vineX, vineY, 2, 2);
+      rect(ctx, '#c65d96', vineX, vineY, 1, 1);
+      if ((step + bend) % 5 === 2) {
+        const side = step % 2 ? 1 : -1;
+        rect(ctx, '#ac477e', vineX + side * 2, vineY, 2, 1);
+        rect(ctx, '#df81b5', vineX + side * 3, vineY - 1, 1, 1);
+      }
+    }
+  }
+  for (const [i, [dx, dy, rx, ry]] of ROW_PINK_CLUMPS.entries()) {
+    const pulse = 0.5 + 0.5 * Math.sin(tick / 11 + i * 1.45);
+    const shade = Math.round(pulse * (ROW_CLUMP_PULSE.length - 1));
+    sceneOval(ctx, '#923968', x + dx, y + dy, rx, ry);
+    rect(ctx, ROW_CLUMP_PULSE[shade], x + dx - 1, y + dy - 1, rx, ry);
+    rect(ctx, ROW_CLUMP_PULSE[Math.min(shade + 1, ROW_CLUMP_PULSE.length - 1)], x + dx, y + dy - 1, 1, 1);
+  }
+}
+
+function drawHouseRow(ctx, paint, x, y, converted, tick) {
   const { width, height } = SCENERY.houses;
   const left = x - width / 2;
   const wallLeft = left + 1;
-  paint('#54a3ac', wallLeft, y - 16, width - 1, 16);
-  paint('#478a95', wallLeft, y - 16, width - 1, 2);
+  paint('#548e96', wallLeft, y - 16, width - 1, 16);
+  paint('#42747e', wallLeft, y - 16, width - 1, 2);
   for (let board = 0; board < 5; board++) {
     const seamY = y - 13 + board * 3;
-    paint('#448d99', wallLeft, seamY, width - 1, 1);
+    paint('#477b86', wallLeft, seamY, width - 1, 1);
     for (let mark = 0; mark < 6; mark++) {
       const chipX = wallLeft + 1 + Math.floor(pixelNoise(board, mark) * (width - 5));
-      const grain = mark % 3 === 0 ? '#72bac0' : '#61acb5';
+      const grain = mark % 3 === 0 ? '#6ca2a5' : '#5d9aa2';
       paint(grain, chipX, seamY - 1, 1 + mark % 3, 1);
     }
   }
 
-  const glass = converted ? '#86a6c7' : '#91b9bc';
-  const reflection = converted ? '#ccd7e8' : '#bbd6cf';
-  for (const offset of ROW_HOUSE_CENTERS) {
+  const glass = converted ? '#716d98' : '#56747a';
+  const reflection = converted ? '#a4abc1' : '#8ea2a2';
+  for (const [unit, offset] of ROW_HOUSE_CENTERS.entries()) {
     const front = x + offset;
     paint('#3e7983', front - 2, y - 11, 5, 10);
-    paint('#57929c', front - 1, y - 10, 3, 3);
-    paint('#4b8791', front - 1, y - 5, 2, 3);
-    paint('#c3a871', front + 1, y - 5, 1, 1);
-    paint('#789497', front - 3, y - 1, 7, 1);
-    for (const pane of [front - 7, front + 5]) {
+    paint('#54848b', front - 1, y - 10, 3, 3);
+    paint('#426e73', front - 1, y - 5, 2, 3);
+    paint('#98764f', front + 1, y - 5, 1, 1);
+    paint('#687d7a', front - 3, y - 1, 7, 1);
+    for (const [side, pane] of [front - 7, front + 5].entries()) {
       rect(ctx, glass, pane, y - 10, 3, 4);
       rect(ctx, reflection, pane, y - 10, 2, 1);
-      rect(ctx, reflection, pane + 1, y - 9, 1, 1);
-      paint('#77a5ab', pane - 1, y - 6, 5, 1);
+      if ((side + unit) % 2 === 0) {
+        paint('#826957', pane - 1, y - 9, 3, 1);
+        paint('#947961', pane + 1, y - 10, 3, 1);
+      } else {
+        paint('#3d545b', pane + 1, y - 9, 2, 3);
+        rect(ctx, reflection, pane + 1, y - 7, 1, 1);
+      }
+      paint('#678c91', pane - 1, y - 6, 5, 1);
     }
   }
 
@@ -647,9 +688,10 @@ function drawHouseRow(ctx, paint, x, y, converted) {
   }
   paint('#67989d', left, ridge + 8, width, 1);
   paint('#527e84', left, ridge + 9, width, 1);
+  drawHouseGrowth(ctx, x, y, tick);
 }
 
-function drawScenery(ctx, type, x, y, converted) {
+function drawScenery(ctx, type, x, y, converted, tick = 0) {
   const paint = sceneBrush(ctx, converted);
   if (type === 'birch') {
     drawPlacedBirch(paint, x, y);
@@ -670,7 +712,7 @@ function drawScenery(ctx, type, x, y, converted) {
       paint('#ba8556', x + 11 + step * 2, y - 3 - step * 3, 4, 1);
     }
   } else if (type === 'houses') {
-    drawHouseRow(ctx, paint, x, y, converted);
+    drawHouseRow(ctx, paint, x, y, converted, tick);
   } else if (type === 'hut') {
     drawHut(ctx, paint, x, y, converted);
   } else if (type === 'posts') {
@@ -692,7 +734,7 @@ function drawStructures(ctx, quarry, left, chipper, skipDecoration) {
     const y = quarryHeight(x);
     if (quarry.at(x, y) !== ROCK || (type !== 'posts' && quarry.at(x - 3, y + 3) !== ROCK)) continue;
     const converted = quarry.isTriAt(x, y);
-    chipper.draw(ctx, decoration, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted));
+    chipper.draw(ctx, decoration, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted, quarry.tick));
   }
   const bank = POND_DOCK.x + 22;
   if (bank >= left && bank - 34 < right && !skipDecoration?.(POND_DOCK)
@@ -705,7 +747,7 @@ function drawStructures(ctx, quarry, left, chipper, skipDecoration) {
     const { type, x, y } = item;
     if (x < left - 30 || x >= right + 30) continue;
     const converted = item.converted || quarry.isTriAt(x, y);
-    chipper.draw(ctx, item, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted));
+    chipper.draw(ctx, item, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted, quarry.tick));
   }
 }
 
