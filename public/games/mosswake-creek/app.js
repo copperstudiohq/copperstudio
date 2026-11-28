@@ -2,7 +2,7 @@ import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_S
 import { QuarryRenderer, drawToolIcon } from './art.js';
 import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_CAMP_GROUPS, WATCH_FORWARD_WALLS, WATCH_MARKET_ITEMS, WATCH_PLAYER_HEALTH, WATCH_PORTALS, WATCH_SIGNAL, WATCH_TOWER_ROOM, WATCH_VENDORS, WATCH_WOOD_PRICE } from './watch.js';
 import { listWatchSlots, loadWatchSlot, saveWatchSlot, WATCH_SAVE_NAME_LIMIT } from './watch-saves.js';
-import { drawCreekWatch, drawWatchMarketIcon, drawWatchVendorPortrait, updateWatchForestCover } from './watch-art.js';
+import { drawCreekWatch, drawWatchMarketIcon, drawWatchVendorPortrait, updateWatchCanopyShade } from './watch-art.js';
 
 function sceneryHint(entity, label) {
   const surface = entity === 'dock' ? 'water or land' : 'dry ground';
@@ -136,10 +136,10 @@ for (const { name, side, camps } of WATCH_CAMP_GROUPS) {
   watchDestinations[destination] = x;
   watchPosition.before(marker);
 }
-const watchForestCover = new Uint8Array(WIDTH);
+const watchCanopyShade = { strength: new Uint8Array(WIDTH), top: new Uint8Array(WIDTH), bottom: new Uint8Array(WIDTH) };
 const watchRenderOptions = {
   distantBirchesOnly: true,
-  forestCover: watchForestCover,
+  canopyShade: watchCanopyShade,
   skipDecoration: ({ x, type }) => type === 'hut' || type === 'dock'
     || WATCH_CAMPS.some((camp) => Math.abs(camp.x - x) <= 44)
 };
@@ -383,10 +383,10 @@ function drawWatchMode() {
   watchQuarry.tick = watch.tick;
   watchQuarry.weather = watch.phase === 'night' ? 'storm' : 'rain';
   if (!watch.insideTower) {
-    updateWatchForestCover(watch, watchForestCover);
+    updateWatchCanopyShade(watch, watchCanopyShade);
     watchRenderer.draw(watchQuarry, null, watch.camera, watchRenderOptions);
   }
-  drawCreekWatch(watchRenderer.ctx, watch, watchForestCover);
+  drawCreekWatch(watchRenderer.ctx, watch, watchCanopyShade);
   const active = watch.status === 'running';
   const finished = watch.status === 'lost';
   setWatchText(liveLabel, finished ? 'LOST' : paused ? 'PAUSED' : watch.insideTower ? 'INSIDE' : active ? 'LIVE' : 'READY');

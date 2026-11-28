@@ -323,7 +323,7 @@ function watchBackdropPixel(index, darkness) {
   );
 }
 
-function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly, forestCover) {
+function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly, canopyShade) {
   const { grid, tick, surface, triMap, placedTri } = quarry;
   const { pixels, liquidDepth } = frame;
   surface.fill(HEIGHT, left, left + VIEW_WIDTH);
@@ -341,7 +341,11 @@ function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly, forestCover)
       if (!liquid) liquidDepth[x] = 0;
       if (material !== EMPTY && material !== EMBER && !liquid && surface[x] === HEIGHT) surface[x] = y;
       if (material === EMPTY) {
-        if (distantBirchesOnly) pixels[j] = watchBackdropPixel(i, forestCover?.[x]);
+        if (distantBirchesOnly) {
+          const level = canopyShade?.strength[x];
+          const belowCanopy = level && y >= canopyShade.top[x] && y < canopyShade.bottom[x];
+          pixels[j] = watchBackdropPixel(i, belowCanopy ? level : 0);
+        }
         else if (BIRCH_PIXELS[i] && !frame.birchCuts[i]) pixels[j] = treePixel(i, triMap);
         else if (frame.ridgeCuts[i]) pixels[j] = converted ? triAtmosphere[i] : ATMOSPHERE[i];
         else pixels[j] = converted ? triBareSky[i] : bareSky[i];
@@ -463,30 +467,44 @@ function sceneHaze(ctx, night, bloodMoon, arc, dayHorizon) {
   return haze;
 }
 
-export function drawSceneSky(ctx, night, progress, bloodMoon = false, { forestCover, left = 0 } = {}) {
+function drawCanopyHaze(ctx, haze, forestHaze, { strength, top, bottom }, left) {
+  const baseAlpha = ctx.globalAlpha;
+  ctx.save();
+  for (let start = 0; start < VIEW_WIDTH;) {
+    const column = left + start;
+    const shade = strength[column];
+    const upper = top[column];
+    const lower = bottom[column];
+    let end = start + 1;
+    while (end < VIEW_WIDTH && strength[left + end] === shade
+        && (!shade || top[left + end] === upper && bottom[left + end] === lower)) end++;
+    const width = end - start;
+    ctx.globalAlpha = baseAlpha;
+    if (!shade || upper >= lower) {
+      rect(ctx, haze, start, 0, width, HEIGHT);
+    } else {
+      rect(ctx, haze, start, 0, width, upper);
+      rect(ctx, haze, start, lower, width, HEIGHT - lower);
+      if (shade < 255) {
+        ctx.globalAlpha = baseAlpha * (1 - shade / 255);
+        rect(ctx, haze, start, upper, width, lower - upper);
+      }
+      ctx.globalAlpha = baseAlpha * shade / 255;
+      rect(ctx, forestHaze, start, upper, width, lower - upper);
+    }
+    start = end;
+  }
+  ctx.restore();
+}
+
+export function drawSceneSky(ctx, night, progress, bloodMoon = false, { canopyShade, left = 0 } = {}) {
   const arc = Math.sin(progress * Math.PI);
   const x = Math.round(20 + progress * (VIEW_WIDTH - 40));
   const y = Math.round(42 - arc * 23);
   const haze = sceneHaze(ctx, night, bloodMoon, arc, `rgba(240, 153, 104, ${0.48 - arc * 0.26})`);
-  if (!night && forestCover) {
+  if (!night && canopyShade) {
     const forestHaze = sceneHaze(ctx, false, false, arc, `rgba(118, 142, 152, ${0.18 - arc * 0.09})`);
-    const baseAlpha = ctx.globalAlpha;
-    ctx.save();
-    for (let start = 0; start < VIEW_WIDTH;) {
-      const shade = forestCover[left + start];
-      let end = start + 1;
-      while (end < VIEW_WIDTH && forestCover[left + end] === shade) end++;
-      if (shade < 255) {
-        ctx.globalAlpha = baseAlpha * (1 - shade / 255);
-        rect(ctx, haze, start, 0, end - start, HEIGHT);
-      }
-      if (shade > 0) {
-        ctx.globalAlpha = baseAlpha * shade / 255;
-        rect(ctx, forestHaze, start, 0, end - start, HEIGHT);
-      }
-      start = end;
-    }
-    ctx.restore();
+    drawCanopyHaze(ctx, haze, forestHaze, canopyShade, left);
   } else rect(ctx, haze, 0, 0, VIEW_WIDTH, HEIGHT);
   if (night) {
     for (const star of SCENE_STARS) {
@@ -1264,12 +1282,12 @@ export class QuarryRenderer {
     }
   }
 
-  draw(quarry, cursor, left, { skipDecoration, distantBirchesOnly = false, forestCover } = {}) {
+  draw(quarry, cursor, left, { skipDecoration, distantBirchesOnly = false, canopyShade } = {}) {
     const ctx = this.ctx;
     this.frameTick = quarry.tick;
     this.left = left;
     this.chipper.parts.length = 0;
-    paintTerrain(ctx, this, quarry, left, distantBirchesOnly, forestCover);
+    paintTerrain(ctx, this, quarry, left, distantBirchesOnly, canopyShade);
     if (quarry.skyMode !== 'day') drawSceneSky(ctx, quarry.night, quarry.skyProgress);
     ctx.save();
     ctx.translate(-left, 0);
