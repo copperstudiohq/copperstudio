@@ -2016,7 +2016,10 @@ const ROW_PINK_CLUMPS = [
   [-27, -2, 3, 2], [-19, -4, 3, 2], [-11, -22, 3, 2],
   [4, -1, 4, 2], [13, -15, 3, 2], [21, -8, 3, 3], [27, -3, 3, 3]
 ];
-const ROW_CLUMP_PULSE = ['#b44b82', '#ce6098', '#e27ab0', '#f095c1', '#ffafd5'];
+const ROW_HEARTBEAT_PERIOD = 48;
+// The stronger beat leads, followed by a smaller beat and a resting interval.
+const ROW_HEARTBEAT_SWELL = [0, 0.42, 0.8, 1, 0.95, 0.77, 0.52, 0.26, 0.1, 0,
+  0, 0.22, 0.46, 0.72, 0.64, 0.51, 0.3, 0.13];
 
 function drawHouseGrowth(ctx, x, y, tick) {
   for (const { root, rise, lean, bend } of ROW_PINK_VINES) {
@@ -2033,11 +2036,15 @@ function drawHouseGrowth(ctx, x, y, tick) {
     }
   }
   for (const [i, [dx, dy, rx, ry]] of ROW_PINK_CLUMPS.entries()) {
-    const pulse = 0.5 + 0.5 * Math.sin(tick / 11 + i * 1.45);
-    const shade = Math.round(pulse * (ROW_CLUMP_PULSE.length - 1));
-    sceneOval(ctx, '#923968', x + dx, y + dy, rx, ry);
-    rect(ctx, ROW_CLUMP_PULSE[shade], x + dx - 1, y + dy - 1, rx, ry);
-    rect(ctx, ROW_CLUMP_PULSE[Math.min(shade + 1, ROW_CLUMP_PULSE.length - 1)], x + dx, y + dy - 1, 1, 1);
+    const swell = ROW_HEARTBEAT_SWELL[(tick + i * 2) % ROW_HEARTBEAT_PERIOD] ?? 0;
+    const lift = Math.round(swell);
+    const radiusX = rx + Math.round(1.6 * swell);
+    const radiusY = ry + lift;
+    const centerX = x + dx;
+    const centerY = y + dy - lift;
+    sceneOval(ctx, '#a14877', centerX, centerY, radiusX, radiusY);
+    sceneOval(ctx, '#cb679a', centerX, centerY - 1, radiusX - 1, radiusY - 1);
+    rect(ctx, '#e49ab9', centerX - 1, centerY - 1, 2, 1);
   }
 }
 
@@ -2061,10 +2068,13 @@ function drawHouseRow(ctx, paint, x, y, converted, tick) {
   const reflection = converted ? '#a4abc1' : '#8ea2a2';
   for (const [unit, offset] of ROW_HOUSE_CENTERS.entries()) {
     const front = x + offset;
-    paint('#3e7983', front - 2, y - 11, 5, 10);
-    paint('#54848b', front - 1, y - 10, 3, 3);
-    paint('#426e73', front - 1, y - 5, 2, 3);
-    paint('#98764f', front + 1, y - 5, 1, 1);
+    paint('#795a44', front - 2, y - 11, 5, 10);
+    paint('#9a7456', front - 2, y - 11, 1, 8);
+    paint('#6b503d', front, y - 11, 1, 10);
+    paint('#906a50', front + 1, y - 11, 2, 10);
+    paint('#ad8765', front + 2, y - 10, 1, 4);
+    paint('#9d7758', front - 1, y - 7, 1, 4);
+    paint('#c5a476', front + 1, y - 5, 1, 1);
     paint('#687d7a', front - 3, y - 1, 7, 1);
     for (const [side, pane] of [front - 7, front + 5].entries()) {
       rect(ctx, glass, pane, y - 10, 3, 4);
@@ -2135,7 +2145,8 @@ function drawStructures(ctx, quarry, left, chipper, skipDecoration) {
   const right = left + VIEW_WIDTH;
   for (const decoration of DECORATIONS) {
     const { x, type } = decoration;
-    if (x < left - 30 || x >= right + 30 || skipDecoration?.(decoration)) continue;
+    const margin = type === 'houses' ? 33 : 30;
+    if (x < left - margin || x >= right + margin || skipDecoration?.(decoration)) continue;
     const y = quarryHeight(x);
     if (quarry.at(x, y) !== ROCK || (type !== 'posts' && quarry.at(x - 3, y + 3) !== ROCK)) continue;
     const converted = quarry.isTriAt(x, y);
@@ -2150,7 +2161,8 @@ function drawStructures(ctx, quarry, left, chipper, skipDecoration) {
   }
   for (const item of quarry.scenery) {
     const { type, x, y } = item;
-    if (x < left - 30 || x >= right + 30) continue;
+    const margin = type === 'houses' ? 33 : 30;
+    if (x < left - margin || x >= right + margin) continue;
     const converted = item.converted || quarry.isTriAt(x, y);
     chipper.draw(ctx, item, 0, x, y, 1, 1, (sprite) => drawScenery(sprite, type, 0, 0, converted, quarry.tick));
   }
