@@ -9,6 +9,7 @@ const RIDGE_PIXELS = new Uint8Array(SIZE);
 const TRI_BIRCH_ROOT = new Int32Array(SIZE);
 const TRI_BIRCH_COLOR = new Uint32Array(SIZE);
 const BIRCH_PIXELS = new Uint8Array(SIZE);
+const DISTANT_BIRCH = new Uint32Array(SIZE);
 const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
 const RIDGES = [
   { points: [[0, 93], [32, 76], [52, 81], [78, 59], [99, 49], [113, 54], [139, 77], [161, 73], [190, 92], [212, 90], [239, 70], [260, 72], [285, 49], [298, 55], [327, 77], [357, 68], [384, 77]], color: [48, 59, 72] },
@@ -81,6 +82,11 @@ function ink(x, y, color, root = 0, triColor = 0) {
   TRI_BIRCH_COLOR[pixel] = triColor;
 }
 
+function inkDistantBirch(x, y, color, root, triColor) {
+  ink(x, y, color, root, triColor);
+  if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) DISTANT_BIRCH[y * WIDTH + x] = rgb(...color);
+}
+
 function drawBirch(x, ground, height, seed, near, copper, plot = ink) {
   const crown = ground - height;
   const lean = seed % 2 ? 1 : -1;
@@ -142,7 +148,7 @@ function drawGroves() {
     for (const localX of distant) {
       const x = start + localX;
       const ground = Math.round(84 + Math.sin(x * 0.016) * 24 + random() * 10);
-      drawBirch(x, ground, 16 + Math.floor(random() * 17), x, false, false);
+      drawBirch(x, ground, 16 + Math.floor(random() * 17), x, false, false, inkDistantBirch);
     }
     const grove = start === START_VIEW ? banks : distant.filter((_, index) => (index + area) % (area === 0 ? 2 : 3) === 0);
     for (const localX of grove) {
@@ -286,7 +292,7 @@ function ichorPixel(x, y, depth, tick, grain) {
   return rgb(220 - shade * 2 + gloss, 161 - shade * 2 + gloss, 143 - shade + gloss);
 }
 
-function paintTerrain(ctx, frame, quarry, left) {
+function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly) {
   const { grid, tick, surface, triMap, placedTri } = quarry;
   const { pixels, liquidDepth } = frame;
   surface.fill(HEIGHT, left, left + VIEW_WIDTH);
@@ -304,7 +310,8 @@ function paintTerrain(ctx, frame, quarry, left) {
       if (!liquid) liquidDepth[x] = 0;
       if (material !== EMPTY && material !== EMBER && !liquid && surface[x] === HEIGHT) surface[x] = y;
       if (material === EMPTY) {
-        if (BIRCH_PIXELS[i] && !frame.birchCuts[i]) pixels[j] = treePixel(i, triMap);
+        if (distantBirchesOnly) pixels[j] = DISTANT_BIRCH[i] || bareSky[i];
+        else if (BIRCH_PIXELS[i] && !frame.birchCuts[i]) pixels[j] = treePixel(i, triMap);
         else if (frame.ridgeCuts[i]) pixels[j] = converted ? triAtmosphere[i] : ATMOSPHERE[i];
         else pixels[j] = converted ? triBareSky[i] : bareSky[i];
       } else if (material === ROCK) {
@@ -1094,12 +1101,12 @@ export class QuarryRenderer {
     }
   }
 
-  draw(quarry, cursor, left, { skipDecoration } = {}) {
+  draw(quarry, cursor, left, { skipDecoration, distantBirchesOnly = false } = {}) {
     const ctx = this.ctx;
     this.frameTick = quarry.tick;
     this.left = left;
     this.chipper.parts.length = 0;
-    paintTerrain(ctx, this, quarry, left);
+    paintTerrain(ctx, this, quarry, left, distantBirchesOnly);
     if (quarry.skyMode !== 'day') drawSceneSky(ctx, quarry.night, quarry.skyProgress);
     ctx.save();
     ctx.translate(-left, 0);

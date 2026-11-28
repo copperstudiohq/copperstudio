@@ -2,6 +2,8 @@ import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS
 
 export const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
 export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
+export const WATCH_SIGNAL_TENT_COST = 7;
+export const WATCH_SIGNAL_TOWER_COST = 100;
 export const WATCH_TOWER_BUILDING = { width: 72, height: 96, wall: 4 };
 export const WATCH_TOWER_ROOM_LAYOUT = 2;
 export const WATCH_TOWER_ROOM = {
@@ -20,6 +22,9 @@ export const WATCH_PORTALS = [
   { side: 1, x: WATCH_BOUNDS.right - 26 }
 ];
 export const WATCH_HEALTH = 10;
+export const WATCH_PLAYER_HEALTH = 5;
+export const WATCH_COIN_TOSS_TICKS = 14;
+const WATCH_HURT_COOLDOWN = TICKS_PER_SECOND;
 export const WATCH_DAY = DAY_TICKS;
 export const WATCH_NIGHT = NIGHT_TICKS;
 export const WATCH_AIM_SEED = 0x43524545;
@@ -77,6 +82,15 @@ export const WATCH_VENDORS = [
   { id: 'tools', name: 'Rowan', trade: 'Tool seller', x: WATCH_SIGNAL + 59 },
   { id: 'arms', name: 'Bram', trade: 'Weaponsmith', x: WATCH_SIGNAL + 98 }
 ];
+export const WATCH_TREE_HITS = 3;
+export const WATCH_TREE_FALL_TICKS = 24;
+export const WATCH_WOOD_PRICE = 2;
+const WATCH_TREE_RANGE = 13;
+const WATCH_CHOP_INTERVAL = 8;
+export const WATCH_TREES = [86, 150, 211, 276, 340, 456, 574, 633, 693, 777, 868,
+  1135, 1215, 1269, 1321, 1417, 1508, 1567, 1626, 1684, 1741, 1819].map((x, index) => ({
+  x, height: 58 + (index * 11 % 22), wood: 3 + index % 3
+}));
 export const WATCH_MARKET_ITEMS = {
   sword: { vendor: 'tools', name: 'Sword', cost: 5, damage: 2, reach: 23, cooldown: 16 },
   'repair-kit': { vendor: 'tools', name: 'Repair Kit', cost: 4, description: 'Repair palisades for 1 copper.' },
@@ -175,7 +189,12 @@ export class CreekWatch {
     this.tick = 0;
     this.phaseTick = 0;
     this.coins = 6;
+    this.wood = 0;
+    this.treeCuts = {};
     this.signal = WATCH_HEALTH;
+    this.playerHealth = WATCH_PLAYER_HEALTH;
+    this.playerHurtAt = WATCH_NO_ACTION;
+    this.signalTent = false;
     this.towerUpgraded = false;
     this.insideTower = false;
     this.seatedChair = null;
@@ -292,7 +311,7 @@ export class CreekWatch {
     const player = this.player.x;
     const atSignal = Math.abs(player - WATCH_SIGNAL) <= WATCH_USE_RANGE;
     if (atSignal && this.phase === 'day') {
-      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: 'Repair signal tower',
+      if (this.signal < WATCH_HEALTH) return { kind: 'signal', label: `Repair ${this.signalName.toLowerCase()}`,
         cost: this.builderPaidRepairs.includes('signal') ? 0 : 3 };
       return { kind: 'bell', label: this.recallingGuards ? 'Waiting for guards to return' : 'Ring the dusk bell', cost: 0 };
     }
@@ -320,15 +339,24 @@ export class CreekWatch {
       }
       return this.getCampAction();
     }
+    const tree = WATCH_TREES.find(({ x }) => Math.abs(player - x) <= WATCH_TREE_RANGE
+      && (this.treeCuts[x]?.hits ?? 0) < WATCH_TREE_HITS);
+    if (tree) return { kind: 'chop', tree, label: 'Chop birch', cost: 0 };
     return null;
+  }
+
+  get signalName() {
+    if (this.towerUpgraded) return 'Signal tower';
+    return this.signalTent ? 'Signal tent' : 'Blue campfire';
   }
 
   getTowerAction() {
     if (this.status !== 'running') return null;
     if (this.insideTower) return { kind: 'tower-exit', label: 'Leave tower room', cost: 0 };
     if (this.phase !== 'day' || Math.abs(this.player.x - WATCH_SIGNAL) > WATCH_USE_RANGE) return null;
-    return this.towerUpgraded ? { kind: 'tower-enter', label: 'Enter tower room', cost: 0 }
-      : { kind: 'tower-upgrade', label: 'Upgrade tower room', cost: 100 };
+    if (this.towerUpgraded) return { kind: 'tower-enter', label: 'Enter tower room', cost: 0 };
+    return this.signalTent ? { kind: 'tower-upgrade', label: 'Build signal tower', cost: WATCH_SIGNAL_TOWER_COST }
+      : { kind: 'signal-tent', label: 'Build signal tent', cost: WATCH_SIGNAL_TENT_COST };
   }
 
   getCampAction() {
@@ -436,6 +464,30 @@ export class CreekWatch {
     return true;
   }
 
+  sellWood(amount) {
+    if (!Number.isSafeInteger(amount) || amount < 1 || amount > this.wood || this.getAction()?.kind !== 'market') return false;
+    const proceeds = amount * WATCH_WOOD_PRICE;
+    if (!Number.isSafeInteger(this.coins + proceeds)) return false;
+    this.wood -= amount;
+    this.coins += proceeds;
+    this.message = `Sold ${amount} wood for ${proceeds} copper.`;
+    return true;
+  }
+
+  chopTree(tree) {
+    const cut = this.treeCuts[tree.x];
+    if (cut && (cut.hits >= WATCH_TREE_HITS || this.tick - cut.at < WATCH_CHOP_INTERVAL)) return false;
+    const hits = (cut?.hits ?? 0) + 1;
+    this.treeCuts[tree.x] = { hits, at: this.tick, direction: this.player.x <= tree.x ? 1 : -1 };
+    if (hits === WATCH_TREE_HITS) {
+      this.wood += tree.wood;
+      this.message = `Birch felled. Collected ${tree.wood} wood.`;
+    } else {
+      this.message = `Birch chopped ${hits}/${WATCH_TREE_HITS}.`;
+    }
+    return true;
+  }
+
   swing() {
     if (!this.canSwing) return false;
     this.swingAt = this.tick;
@@ -459,7 +511,7 @@ export class CreekWatch {
     const action = kind === 'train' ? this.getTrainingAction()
       : kind === 'tower' ? this.getTowerAction() : kind === 'builder' ? this.getBuilderAction() : this.getAction();
     if (!action) {
-      if (this.status === 'running' && kind !== 'train') this.message = 'Walk up to a camp, a palisade, or the signal tower.';
+      if (this.status === 'running' && kind !== 'train') this.message = 'Walk up to a tree, a camp, or a station.';
       return false;
     }
     if (action.kind === 'shelter') {
@@ -474,7 +526,14 @@ export class CreekWatch {
     const { post } = action;
     this.coins -= action.cost;
     switch (action.kind) {
+      case 'chop':
+        return this.chopTree(action.tree);
+      case 'signal-tent':
+        this.signalTent = true;
+        this.message = 'Signal tent built. The blue torch is lit.';
+        break;
       case 'tower-upgrade':
+        this.signalTent = false;
         this.towerUpgraded = true;
         this.message = 'Tower room built. You can enter during the day.';
         break;
@@ -507,7 +566,7 @@ export class CreekWatch {
       case 'signal':
         this.signal = WATCH_HEALTH;
         this.clearBuilderRepair(this);
-        this.message = 'Signal tower repaired. Ring the bell when you’re ready.';
+        this.message = `${this.signalName} repaired. Ring the bell when you’re ready.`;
         break;
       case 'hire':
         post.guards.push({ rank: 0, direction: post.side, fireAt: this.tick + 8, shotAt: WATCH_NO_ACTION, carriedCoins: 0 });
@@ -605,6 +664,8 @@ export class CreekWatch {
     this.phase = 'day';
     this.phaseTick = 0;
     this.day++;
+    this.playerHealth = WATCH_PLAYER_HEALTH;
+    this.playerHurtAt = WATCH_NO_ACTION;
     this.huntedPigeons = 0;
     this.recallingGuards = false;
     for (const post of this.posts) for (const guard of post.guards) guard.returning = false;
@@ -634,7 +695,7 @@ export class CreekWatch {
       this.player.step++;
     }
     this.loot = this.loot.filter((piece) => {
-      if (Math.abs(piece.x - this.player.x) > 6) return true;
+      if (Math.abs(piece.x - this.player.x) > 6 || (piece.tossAt !== undefined && this.tick - piece.tossAt < WATCH_COIN_TOSS_TICKS)) return true;
       this.coins += piece.amount;
       return false;
     });
@@ -664,9 +725,15 @@ export class CreekWatch {
       const { side } = this.flyerQueue.shift();
       this.spawnFlyer(side, WATCH_PORTALS[side === -1 ? 0 : 1].x);
     }
-    for (const raider of this.raiders) this.moveRaider(raider);
+    for (const raider of this.raiders) {
+      this.moveRaider(raider);
+      if (this.status === 'lost') return;
+    }
     this.stepIchorSprayer();
-    for (const flyer of this.flyers) if (flyer.hp > 0) this.moveFlyer(flyer);
+    for (const flyer of this.flyers) {
+      if (flyer.hp > 0 && this.signal > 0) this.moveFlyer(flyer);
+      if (this.status === 'lost') return;
+    }
     if (this.signal <= 0) {
       this.status = 'lost';
       this.message = 'The raid extinguished the signal. Start a new watch to try again.';
@@ -685,8 +752,37 @@ export class CreekWatch {
     this.raiders.push({ side, x, stride: 0, hp, attackAt: 0, struckAt: WATCH_NO_ACTION });
   }
 
+  hurtPlayer(enemy, coinsToDrop, name) {
+    if (this.status !== 'running' || this.insideTower || this.phase !== 'night'
+        || this.tick - this.playerHurtAt < WATCH_HURT_COOLDOWN) return false;
+    this.playerHurtAt = this.tick;
+    this.playerHealth = Math.max(0, this.playerHealth - 1);
+    const amount = Math.min(this.coins, coinsToDrop);
+    if (amount) {
+      const from = this.player.x;
+      const direction = Math.sign(from - enemy.x) || -enemy.side;
+      const x = from + direction * 17;
+      const landing = x < WATCH_BOUNDS.left || x > WATCH_BOUNDS.right ? from - direction * 17 : x;
+      this.coins -= amount;
+      this.loot.push({ x: landing, amount, forPlayer: true, tossAt: this.tick, tossFrom: from });
+    }
+    if (this.playerHealth === 0) {
+      this.status = 'lost';
+      this.message = `${name} struck you down. Start a new watch or load a save.`;
+    } else {
+      this.message = amount ? `${name} hit you and knocked loose ${amount} copper.` : `${name} hit you.`;
+    }
+    return true;
+  }
+
   moveRaider(raider) {
     if (raider.hp <= 0) return;
+    if (this.tick >= raider.attackAt && Math.abs(raider.x - this.player.x) <= 10
+        && this.hurtPlayer(raider, 1, raider.mode === 'crawl' ? 'A Tri Flyer' : 'A Tri Opus')) {
+      raider.struckAt = this.tick;
+      raider.attackAt = this.tick + 36;
+      return;
+    }
     const post = watchRaidWall(raider, this.posts, this.forwardWalls);
     const target = post?.wallX ?? watchTowerTarget(this, raider.side);
     const distance = Math.abs(raider.x - target);
@@ -741,7 +837,11 @@ export class CreekWatch {
     // Retarget live guard objects, so another bat cannot infect an old roster index.
     const soldier = this.nearestFlyerGuard(flyer.x);
     const wall = watchRaidWall(flyer, this.posts, this.forwardWalls);
-    const targetX = soldier?.x ?? wall?.wallX ?? watchTowerTarget(this, flyer.side);
+    const playerDistance = Math.abs(this.player.x - flyer.x);
+    const divesAtPlayer = soldier
+      ? flyer.mode === 'dive' && playerDistance <= 6 && playerDistance < Math.abs(soldier.x - flyer.x)
+      : playerDistance <= 64;
+    const targetX = divesAtPlayer ? this.player.x : soldier?.x ?? wall?.wallX ?? watchTowerTarget(this, flyer.side);
     const distance = targetX - flyer.x;
     flyer.direction = Math.sign(distance) || flyer.direction;
     flyer.x += Math.sign(distance) * Math.min(Math.abs(distance), 2.4);
@@ -755,11 +855,13 @@ export class CreekWatch {
       return;
     }
 
-    const targetAltitude = soldier?.altitude ?? 0;
+    const targetAltitude = divesAtPlayer ? 0 : soldier?.altitude ?? 0;
     flyer.altitude += Math.sign(targetAltitude - flyer.altitude) * Math.min(2, Math.abs(targetAltitude - flyer.altitude));
-    const touching = soldier && Math.abs(soldier.x - flyer.x) <= 6 && Math.abs(flyer.altitude - targetAltitude) <= 4;
+    const touching = !divesAtPlayer && soldier && Math.abs(soldier.x - flyer.x) <= 6 && Math.abs(flyer.altitude - targetAltitude) <= 4;
+    const hitPlayer = divesAtPlayer && Math.abs(this.player.x - flyer.x) <= 6 && flyer.altitude <= 13
+      && this.hurtPlayer(flyer, 2, 'A diving Tri Flyer');
     if (touching) this.infectGuard(soldier);
-    if (touching || flyer.altitude === 0) {
+    if (hitPlayer || touching || flyer.altitude === 0) {
       flyer.mode = 'crawl';
       flyer.altitude = 0;
       flyer.modeAt = this.tick + WATCH_FLYER_CRAWL_TICKS;

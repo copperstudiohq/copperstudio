@@ -1,4 +1,4 @@
-import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_BUILDER_REPAIR_IDS, WATCH_BUILDER_REPAIR_TICKS, WATCH_BUILDER_UPGRADE_TICKS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, WATCH_WALL_TOWER_HEALTH, hasWatchSprayer } from './watch.js';
+import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_BUILDER_REPAIR_IDS, WATCH_BUILDER_REPAIR_TICKS, WATCH_BUILDER_UPGRADE_TICKS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_PLAYER_HEALTH, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, WATCH_TREES, WATCH_TREE_HITS, WATCH_WALL_TOWER_HEALTH, hasWatchSprayer } from './watch.js';
 import { TICKS_PER_SECOND } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
@@ -53,6 +53,19 @@ const validFlyerAltitude = (value) => Number.isFinite(value) && value >= 0 && va
 const LEGACY_SHOT_FIELDS = new Set(['from', 'to', 'end', 'kind', 'altitude', 'missed']);
 const BALLISTIC_SHOT_FIELDS = new Set([...LEGACY_SHOT_FIELDS, 'ballistic', 'x', 'y', 'vx', 'vy', 'damage', 'stuck']);
 const BUILDER_FIELDS = new Set(['side', 'x', 'direction', 'stride', 'walking', 'returning', 'working', 'workAt']);
+const WATCH_TREES_BY_X = new Map(WATCH_TREES.map((tree) => [String(tree.x), tree]));
+
+function validWatchTimber(treeCuts, wood, tick) {
+  if (!treeCuts || Object.getPrototypeOf(treeCuts) !== Object.prototype || !validWatchCount(wood)) return false;
+  let harvested = 0;
+  for (const [x, cut] of Object.entries(treeCuts)) {
+    const tree = WATCH_TREES_BY_X.get(x);
+    if (!tree || !cut || !validWatchCount(cut.hits) || cut.hits === 0 || cut.hits > WATCH_TREE_HITS
+        || !validWatchCount(cut.at) || cut.at > tick || !validWatchSide(cut.direction)) return false;
+    if (cut.hits === WATCH_TREE_HITS) harvested += tree.wood;
+  }
+  return wood <= harvested;
+}
 
 function validWatchBuilder(builder, tick, phase, order) {
   const { side, x, direction, stride, walking, returning, working, workAt } = builder;
@@ -94,8 +107,9 @@ function validWatchState(state) {
   if (!state) return false;
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
     shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, builders = [], gear = [], weapon = null,
-    swingAt = -TICKS_PER_SECOND, recallingGuards = false, builderOrder = 'idle', builderPaidRepairs = [], towerUpgraded = false,
-    insideTower = false, seatedChair = null, towerRoomLayout = 1,
+    swingAt = -TICKS_PER_SECOND, recallingGuards = false, builderOrder = 'idle', builderPaidRepairs = [], signalTent = false, towerUpgraded = false,
+    insideTower = false, seatedChair = null, towerRoomLayout = 1, treeCuts = {}, wood = 0,
+    playerHealth = WATCH_PLAYER_HEALTH, playerHurtAt = -TICKS_PER_SECOND,
     interiorX = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM.door : WATCH_TOWER_ROOM.door } = state;
   const room = towerRoomLayout === 1 ? LEGACY_TOWER_ROOM : WATCH_TOWER_ROOM;
   const chair = WATCH_TOWER_CHAIRS.find((seat) => seat.id === seatedChair);
@@ -103,16 +117,17 @@ function validWatchState(state) {
   if (!['ready', 'running', 'lost'].includes(status) || (phase !== 'day' && phase !== 'night')
       || !validWatchCount(day) || day === 0 || !validWatchCount(tick) || !validWatchCount(phaseTick)
       || phaseTick > (phase === 'day' ? WATCH_DAY : WATCH_NIGHT) || phaseTick > tick
-      || !validWatchCount(coins) || !validWatchCount(signal) || signal > WATCH_HEALTH
+      || !validWatchCount(coins) || !validWatchTimber(treeCuts, wood, tick) || !validWatchCount(signal) || signal > WATCH_HEALTH
+      || !validWatchCount(playerHealth) || playerHealth > WATCH_PLAYER_HEALTH || !validWatchStamp(playerHurtAt) || playerHurtAt > tick
       || !Number.isInteger(aimSeed) || aimSeed < 0 || aimSeed > 0xffffffff
-      || (status === 'lost' ? signal !== 0 : signal === 0) || typeof message !== 'string' || message.length > 500
+      || (status === 'lost') !== (signal === 0 || playerHealth === 0) || typeof message !== 'string' || message.length > 500
       || !validWatchCount(huntedPigeons) || huntedPigeons >= 2 ** WATCH_PIGEONS.length
       || !validWatchFlag(recallingGuards) || (recallingGuards && phase !== 'day')
       || !['idle', 'repair', 'upgrade'].includes(builderOrder)
       || !validWatchList(builderPaidRepairs, WATCH_BUILDER_REPAIR_IDS.length,
         (id) => validBuilderRepairCredit(id, posts, forwardWalls, signal))
       || new Set(builderPaidRepairs).size !== builderPaidRepairs.length
-      || !validWatchFlag(towerUpgraded) || !validWatchFlag(insideTower)
+      || !validWatchFlag(signalTent) || !validWatchFlag(towerUpgraded) || (signalTent && towerUpgraded) || !validWatchFlag(insideTower)
       || (towerRoomLayout !== 1 && towerRoomLayout !== WATCH_TOWER_ROOM_LAYOUT)
       || !Number.isFinite(interiorX) || interiorX < room.left || interiorX > room.right
       || (insideTower && (!towerUpgraded || status !== 'running' || phase !== 'day' || player?.x !== WATCH_SIGNAL))
@@ -151,8 +166,10 @@ function validWatchState(state) {
       && (kind === undefined ? rank === undefined : kind === 'infected' && [0, 1].includes(rank)
         && phase === 'night' && day >= WATCH_FIRST_FLYER_NIGHT && struckAt <= tick))
     && validWatchList(shots, Infinity, (shot) => validWatchShot(shot, tick))
-    && validWatchList(loot, Infinity, ({ x, amount, forPlayer = false }) =>
-      validWatchX(x) && validWatchCount(amount) && amount > 0 && validWatchFlag(forPlayer))
+    && validWatchList(loot, Infinity, ({ x, amount, forPlayer = false, tossAt, tossFrom }) =>
+      validWatchX(x) && validWatchCount(amount) && amount > 0 && validWatchFlag(forPlayer)
+      && ((tossAt === undefined && tossFrom === undefined)
+        || (forPlayer && validWatchCount(tossAt) && tossAt <= tick && validWatchX(tossFrom))))
     && loot.filter((piece) => !piece.forPlayer).length <= 128
     && validWatchList(queue, 64, ({ side, due }) => validWatchSide(side) && validWatchCount(due) && due <= WATCH_NIGHT)
     && queue.every(({ due }, index) => index === 0 || queue[index - 1].due <= due);
@@ -182,11 +199,13 @@ function validFlyer(flyer, tick) {
 function captureWatchState(watch) {
   const { status, phase, day, tick, phaseTick, coins, signal, player, posts, raiders, aimSeed = WATCH_AIM_SEED,
     shots, loot, huntedPigeons = 0, queue, message, flyers = [], flyerQueue = [], forwardWalls, builders = [], gear = [], weapon = null,
-    swingAt = -TICKS_PER_SECOND, recallingGuards = false, builderOrder = 'idle', builderPaidRepairs = [], towerUpgraded = false,
-    insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door } = watch;
+    swingAt = -TICKS_PER_SECOND, recallingGuards = false, builderOrder = 'idle', builderPaidRepairs = [], signalTent = false, towerUpgraded = false,
+    insideTower = false, seatedChair = null, towerRoomLayout = WATCH_TOWER_ROOM_LAYOUT, interiorX = WATCH_TOWER_ROOM.door,
+    treeCuts = {}, wood = 0, playerHealth = WATCH_PLAYER_HEALTH, playerHurtAt = -TICKS_PER_SECOND } = watch;
   return { status, phase, day, tick, phaseTick, coins, signal, player, raiders, shots, loot, huntedPigeons, queue, message, aimSeed,
     sprayers: watchSprayers(watch), flyers, flyerQueue, builders, builderOrder, builderPaidRepairs,
-    gear, weapon, swingAt, recallingGuards, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX,
+    gear, weapon, swingAt, recallingGuards, signalTent, towerUpgraded, insideTower, seatedChair, towerRoomLayout, interiorX, treeCuts, wood,
+    playerHealth, playerHurtAt,
     forwardWalls: forwardWalls?.map(({ tier, health }) => ({ tier, health })),
     posts: posts.map(({ tier, health, guards }) => ({ tier, health, guards })) };
 }

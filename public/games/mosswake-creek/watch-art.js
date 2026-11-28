@@ -1,11 +1,67 @@
 import { HEIGHT, POND_LEVEL, VIEW_WIDTH, quarryHeight } from './simulation.js';
 import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow, sceneOval } from './art.js';
-import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_FLYER_HEALTH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_VENDORS, WATCH_WALL_TOWER_HEALTH, WATCH_WALL_TOWER_PLATFORM, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
+import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_COIN_TOSS_TICKS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_FLYER_HEALTH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TREES, WATCH_TREE_FALL_TICKS, WATCH_TREE_HITS, WATCH_VENDORS, WATCH_WALL_TOWER_HEALTH, WATCH_WALL_TOWER_PLATFORM, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
 import { drawVendorPortraitImage } from './vendor-portraits.js';
 
 function watchRect(ctx, color, x, y, width, height) {
   ctx.fillStyle = color;
   ctx.fillRect(Math.round(x), Math.round(y), width, height);
+}
+
+function drawWatchBirch(ctx, tree, watch) {
+  const { x, height } = tree;
+  const ground = watchGround(x);
+  const cut = watch.treeCuts[x];
+  const age = cut ? watch.tick - cut.at : Infinity;
+  const felled = cut?.hits === WATCH_TREE_HITS;
+  if (felled) {
+    watchRect(ctx, '#56574d', x - 4, ground - 4, 9, 4);
+    watchRect(ctx, '#c0b59b', x - 3, ground - 4, 6, 3);
+    watchRect(ctx, '#caa27c', x - 3, ground - 5, 7, 2);
+    watchRect(ctx, '#efd3a1', x - 2, ground - 5, 4, 1);
+    if (age >= WATCH_TREE_FALL_TICKS) return;
+  }
+
+  ctx.save();
+  ctx.translate(x, ground - (felled ? 4 : 0));
+  if (felled) ctx.rotate(cut.direction * (age / WATCH_TREE_FALL_TICKS) ** 1.7 * Math.PI / 2);
+  else if (age < 8) ctx.translate(age < 4 ? cut.direction : 0, 0);
+  const crown = -height;
+  watchRect(ctx, '#555950', -3, crown + 14, 6, height - 14);
+  watchRect(ctx, '#a5a58c', -2, crown + 13, 4, height - 14);
+  watchRect(ctx, '#ddd0ac', -1, crown + 12, 2, height - 13);
+  for (let y = -7; y > crown + 18; y -= 8) {
+    const offset = (y + height) % 3;
+    watchRect(ctx, '#606059', -2 + offset, y, 2 + (offset === 0 ? 1 : 0), 1);
+  }
+  for (let reach = 1; reach < 12; reach++) {
+    watchRect(ctx, '#918e79', reach - 1, crown + 35 - reach, 2, 2);
+    watchRect(ctx, '#777e6e', -reach, crown + 28 - reach, 2, 2);
+  }
+  const autumn = (x < WATCH_BRIDGE.left - 220 && x > 385) || x > 1536;
+  const leaf = autumn ? '#666447' : '#435f4e';
+  const shine = autumn ? '#9b8757' : '#748d5b';
+  sceneOval(ctx, '#2d463b', -9, crown + 19, 13, 10);
+  sceneOval(ctx, leaf, -10, crown + 16, 11, 7);
+  sceneOval(ctx, '#344e40', 10, crown + 24, 12, 9);
+  sceneOval(ctx, leaf, 11, crown + 20, 10, 8);
+  sceneOval(ctx, leaf, 1, crown + 9, 12, 9);
+  sceneOval(ctx, shine, -2, crown + 7, 8, 4);
+  watchRect(ctx, shine, -14, crown + 13, 6, 2);
+  watchRect(ctx, shine, 9, crown + 17, 8, 2);
+  watchRect(ctx, '#4f6250', -2, crown + 22, 6, 2);
+  if (cut && !felled) {
+    watchRect(ctx, '#5f413b', cut.direction > 0 ? -3 : 0, -5, cut.hits + 1, 2);
+    watchRect(ctx, '#d6ad7a', cut.direction > 0 ? -3 : 1, -5, 2, 1);
+  }
+  ctx.restore();
+
+  if (age < 8) {
+    for (let chip = 0; chip < 4; chip++) {
+      const dx = cut.direction * (3 + chip + Math.round(age * (0.4 + chip / 8)));
+      watchRect(ctx, chip % 2 ? '#dfb982' : '#a3674b', x - dx, ground - 6 - chip - Math.round(age / 2), 2, 1);
+    }
+  }
 }
 
 function drawWatchSky(ctx, watch) {
@@ -50,6 +106,24 @@ function drawWatchBridge(ctx) {
   }
 }
 
+function drawBlueWatchFlame(ctx, x, y, watch, size = 1) {
+  if (watch.signal <= 0) return;
+  const pulse = Math.floor(watch.tick / 5) % 4;
+  sceneGlow(ctx, '#579eff95', x, y - 5 * size, 9 + 9 * size + watch.signal / 2);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size, size);
+  watchRect(ctx, '#283a8f', -5, -4, 11, 4);
+  watchRect(ctx, '#3b58be', -4, -7, 9, 6);
+  watchRect(ctx, '#4f85f1', -3, -9, 7, 7);
+  watchRect(ctx, '#618ffa', -2 + pulse % 2, -12 + Math.abs(pulse - 1), 4, 5);
+  watchRect(ctx, '#80ceff', -2, -7, 5, 6);
+  watchRect(ctx, '#cbf6ff', 0, -5 - pulse % 2, 2, 4);
+  watchRect(ctx, '#8fbfff', -4 + pulse, -14 + pulse % 2, 1, 1);
+  watchRect(ctx, '#b2dfff', 4 - pulse, -11 - pulse, 1, 1);
+  ctx.restore();
+}
+
 function drawWatchSignal(ctx, watch) {
   if (watch.towerUpgraded) {
     drawUpgradedWatchSignal(ctx, watch);
@@ -57,60 +131,47 @@ function drawWatchSignal(ctx, watch) {
   }
   const x = WATCH_SIGNAL;
   const y = WATCH_BRIDGE.y;
-  for (const offset of [-13, 9]) {
-    const pier = x + offset;
-    watchRect(ctx, '#49352f', pier, y + 2, 6, quarryHeight(pier) - y - 2);
-    watchRect(ctx, '#8a6349', pier, y + 2, 2, POND_LEVEL - y - 2);
-  }
-  watchRect(ctx, '#332d35', x - 17, y - 4, 35, 5);
-  watchRect(ctx, '#3b343c', x - 13, y - 43, 27, 41);
-  watchRect(ctx, '#78665e', x - 12, y - 42, 19, 39);
-  watchRect(ctx, '#514b50', x + 7, y - 42, 5, 39);
-  for (let row = 0; row < 8; row++) {
-    const top = y - 41 + row * 5;
-    watchRect(ctx, '#55494a', x - 12, top + 4, 24, 1);
-    watchRect(ctx, '#98816b', x - 11 + (row % 2) * 4, top, 9, 1);
-    watchRect(ctx, '#55494a', x - 3 + (row % 2) * 4, top, 1, 4);
-  }
-  watchRect(ctx, '#a28270', x - 7, y - 19, 14, 17);
-  watchRect(ctx, '#24232e', x - 5, y - 16, 10, 16);
-  watchRect(ctx, '#24232e', x - 3, y - 18, 6, 4);
-  watchRect(ctx, '#694c42', x - 4, y - 15, 8, 14);
-  watchRect(ctx, '#574143', x - 4, y - 13, 2, 12);
-  watchRect(ctx, '#41343a', x + 1, y - 15, 1, 14);
-  watchRect(ctx, '#8b746a', x - 3, y - 11, 7, 1);
-  watchRect(ctx, '#8b746a', x - 3, y - 5, 7, 1);
-  watchRect(ctx, '#dbac73', x + 2, y - 9, 1, 2);
-  watchRect(ctx, '#a28270', x - 7, y - 1, 14, 1);
-  watchRect(ctx, '#c48b66', x - 13, y - 24, 26, 2);
-  for (const offset of [-10, 8]) {
-    watchRect(ctx, '#e1b389', x + offset, y - 24, 1, 1);
-    watchRect(ctx, '#473b41', x + offset - 1, y - 22, 3, 2);
-  }
-  watchRect(ctx, '#432f37', x - 18, y - 44, 37, 4);
-  watchRect(ctx, '#a86750', x - 17, y - 45, 35, 2);
-  watchRect(ctx, '#283441', x - 11, y - 56, 22, 13);
-  watchRect(ctx, '#425c60', x - 9, y - 56, 18, 11);
-  watchRect(ctx, '#922f44', x - 16, y - 57, 32, 3);
-  for (let tier = 0; tier < 5; tier++) {
-    watchRect(ctx, tier % 2 ? '#d6966d' : '#b87455', x - 14 + tier * 2, y - 59 - tier * 2, 29 - tier * 4, 2);
-  }
-  watchRect(ctx, '#e8aa78', x - 1, y - 72, 2, 5);
-  if (watch.signal > 0) {
-    const flame = ((watch.tick >> 3) % 2);
-    sceneGlow(ctx, '#8aecc3ad', x, y - 50, 13 + watch.signal * 1.25);
-    watchRect(ctx, '#408a81', x - 7, y - 55, 14, 10);
-    watchRect(ctx, '#90e6c2', x - 4, y - 51 - flame, 8, 6 + flame);
-    watchRect(ctx, '#f2f8c8', x - 2, y - 51, 4, 5);
-    for (let row = 0; row < 5; row++) {
-      watchRect(ctx, '#8febbe55', x - 6 + Math.round(Math.sin(watch.tick / 18 + row) * 4),
-        POND_LEVEL + row * 3, 13 - row, 1);
+  if (!watch.signalTent) {
+    const fire = x - 13;
+    watchRect(ctx, '#3d3034', fire - 11, y - 2, 23, 3);
+    watchRect(ctx, '#614339', fire - 7, y - 4, 15, 3);
+    watchRect(ctx, '#a36b48', fire - 5, y - 5, 9, 2);
+    drawBlueWatchFlame(ctx, fire, y - 3, watch, 1.5);
+    for (const [offset, top, width] of [[-10, -3, 4], [-6, -2, 4], [-1, -2, 5], [5, -3, 5]]) {
+      watchRect(ctx, '#555768', fire + offset, y + top, width, -top);
+      watchRect(ctx, '#9a9a9b', fire + offset + 1, y + top, width - 2, 1);
     }
+    return;
   }
-  watchRect(ctx, '#e1a972', x - 10, y - 55, 2, 10);
-  watchRect(ctx, '#ad785c', x + 8, y - 55, 2, 10);
-  watchRect(ctx, '#625358', x, y - 55, 1, 10);
-  watchRect(ctx, '#92725e', x - 8, y - 52, 16, 1);
+
+  // A ridge tent, a separate torch post, and a chair on the bridge deck.
+  for (let row = 0; row < 34; row++) {
+    const spread = Math.floor(row * 0.6);
+    const left = x - 8 - spread;
+    const top = y - 34 + row;
+    watchRect(ctx, '#35303c', left, top, spread * 2 + 5, 1);
+    watchRect(ctx, '#a58068', left + 2, top, spread + 2, 1);
+    watchRect(ctx, '#675969', x - 4, top, spread, 1);
+    if (row % 4 !== 0) watchRect(ctx, '#c9aa87', left + 1, top, 1, 1);
+  }
+  watchRect(ctx, '#725245', x - 8, y - 37, 2, 9);
+  watchRect(ctx, '#9f7153', x - 9, y - 35, 6, 1);
+  watchRect(ctx, '#352b37', x - 16, y - 18, 15, 18);
+  watchRect(ctx, '#493844', x - 14, y - 16, 10, 16);
+  watchRect(ctx, '#c9ab89', x - 16, y - 19, 16, 3);
+  watchRect(ctx, '#a27c5e', x - 16, y - 17, 2, 17);
+  watchRect(ctx, '#ae8970', x - 2, y - 16, 2, 13);
+  watchRect(ctx, '#75616c', x + 2, y - 10, 7, 5);
+  watchRect(ctx, '#c8a17e', x + 2, y - 10, 6, 1);
+  watchRect(ctx, '#58473b', x + 15, y - 18, 3, 18);
+  watchRect(ctx, '#b18664', x + 15, y - 16, 1, 15);
+  watchRect(ctx, '#ac765c', x + 13, y - 20, 7, 4);
+  drawBlueWatchFlame(ctx, x + 16, y - 19, watch);
+  watchRect(ctx, '#49353b', x + 24, y - 13, 3, 13);
+  watchRect(ctx, '#b6875a', x + 23, y - 14, 5, 3);
+  watchRect(ctx, '#9d714e', x + 24, y - 8, 10, 3);
+  watchRect(ctx, '#d9a778', x + 25, y - 8, 9, 1);
+  watchRect(ctx, '#614239', x + 31, y - 6, 2, 6);
 }
 
 function drawUpgradedWatchSignal(ctx, watch) {
@@ -185,13 +246,7 @@ function drawUpgradedWatchSignal(ctx, watch) {
   watchRect(ctx, '#769d87', x + 16, roofTop + 6, 6, 1);
   watchRect(ctx, '#67937e', x + 18, roofTop + 7, 3, 1);
   watchRect(ctx, '#e8b980', x - 1, roofTop, 3, 2);
-  if (watch.signal > 0) {
-    const flame = (watch.tick >> 3) % 2;
-    sceneGlow(ctx, '#8aecc3ad', x, roofTop + 23, 15 + watch.signal);
-    watchRect(ctx, '#408a81', x - 8, roofTop + 16, 17, 14);
-    watchRect(ctx, '#90e6c2', x - 5, roofTop + 19 - flame, 11, 10 + flame);
-    watchRect(ctx, '#f2f8c8', x - 2, roofTop + 21, 5, 7);
-  }
+  drawBlueWatchFlame(ctx, x, roofTop + 30, watch, 1.25);
 }
 
 function drawWallTower(ctx, post, x, y) {
@@ -219,6 +274,8 @@ function drawWallTower(ctx, post, x, y) {
     watchRect(ctx, '#9a9b82', x - 14, top, 29, 1);
     for (let seam = -11 + row % 2 * 5; seam < 15; seam += 10) {
       watchRect(ctx, '#464d4c', x + seam, top, 1, 4);
+      watchRect(ctx, '#858d7d', x + seam + 2, top + 1, 3, 1);
+      watchRect(ctx, '#5d675f', x + seam - 3, top + 3, 2, 1);
     }
   }
   watchRect(ctx, '#303133', x + 11, y - 19, 4, 18);
@@ -247,6 +304,10 @@ function drawWallTower(ctx, post, x, y) {
   watchRect(ctx, '#ce9b63', x - 16, deck, 33, 1);
   watchRect(ctx, '#956340', x - 16, deck + 1, 33, 2);
   watchRect(ctx, '#5b4540', x - 15, deck + 3, 31, 1);
+  for (const offset of [-14, -7, 0, 7, 14]) {
+    watchRect(ctx, '#c28b5d', x + offset, deck + 2, 2, 1);
+    watchRect(ctx, '#e1b382', x + offset, deck + 1, 1, 1);
+  }
   for (const left of [-17, 11]) {
     watchRect(ctx, '#473a3c', x + left, deck - 9, 7, 10);
     watchRect(ctx, '#858b78', x + left + 1, deck - 8, 5, 8);
@@ -263,7 +324,7 @@ function drawWatchPost(ctx, post) {
   const x = post.wallX;
   const y = watchGround(x);
   if (post.forward) {
-    const flagX = x + (post.tier === 3 ? 22 : 12);
+    const flagX = x + (post.tier === 3 ? 22 : 16);
     const flagY = y - (post.tier === 3 ? 40 : 26);
     watchRect(ctx, '#785d4d', flagX, flagY, 2, y - flagY);
     watchRect(ctx, '#bf8a5d', flagX, flagY - 1, 10, 2);
@@ -281,22 +342,27 @@ function drawWatchPost(ctx, post) {
     watchRect(ctx, '#e0ae7c', x + 4, y - 6, 1, 1);
   } else {
     const reinforced = post.tier === 2;
-    const height = reinforced ? 24 : 18;
-    for (let i = -2; i <= 2; i++) {
-      const top = y - height + Math.abs(i);
-      watchRect(ctx, '#5e4141', x + i * 3 - 2, top + 1, 4, y - top);
-      watchRect(ctx, '#b27a58', x + i * 3 - 1, top, 2, y - top);
-      watchRect(ctx, '#d0a075', x + i * 3 - 1, top + 1, 1, 4);
+    const height = reinforced ? 27 : 20;
+    const band = reinforced ? '#5c9387' : '#9e6d4e';
+    watchRect(ctx, '#423337', x - 14, y - 3, 28, 3);
+    for (const [index, offset] of [-10, -6, -2, 2, 6, 10].entries()) {
+      const top = y - height + [2, 0, 1, 0, 1, 3][index];
+      watchRect(ctx, '#674936', x + offset - 2, top + 3, 5, y - top - 3);
+      watchRect(ctx, index % 2 ? '#b68054' : '#9a653f', x + offset - 1, top + 2, 3, y - top - 4);
+      watchRect(ctx, reinforced ? '#c4b998' : '#cda06b', x + offset, top, 1, 4);
+      watchRect(ctx, '#deb17a', x + offset - 1, top + 4, 1, 6 + index % 3);
+      watchRect(ctx, '#714733', x + offset + 1, y - 10, 1, 5);
     }
-    for (const beam of [-height + 7, -6]) {
-      watchRect(ctx, '#4c383b', x - 9, y + beam, 19, 3);
-      watchRect(ctx, reinforced ? '#7ba99b' : '#967059', x - 8, y + beam, 17, 1);
-      watchRect(ctx, reinforced ? '#c1dfbd' : '#c79b72', x - 6, y + beam + 1, 1, 1);
-      watchRect(ctx, reinforced ? '#c1dfbd' : '#c79b72', x + 6, y + beam + 1, 1, 1);
+    for (const beam of [-height + 7, -5]) {
+      watchRect(ctx, '#4c383b', x - 14, y + beam, 28, 3);
+      watchRect(ctx, band, x - 13, y + beam, 26, 1);
+      for (const offset of [-11, -4, 4, 11]) {
+        watchRect(ctx, reinforced ? '#d4cc91' : '#d9a26f', x + offset, y + beam + 1, 1, 1);
+      }
     }
     const strength = post.health / (reinforced ? 11 : 6);
-    watchRect(ctx, '#221e2b', x - 9, y - height - 4, 18, 2);
-    watchRect(ctx, '#86bfa6', x - 9, y - height - 4, Math.ceil(18 * strength), 2);
+    watchRect(ctx, '#221e2b', x - 12, y - height - 4, 24, 2);
+    watchRect(ctx, '#86bfa6', x - 12, y - height - 4, Math.ceil(24 * strength), 2);
   }
 }
 
@@ -577,28 +643,54 @@ function drawWatchCamp(ctx, camp, watch) {
 function drawWatchGuard(ctx, x, y, guard, tick) {
   const veteran = guard.rank === 1;
   const shooting = tick - guard.shotAt < 8;
+  const trim = veteran ? '#edbe7d' : '#a4c1c5';
   ctx.save();
   ctx.translate(Math.round(x), y);
   ctx.scale(guard.direction, 1);
-  watchRect(ctx, '#252433', -6, -1, 13, 2);
+  watchRect(ctx, '#252433', -7, -1, 15, 2);
   const stride = guard.walking ? Math.round(3 * Math.sin(guard.stride * Math.PI / 8)) : 0;
-  watchRect(ctx, '#354358', -3 - stride, -6, 4, 6 - Number(stride < 0));
-  watchRect(ctx, '#68868c', 1 + stride, -6, 4, 6 - Number(stride > 0));
-  watchRect(ctx, '#354258', -5, -16, 11, 11);
-  watchRect(ctx, '#6489a5', -4, -15, 8, 7);
-  watchRect(ctx, veteran ? '#edc28d' : '#ac7d5b', -4, -8, 9, 2);
-  watchRect(ctx, '#cda98e', -2, -21, 7, 5);
-  watchRect(ctx, '#372e3d', 2, -20, 4, 2);
-  watchRect(ctx, '#584447', -5, -23, 11, 3);
-  watchRect(ctx, veteran ? '#eebc81' : '#bd845f', -4, -24, 8, 3);
-  watchRect(ctx, veteran ? '#a8d8d4' : '#82adc1', -5, -17, 4, 4);
-  if (veteran) watchRect(ctx, '#edbf82', -4, -26, 3, 2);
-  const bow = shooting ? 9 : 7;
-  watchRect(ctx, '#c98859', bow, -17, 1, 12);
-  watchRect(ctx, '#e3b283', bow - 2, -18, 2, 2);
-  watchRect(ctx, '#e3b283', bow - 2, -6, 2, 2);
-  watchRect(ctx, '#b6c9c7', bow - 2, -16, 1, 10);
-  watchRect(ctx, '#b6cad4', 2, -13, bow - 2, 2);
+  const rear = -4 - stride;
+  const front = 1 + stride;
+  watchRect(ctx, '#414d60', rear, -7, 4, 5);
+  watchRect(ctx, '#678998', front, -7, 4, 6);
+  watchRect(ctx, '#352b32', rear, -3, 5, 3 - Number(stride < 0));
+  watchRect(ctx, '#523a38', front, -3, 6, 3 - Number(stride > 0));
+  watchRect(ctx, '#aa7955', front, -3, 4, 1);
+
+  watchRect(ctx, '#3d343e', -8, -17, 4, 12);
+  watchRect(ctx, '#996f54', -7, -15, 2, 8);
+  watchRect(ctx, '#d8c99f', -8, -20, 1, 4);
+  watchRect(ctx, '#b8c9c4', -6, -21, 1, 5);
+  watchRect(ctx, '#31394e', -6, -16, 12, 10);
+  watchRect(ctx, '#5f869f', -5, -15, 10, 7);
+  watchRect(ctx, '#385f71', -4, -12, 8, 3);
+  watchRect(ctx, trim, -5, -16, 8, 1);
+  watchRect(ctx, '#756050', -4, -8, 10, 2);
+  watchRect(ctx, trim, 1, -8, 2, 2);
+  watchRect(ctx, '#8db2bf', -5, -15, 3, 4);
+
+  watchRect(ctx, '#614456', -3, -22, 9, 6);
+  watchRect(ctx, '#bb8f75', -1, -21, 6, 5);
+  watchRect(ctx, '#e8bc93', 1, -21, 4, 3);
+  watchRect(ctx, '#372e3d', 3, -20, 2, 1);
+  watchRect(ctx, '#47424c', -5, -23, 11, 2);
+  watchRect(ctx, veteran ? '#c88d56' : '#94654d', -4, -25, 8, 3);
+  watchRect(ctx, trim, -3, -25, 5, 1);
+  if (veteran) watchRect(ctx, '#e8a96f', -5, -27, 4, 2);
+
+  const bow = shooting ? 11 : 9;
+  const draw = shooting ? 4 : bow - 4;
+  for (let row = 0; row <= 16; row++) {
+    const distance = Math.abs(row - 8);
+    const arc = bow - Math.round(distance ** 2 / 18);
+    const string = Math.round(draw + (bow - 4 - draw) * distance / 8);
+    watchRect(ctx, '#c4cfc5', string, -21 + row, 1, 1);
+    watchRect(ctx, '#7d4d3b', arc, -21 + row, 2, 1);
+    watchRect(ctx, '#d6a477', arc, -21 + row, 1, 1);
+  }
+  watchRect(ctx, '#b6cad4', 3, -14, bow - 4, 2);
+  watchRect(ctx, '#d9a982', bow - 1, -14, 2, 2);
+  if (shooting) watchRect(ctx, '#e5dec0', draw, -15, bow - draw + 4, 1);
   ctx.restore();
 }
 
@@ -748,7 +840,7 @@ function drawWatchOpus(ctx, opus, watch) {
   ctx.restore();
 }
 
-function drawInfectedGuard(ctx, enemy, watch) {
+export function drawInfectedGuard(ctx, enemy, watch) {
   const x = Math.round(enemy.x), ground = watchGround(x);
   const target = watchRaidWall(enemy, watch.posts, watch.forwardWalls)?.wallX ?? watchTowerTarget(watch, enemy.side);
   const stride = Math.abs(enemy.x - target) > WATCH_OPUS_REACH ? Math.round(2 * Math.sin(enemy.stride / 3)) : 0;
@@ -1276,6 +1368,7 @@ export function drawCreekWatch(ctx, watch) {
   const onScreen = (x, margin) => x >= left - margin && x < left + VIEW_WIDTH + margin;
   ctx.save();
   ctx.translate(-left, 0);
+  for (const tree of WATCH_TREES) if (onScreen(tree.x, tree.height + 24)) drawWatchBirch(ctx, tree, watch);
   if (onScreen(WATCH_SIGNAL, 86)) drawWatchBridge(ctx);
   if (onScreen(WATCH_SIGNAL, 46)) drawWatchSignal(ctx, watch);
   if (watch.marketOpen) {
@@ -1305,18 +1398,20 @@ export function drawCreekWatch(ctx, watch) {
     drawWatchPost(ctx, post);
     for (let index = 0; index < post.guards.length; index++) {
       const x = watch.guardPosition(post, index);
-      if (onScreen(x, 12)) drawWatchGuard(ctx, x, watchGround(x) - watch.guardElevation(post, index), post.guards[index], watch.tick);
+      if (onScreen(x, 18)) drawWatchGuard(ctx, x, watchGround(x) - watch.guardElevation(post, index), post.guards[index], watch.tick);
     }
   }
   for (const builder of watch.builders ?? []) {
     if (onScreen(builder.x, 18)) drawWatchBuilder(ctx, builder, watch.tick);
   }
   for (const coin of watch.loot) {
-    if (!onScreen(coin.x, 3)) continue;
-    const y = watchGround(coin.x) - 4 - (watch.tick >> 4) % 2;
-    watchRect(ctx, '#9d573e', coin.x - 2, y - 2, 5, 5);
-    watchRect(ctx, '#f1b36a', coin.x - 1, y - 2, 3, 4);
-    watchRect(ctx, '#ffe4a8', coin.x, y - 1, 1, 2);
+    const flight = coin.tossAt === undefined ? 1 : Math.min(1, (watch.tick - coin.tossAt) / WATCH_COIN_TOSS_TICKS);
+    const x = flight === 1 ? coin.x : coin.tossFrom + (coin.x - coin.tossFrom) * flight;
+    if (!onScreen(x, 3)) continue;
+    const y = watchGround(x) - 4 - (watch.tick >> 4) % 2 - Math.round(Math.sin(flight * Math.PI) * 15);
+    watchRect(ctx, '#9d573e', x - 2, y - 2, 5, 5);
+    watchRect(ctx, '#f1b36a', x - 1, y - 2, 3, 4);
+    watchRect(ctx, '#ffe4a8', x, y - 1, 1, 2);
   }
   for (const sprayer of watch.sprayers ?? (watch.sprayer ? [watch.sprayer] : [])) {
     if (sprayer.hp > 0 && onScreen(sprayer.x, 54)) drawIchorSprayer(ctx, sprayer, watch.tick);
@@ -1330,6 +1425,7 @@ export function drawCreekWatch(ctx, watch) {
   for (const flyer of watch.flyers ?? []) if (flyer.hp > 0 && onScreen(flyer.x, 48)) drawTriFlyer(ctx, flyer, watch.tick);
   for (const shot of watch.shots) drawWatchArrow(ctx, shot, watch);
   const { x, direction, step } = watch.player;
+  if (watch.tick - watch.playerHurtAt < 10) sceneGlow(ctx, '#ff877caa', x, watchGround(x) - 13, 17);
   drawWatchPlayer(ctx, x, watchGround(x), direction, (step >> 2) % 2, watch.weapon, watch.tick - watch.swingAt);
   ctx.restore();
 }

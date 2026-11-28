@@ -1,6 +1,6 @@
 import { Quarry, WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, TICKS_PER_SECOND, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, ERASE, CREATURES, SCENERY, BOSSES, TRI_PORTAL } from './simulation.js';
 import { QuarryRenderer, drawToolIcon } from './art.js';
-import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_CAMP_GROUPS, WATCH_FORWARD_WALLS, WATCH_MARKET_ITEMS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_TOWER_ROOM, WATCH_VENDORS } from './watch.js';
+import { CreekWatch, WATCH_HEALTH, WATCH_BOUNDS, WATCH_CAMPS, WATCH_CAMP_GROUPS, WATCH_FORWARD_WALLS, WATCH_MARKET_ITEMS, WATCH_PLAYER_HEALTH, WATCH_PORTALS, WATCH_SIGNAL, WATCH_TOWER_ROOM, WATCH_VENDORS, WATCH_WOOD_PRICE } from './watch.js';
 import { listWatchSlots, loadWatchSlot, saveWatchSlot, WATCH_SAVE_NAME_LIMIT } from './watch-saves.js';
 import { drawCreekWatch, drawWatchMarketIcon, drawWatchVendorPortrait } from './watch-art.js';
 
@@ -98,6 +98,7 @@ const watchPanelTitle = document.querySelector('#watch-label');
 const watchPanelDescription = document.querySelector('#watch-description');
 const watchMapRoute = document.querySelector('.watch-route');
 const watchMapDestinations = document.querySelector('.watch-destinations');
+const watchSignalDestination = document.querySelector('[data-watch-destination="tower"]');
 const watchTrain = document.querySelector('#watch-train');
 const watchBuilder = document.querySelector('#watch-builder');
 const watchBuilderOrders = document.querySelector('#watch-builder-orders');
@@ -109,8 +110,11 @@ const watchBuilderOrderButtons = document.querySelectorAll('[data-builder-order]
 const watchSwing = document.querySelector('#watch-swing');
 const watchMessage = document.querySelector('#watch-message');
 const watchCoins = document.querySelector('#watch-coins');
+const watchWood = document.querySelector('#watch-wood');
 const watchHealth = document.querySelector('#watch-health');
 const watchHealthLabel = document.querySelector('#watch-health-label');
+const watchPlayerHealth = document.querySelector('#watch-player-health');
+const watchPlayerHealthLabel = document.querySelector('#watch-player-health-label');
 const watchBankLabels = [document.querySelector('#watch-west'), document.querySelector('#watch-east')];
 const watchArea = document.querySelector('#watch-area');
 const watchPosition = document.querySelector('#watch-position');
@@ -133,6 +137,7 @@ for (const { name, side, camps } of WATCH_CAMP_GROUPS) {
   watchPosition.before(marker);
 }
 const watchRenderOptions = {
+  distantBirchesOnly: true,
   skipDecoration: ({ x, type }) => type === 'hut' || type === 'dock'
     || WATCH_CAMPS.some((camp) => Math.abs(camp.x - x) <= 44)
 };
@@ -148,6 +153,9 @@ const watchMarketTitle = document.querySelector('#watch-market-title');
 const watchMarketTrade = document.querySelector('#watch-merchant-trade');
 const watchMarketPortrait = document.querySelector('#watch-merchant-portrait');
 const watchMarketBalance = document.querySelector('#watch-market-balance');
+const watchMarketWood = document.querySelector('#watch-market-wood');
+const watchSellWood = document.querySelector('#watch-sell-wood');
+const watchSellAllWood = document.querySelector('#watch-sell-all-wood');
 const watchMarketStock = document.querySelector('#watch-market-stock');
 const watchMarketStatus = document.querySelector('#watch-market-status');
 const quarry = new Quarry();
@@ -322,7 +330,7 @@ function switchMode(mode) {
   for (const element of watchView) element.hidden = !monitoring;
   document.body.classList.toggle('watch-active', monitoring);
   headingTitle.firstChild.nodeValue = monitoring ? 'Creek Watch' : 'Mosswake Creek';
-  modeDescription.textContent = monitoring ? 'Gather copper by day. Defend the lake tower by night.'
+  modeDescription.textContent = monitoring ? 'Gather copper by day. Defend the blue signal by night.'
     : 'Dig for copper and build dams around Mosswake’s pond.';
   resetButton.title = monitoring ? 'Start a new Creek Watch run' : 'Restore the starting quarry';
   world.setAttribute('aria-label', monitoring ? 'Creek Watch playfield' : 'Editable quarry');
@@ -381,7 +389,8 @@ function drawWatchMode() {
   setWatchText(timer, watch.insideTower ? 'OUTSIDE PAUSED' : `${phase} ${watch.day} · ${watch.secondsLeft}s`);
   timer.dateTime = `PT${watch.secondsLeft}S`;
   setWatchText(watchArea, watch.insideTower ? 'Tower dining room' : WORLD_AREAS[Math.floor(watch.player.x / VIEW_WIDTH)]);
-  setWatchText(watchPanelTitle, watch.insideTower ? 'Dining room' : 'Signal tower');
+  setWatchText(watchPanelTitle, watch.insideTower ? 'Dining room' : watch.signalName);
+  setWatchText(watchSignalDestination, watch.signalName);
   setWatchText(watchPanelDescription, watch.insideTower
     ? watch.seatedChair ? 'Resting at the table. Press E or move to stand up.'
       : 'Walk to a chair and press E to sit. The outside watch pauses while you rest.'
@@ -403,8 +412,11 @@ function drawWatchMode() {
   if (watchPortalState.dataset.open !== String(night)) watchPortalState.dataset.open = String(night);
   setWatchText(watchPortalState, portalStatus);
   setWatchText(watchCoins, watch.coins);
+  setWatchText(watchWood, watch.wood);
   watchHealth.value = watch.signal;
   setWatchText(watchHealthLabel, `${watch.signal}/${WATCH_HEALTH}`);
+  watchPlayerHealth.value = watch.playerHealth;
+  setWatchText(watchPlayerHealthLabel, `${watch.playerHealth}/${WATCH_PLAYER_HEALTH}`);
   watch.posts.forEach((post, index) => {
     const wall = post.tier === 3 ? `Wall tower ${post.health}/${watch.maxWall(post)}`
       : post.health ? `Wall ${post.health}/${watch.maxWall(post)}` : 'No wall';
@@ -462,8 +474,21 @@ function drawWatchMode() {
   setWatchText(watchMessage, watch.message);
 }
 
-function renderWatchMarketStock(vendor, focusItem) {
+function updateWatchMarketBalance() {
   setWatchText(watchMarketBalance, `${watch.coins} copper available`);
+  setWatchText(watchMarketWood, `${watch.wood} wood · ${WATCH_WOOD_PRICE} copper each`);
+  watchSellWood.disabled = watchSellAllWood.disabled = watch.wood === 0;
+}
+
+function tradeWatchWood(amount) {
+  if (!watchMarketDialog.open || !watch.sellWood(amount)) return;
+  updateWatchMarketBalance();
+  setWatchText(watchMarketStatus, watch.message);
+  dirty = true;
+}
+
+function renderWatchMarketStock(vendor, focusItem) {
+  updateWatchMarketBalance();
   watchMarketStock.replaceChildren();
   let nextFocus;
   for (const [id, item] of Object.entries(WATCH_MARKET_ITEMS)) {
@@ -613,7 +638,7 @@ function renderWatchSlots(message = '') {
     details.className = 'watch-slot-details';
     title.textContent = slot.name;
     const phase = slot.phase === 'day' ? 'Day' : 'Night';
-    summary.textContent = `${phase} ${slot.day} · ${slot.coins} copper${slot.status === 'lost' ? ' · Tower fell' : ''}`;
+    summary.textContent = `${phase} ${slot.day} · ${slot.coins} copper${slot.status === 'lost' ? ' · Watch lost' : ''}`;
     details.append(title, summary);
     row.append(details, watchSlotButton('Load', slot.name, () => {
       if (watch.status === 'running' && watch.tick > 0 && !window.confirm(`Load “${slot.name}” over the current run?`)) return;
@@ -680,6 +705,8 @@ for (const button of watchBuilderOrderButtons) {
 }
 watchSwing.addEventListener('click', swingWatchWeapon);
 watchMarketDialog.addEventListener('close', () => world.focus({ preventScroll: true }));
+watchSellWood.addEventListener('click', () => tradeWatchWood(1));
+watchSellAllWood.addEventListener('click', () => tradeWatchWood(watch.wood));
 for (const button of watchMoveButtons) {
   button.addEventListener('click', () => {
     if (watch.insideTower && button.hasAttribute('data-watch-destination')) return;
