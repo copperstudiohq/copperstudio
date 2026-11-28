@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CreekWatch, WATCH_BOUNDS, WATCH_BUILDER_REPAIR_TICKS, WATCH_SIGNAL } from '../public/games/mosswake-creek/watch.js';
+import { CreekWatch, WATCH_BOUNDS, WATCH_BUILDER_REPAIR_TICKS, WATCH_DAY, WATCH_SIGNAL } from '../public/games/mosswake-creek/watch.js';
 import { listWatchSlots, loadWatchSlot, saveWatchSlot } from '../public/games/mosswake-creek/watch-saves.js';
 
 function memoryStorage() {
@@ -79,7 +79,7 @@ test('an early-bell recall saved while builders return reaches the same night wi
   watch.step();
   assert.ok(watch.builders.every(({ returning, walking }) => returning && walking));
   const { loaded } = roundTrip(watch);
-  for (let tick = 0; tick < 2000 && watch.phase === 'day'; tick++) stepTogether(watch, loaded, 1);
+  for (let tick = 0; tick < WATCH_DAY && watch.phase === 'day'; tick++) stepTogether(watch, loaded, 1);
   assert.equal(watch.phase, 'night');
   assert.equal(watch.builders.length, 2);
   roundTrip(watch);

@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, START_VIEW, POND_LEVEL, EMPTY, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, WEATHER, SCENERY, BOSSES, CREEK_HUTS, TERROR_SEGMENTS, bossPosition, quarryHeight, pixelNoise, makeRandom, triCoreScale, isLiquid, isSolid } from './simulation.js';
+import { WIDTH, HEIGHT, VIEW_WIDTH, WORLD_AREAS, CORE_MAP_OFFSET, START_VIEW, POND_LEVEL, EMPTY, COPPER, SAND, WATER, ICHOR, BASALT, EMBER, PATINA, ROCK, GRASS, WEATHER, SCENERY, BOSSES, CREEK_HUTS, TERROR_SEGMENTS, bossPosition, quarryHeight, pixelNoise, makeRandom, triCoreScale, isLiquid, isSolid } from './simulation.js';
 import { SpriteChipper } from './breakage.js';
 
 const SIZE = WIDTH * HEIGHT;
@@ -32,12 +32,24 @@ const PALETTES = {
 };
 const DECORATIONS = [
   ...CREEK_HUTS.map((x) => ({ x, type: 'hut' })),
-  { x: 253, type: 'posts' },
-  { x: VIEW_WIDTH + 164, type: 'houses' },
+  { x: CORE_MAP_OFFSET + 253, type: 'posts' },
+  { x: CORE_MAP_OFFSET + VIEW_WIDTH + 164, type: 'houses' },
   { x: START_VIEW + 62, type: 'houses' },
   { x: START_VIEW + 101, type: 'posts' }, { x: START_VIEW + 351, type: 'posts' },
-  { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'houses' }
+  { x: START_VIEW + VIEW_WIDTH * 2 + 90, type: 'posts' }, { x: START_VIEW + VIEW_WIDTH * 2 + 291, type: 'houses' },
+  { x: VIEW_WIDTH + 292, type: 'posts' }, { x: VIEW_WIDTH * 3 + 243, type: 'houses' },
+  { x: VIEW_WIDTH * 4 + 172, type: 'posts' }, { x: VIEW_WIDTH * 10 + 185, type: 'houses' },
+  { x: VIEW_WIDTH * 11 + 248, type: 'posts' }, { x: VIEW_WIDTH * 13 + 216, type: 'houses' }
 ];
+const ROAD_SECTIONS = [[1, 126, 229], [3, 123, 233], [4, 45, 263], [6, 143, 216],
+  [7, 18, 93], [8, 100, 267], [10, 62, 236], [11, 144, 248], [13, 132, 247]];
+const roadWidth = new Uint8Array(WIDTH);
+for (const [area, start, end] of ROAD_SECTIONS) {
+  const offset = area * VIEW_WIDTH;
+  for (let x = start; x < end; x++) {
+    roadWidth[offset + x] = Math.min(8, 1 + Math.floor(Math.min(x - start, end - x - 1) / 2));
+  }
+}
 const POND_DOCK = { type: 'dock', x: START_VIEW + 258, y: 128 };
 const TRI_IRIS = '#e89147';
 const rainRandom = makeRandom(23691);
@@ -399,6 +411,14 @@ function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly, canopyShade)
 const GROUND_COLORS = {
   normal: [rgb(82, 105, 70), rgb(117, 134, 91), rgb(142, 155, 104)],
   tri: [rgb(203, 82, 148), rgb(234, 128, 174), rgb(240, 149, 191)],
+  road: {
+    asphalt: [rgb(58, 61, 65), rgb(65, 68, 72), rgb(74, 77, 80)],
+    shoulder: rgb(86, 89, 77), edge: rgb(147, 148, 135), stripe: rgb(199, 194, 172)
+  },
+  triRoad: {
+    asphalt: [rgb(78, 45, 66), rgb(91, 51, 76), rgb(108, 56, 88)],
+    shoulder: rgb(110, 63, 85), edge: rgb(160, 92, 126), stripe: rgb(214, 136, 172)
+  },
   fringe: [rgb(158, 58, 119), rgb(234, 113, 171), rgb(204, 82, 149), rgb(244, 151, 193), rgb(99, 179, 255)]
 };
 
@@ -420,7 +440,7 @@ function paintGroundDetails(frame, quarry, left) {
     const plantedGrass = quarry.at(x, top) === GRASS;
     const y = plantedGrass ? top : quarryHeight(x);
     const tuft = pixelNoise(x, 25);
-    if (tuft > 0.34 && (plantedGrass || (y < POND_LEVEL - 1 && quarry.at(x, y) === ROCK))
+    if (tuft > 0.34 && (plantedGrass || (!roadWidth[x] && y < POND_LEVEL - 1 && quarry.at(x, y) === ROCK))
         && quarry.at(x, y - 1) === EMPTY) {
       const converted = quarry.isTriAt(x, y) || quarry.placedTri[y * WIDTH + x];
       const colors = converted ? GROUND_COLORS.tri : GROUND_COLORS.normal;
@@ -433,6 +453,22 @@ function paintGroundDetails(frame, quarry, left) {
   for (let x = left; x < right; x++) {
     const y = quarry.surface[x];
     const material = quarry.at(x, y);
+    const width = roadWidth[x];
+    if (width && y === quarryHeight(x) && material === ROCK) {
+      const road = quarry.isTriAt(x, y) ? GROUND_COLORS.triRoad : GROUND_COLORS.road;
+      const back = Math.ceil(width / 2);
+      const front = width - back;
+      for (let row = -back; row < front; row++) {
+        if (quarry.at(x, y + row) !== (row < 0 ? EMPTY : ROCK)) continue;
+        const grain = pixelNoise(x, y + row);
+        let color = road.asphalt[grain < 0.16 ? 0 : grain > 0.89 ? 2 : 1];
+        if (row === -back || row === front - 1) color = road.shoulder;
+        else if (width >= 6 && row === front - 2 && grain > 0.07) color = road.edge;
+        else if (width >= 5 && row === -1 && x % 22 < 12 && grain > 0.1) color = road.stripe;
+        paint(color, x, y + row, 1, 1);
+      }
+      continue;
+    }
     if ((material !== ROCK && material !== GRASS)
         || (!quarry.isTriAt(x, y) && !quarry.placedTri[y * WIDTH + x])) continue;
     const grain = pixelNoise(x, y);

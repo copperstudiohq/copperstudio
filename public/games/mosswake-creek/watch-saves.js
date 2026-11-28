@@ -1,10 +1,56 @@
 import { CreekWatch, WATCH_AIM_SEED, WATCH_ARROW_LIFETIME, WATCH_ARROW_STICK_TICKS, WATCH_BOUNDS, WATCH_BUILDER_REPAIR_IDS, WATCH_BUILDER_REPAIR_TICKS, WATCH_BUILDER_UPGRADE_TICKS, WATCH_CAMP_HINT, WATCH_DAY, WATCH_ENEMY_NAME, WATCH_FIRST_FLYER_NIGHT, WATCH_FLYER_ALTITUDE, WATCH_FLYER_HEALTH, WATCH_FLYERS_PER_SIDE, WATCH_HEALTH, WATCH_MARKET_ITEMS, WATCH_NIGHT, WATCH_PIGEONS, WATCH_PLAYER_HEALTH, WATCH_SIGNAL, WATCH_SPRAYER_BURSTS, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_REACH, WATCH_SPRAY_SPLASH, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TOWER_ROOM_LAYOUT, WATCH_TREES, WATCH_TREE_HITS, WATCH_WALL_TOWER_HEALTH, hasWatchSprayer } from './watch.js';
-import { TICKS_PER_SECOND } from './simulation.js';
+import { CORE_MAP_OFFSET, CORE_MAP_WIDTH, TICKS_PER_SECOND, WIDTH } from './simulation.js';
 
 const WATCH_SAVE_PREFIX = 'mosswake.creek-watch.slot.';
 const WATCH_SAVE_VERSION = 1;
 const LEGACY_TOWER_ROOM = { left: 34, right: 350, door: 54 };
 export const WATCH_SAVE_NAME_LIMIT = 40;
+
+function legacyMapX(x) {
+  if (!Number.isFinite(x) || x < 0 || x >= CORE_MAP_WIDTH) throw new Error('This save slot contains damaged game data.');
+  return x + CORE_MAP_OFFSET;
+}
+
+function relocateFields(item, ...fields) {
+  if (!item || typeof item !== 'object') return item;
+  const moved = { ...item };
+  for (const field of fields) {
+    if (item[field] !== undefined) moved[field] = legacyMapX(item[field]);
+  }
+  return moved;
+}
+
+const relocateList = (items, move) => Array.isArray(items) ? items.map(move) : items;
+const relocateActor = (item) => relocateFields(item, 'x');
+
+function relocateSprayer(sprayer) {
+  if (!sprayer || typeof sprayer !== 'object') return sprayer;
+  return { ...relocateActor(sprayer), spray: relocateFields(sprayer.spray, 'from') };
+}
+
+function migrateWatchMap(state) {
+  if (!state || typeof state !== 'object') return state;
+  const moved = {
+    ...state,
+    player: relocateActor(state.player),
+    builders: relocateList(state.builders, relocateActor),
+    posts: relocateList(state.posts, (post) => post && { ...post, guards: relocateList(post.guards, relocateActor) }),
+    raiders: relocateList(state.raiders, relocateActor),
+    flyers: relocateList(state.flyers, relocateActor),
+    shots: relocateList(state.shots, (shot) => relocateFields(shot, 'from', 'to', 'x')),
+    loot: relocateList(state.loot, (piece) => relocateFields(piece, 'x', 'tossFrom')),
+  };
+  if (Object.hasOwn(state, 'sprayer')) moved.sprayer = relocateSprayer(state.sprayer);
+  if (Object.hasOwn(state, 'sprayers')) moved.sprayers = relocateList(state.sprayers, relocateSprayer);
+  if (state.treeCuts && Object.getPrototypeOf(state.treeCuts) === Object.prototype) {
+    moved.treeCuts = Object.fromEntries(Object.entries(state.treeCuts).map(([key, cut]) => {
+      const x = Number(key);
+      if (!Number.isInteger(x) || String(x) !== key) throw new Error('This save slot contains damaged game data.');
+      return [legacyMapX(x), cut];
+    }));
+  }
+  return moved;
+}
 
 function readWatchRecord(storage, id) {
   const text = storage.getItem(WATCH_SAVE_PREFIX + id);
@@ -15,7 +61,10 @@ function readWatchRecord(storage, id) {
   } catch {
     throw new Error('This save slot contains damaged game data.');
   }
-  if (record?.version !== WATCH_SAVE_VERSION) throw new Error('This save uses an unsupported format.');
+  if (record?.version !== WATCH_SAVE_VERSION || (record.mapWidth !== undefined && record.mapWidth !== WIDTH)) {
+    throw new Error('This save uses an unsupported format.');
+  }
+  if (record.mapWidth === undefined) record.state = migrateWatchMap(record.state);
   if (!validWatchSaveName(record.name) || !validWatchCount(record.savedAt) || !validWatchState(record.state)) {
     throw new Error('This save slot contains damaged game data.');
   }
@@ -237,7 +286,7 @@ export function saveWatchSlot(storage, watch, name, id) {
   }
   if (id && storage.getItem(WATCH_SAVE_PREFIX + id) === null) throw new Error('This save slot is no longer available.');
   const savedId = id ?? crypto.randomUUID();
-  storage.setItem(WATCH_SAVE_PREFIX + savedId, JSON.stringify({ version: WATCH_SAVE_VERSION, name: title, savedAt: Date.now(), state }));
+  storage.setItem(WATCH_SAVE_PREFIX + savedId, JSON.stringify({ version: WATCH_SAVE_VERSION, mapWidth: WIDTH, name: title, savedAt: Date.now(), state }));
   return savedId;
 }
 

@@ -1,14 +1,20 @@
 export const VIEW_WIDTH = 384;
-export const WORLD_AREAS = ['West Grove', 'Copper Rise', 'Mosswake Pond', 'Birch Flats', 'East Hollow'];
+export const CORE_MAP_WIDTH = VIEW_WIDTH * 5;
+export const CORE_MAP_OFFSET = CORE_MAP_WIDTH;
+export const WORLD_AREAS = [
+  'West Portal Woods', 'Slate Bank', 'Waterlogged Grove', 'Ember Meadow', 'Old Tar Road',
+  'West Grove', 'Copper Rise', 'Mosswake Pond', 'Birch Flats', 'East Hollow',
+  'Raincut Trail', 'Fern Shelf', 'Copper Marsh', 'Lantern Way', 'East Portal Woods'
+];
 export const WIDTH = VIEW_WIDTH * WORLD_AREAS.length;
-export const START_VIEW = VIEW_WIDTH * 2;
+export const START_VIEW = CORE_MAP_OFFSET + VIEW_WIDTH * 2;
 export const HEIGHT = 198;
 export const POND_LEVEL = 132;
 export const TICKS_PER_SECOND = 36;
 export const DAY_TICKS = 80 * TICKS_PER_SECOND;
 export const NIGHT_TICKS = 36 * TICKS_PER_SECOND;
 export const TRI_PORTAL_OPEN_TICKS = 40;
-export const CREEK_HUTS = [122, START_VIEW + 306, 3 * VIEW_WIDTH + 208];
+export const CREEK_HUTS = [122 + CORE_MAP_OFFSET, START_VIEW + 306, START_VIEW + VIEW_WIDTH + 208];
 
 export const EMPTY = 0;
 export const COPPER = 1;
@@ -73,13 +79,23 @@ export function pixelNoise(x, y) {
 }
 
 const profiles = [
+  [[0, 112], [64, 112], [113, 118], [232, 118], [283, 112], [383, 112]],
+  [[0, 112], [77, 112], [114, 105], [237, 105], [275, 112], [383, 112]],
+  [[0, 112], [57, 112], [105, 127], [258, 127], [308, 112], [383, 112]],
+  [[0, 112], [59, 112], [94, 106], [284, 106], [326, 112], [383, 112]],
+  [[0, 112], [383, 112]],
   [[0, 112], [78, 112], [91, 116], [220, 116], [237, 112], [383, 112]],
   [[0, 112], [64, 112], [82, 103], [228, 103], [247, 112], [383, 112]],
   [[0, 112], [111, 112], [116, 114], [122, 121], [132, 136], [145, 143],
     [164, 151], [181, 155], [209, 155], [231, 152], [252, 145], [261, 140],
     [268, 132], [274, 123], [280, 112], [383, 112]],
   [[0, 112], [383, 112]],
-  [[0, 112], [99, 112], [133, 127], [229, 127], [260, 112], [383, 112]]
+  [[0, 112], [99, 112], [133, 127], [229, 127], [260, 112], [383, 112]],
+  [[0, 112], [383, 112]],
+  [[0, 112], [67, 112], [120, 103], [263, 103], [321, 112], [383, 112]],
+  [[0, 112], [75, 112], [109, 128], [260, 128], [304, 112], [383, 112]],
+  [[0, 112], [51, 112], [102, 108], [280, 108], [320, 112], [383, 112]],
+  [[0, 112], [104, 112], [140, 120], [226, 120], [269, 112], [383, 112]]
 ];
 
 function profileHeight(x) {

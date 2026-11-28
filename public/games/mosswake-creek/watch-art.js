@@ -1,4 +1,4 @@
-import { HEIGHT, POND_LEVEL, VIEW_WIDTH, pixelNoise, quarryHeight } from './simulation.js';
+import { CORE_MAP_OFFSET, HEIGHT, POND_LEVEL, VIEW_WIDTH, pixelNoise, quarryHeight } from './simulation.js';
 import { drawSceneSky, drawTriOpus, drawTriPortal, drawTriPortalAura, sceneGlow, sceneOval } from './art.js';
 import { WATCH_BOUNDS, WATCH_BRIDGE, WATCH_CAMPS, WATCH_COIN_TOSS_TICKS, WATCH_PIGEONS, WATCH_PORTALS, WATCH_SIGNAL, WATCH_OPUS_REACH, WATCH_FLYER_HEALTH, WATCH_SPRAYER_HEALTH, WATCH_SPRAY_FLIGHT, WATCH_SPRAY_SPLASH, WATCH_SWING_TICKS, WATCH_TOWER_BUILDING, WATCH_TOWER_CHAIRS, WATCH_TOWER_ROOM, WATCH_TREES, WATCH_TREE_FALL_TICKS, WATCH_TREE_HITS, WATCH_VENDORS, WATCH_WALL_TOWER_HEALTH, WATCH_WALL_TOWER_PLATFORM, watchGround, watchIchorLandings, watchRaidWall, watchPigeonPose, watchRecruitPose, watchTowerTarget } from './watch.js';
 import { drawVendorPortraitImage } from './vendor-portraits.js';
@@ -129,7 +129,8 @@ function drawPortalTreeVines(ctx, crown, seed) {
 }
 
 function drawWatchBirchCrown(ctx, x, top) {
-  const colors = (x < WATCH_BRIDGE.left - 220 && x > 385) || x > 1536 ? GOLD_BIRCH : GREEN_BIRCH;
+  const colors = (x < WATCH_BRIDGE.left - 220 && x > CORE_MAP_OFFSET + 385)
+    || x > CORE_MAP_OFFSET + 1536 ? GOLD_BIRCH : GREEN_BIRCH;
   for (const [index, [cx, cy, rx, ry]] of BIRCH_LEAF_CLUSTERS.entries()) {
     const leafX = cx + Math.round((pixelNoise(x, index) - 0.5) * 6);
     const leafY = top + cy + Math.round((pixelNoise(x, index + 9) - 0.5) * 6);

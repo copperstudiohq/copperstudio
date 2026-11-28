@@ -1,4 +1,4 @@
-import { START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS, TRI_PORTAL_OPEN_TICKS, CREATURES, quarryHeight } from './simulation.js';
+import { CORE_MAP_OFFSET, CORE_MAP_WIDTH, START_VIEW, VIEW_WIDTH, WIDTH, TICKS_PER_SECOND, DAY_TICKS, NIGHT_TICKS, TRI_PORTAL_OPEN_TICKS, CREATURES, quarryHeight } from './simulation.js';
 
 export const WATCH_BRIDGE = { left: START_VIEW + 111, right: START_VIEW + 281, y: 112 };
 export const WATCH_SIGNAL = (WATCH_BRIDGE.left + WATCH_BRIDGE.right) / 2;
@@ -25,8 +25,8 @@ export const WATCH_HEALTH = 10;
 export const WATCH_PLAYER_HEALTH = 5;
 export const WATCH_COIN_TOSS_TICKS = 14;
 const WATCH_HURT_COOLDOWN = TICKS_PER_SECOND;
-export const WATCH_DAY = DAY_TICKS;
-export const WATCH_NIGHT = NIGHT_TICKS;
+export const WATCH_DAY = DAY_TICKS * 2;
+export const WATCH_NIGHT = NIGHT_TICKS + 42 * TICKS_PER_SECOND;
 export const WATCH_AIM_SEED = 0x43524545;
 export const WATCH_ARROW_GRAVITY = 0.22;
 export const WATCH_ARROW_LIFETIME = 180;
@@ -87,10 +87,22 @@ export const WATCH_TREE_FALL_TICKS = 24;
 export const WATCH_WOOD_PRICE = 2;
 const WATCH_TREE_RANGE = 13;
 const WATCH_CHOP_INTERVAL = 8;
-export const WATCH_TREES = [86, 150, 211, 276, 340, 456, 574, 633, 693, 777, 868,
+const CORE_TREES = [86, 150, 211, 276, 340, 456, 574, 633, 693, 777, 868,
   1135, 1215, 1269, 1321, 1417, 1508, 1567, 1626, 1684, 1741, 1819].map((x, index) => ({
-  x, height: 58 + (index * 11 % 22), wood: 3 + index % 3
+  x: CORE_MAP_OFFSET + x, height: 58 + (index * 11 % 22), wood: 3 + index % 3
 }));
+const WEST_TREE_LAYOUT = [[86, 150, 211, 276, 340], [44, 103, 198, 269, 337], [54, 116, 184, 259, 332],
+  [72, 144, 247, 320], [58, 122, 226, 292, 364]];
+const EAST_TREE_LAYOUT = [[52, 132, 216, 293, 360], [63, 136, 220, 286, 344], [57, 114, 190, 277, 349],
+  [55, 130, 223, 305, 363], [47, 90, 148, 205, 283]];
+const outerTrees = (layout, start) => layout.flatMap((trees, area) => trees.map((localX, index) => ({
+  x: start + area * VIEW_WIDTH + localX,
+  height: 56 + (area * 7 + index * 11) % 18,
+  wood: 3 + (area + index) % 3
+})));
+export const WATCH_TREES = [
+  ...outerTrees(WEST_TREE_LAYOUT, 0), ...CORE_TREES, ...outerTrees(EAST_TREE_LAYOUT, CORE_MAP_OFFSET + CORE_MAP_WIDTH)
+];
 export const WATCH_MARKET_ITEMS = {
   sword: { vendor: 'tools', name: 'Sword', cost: 5, damage: 2, reach: 23, cooldown: 16 },
   'repair-kit': { vendor: 'tools', name: 'Repair Kit', cost: 4, description: 'Repair palisades for 1 copper.' },
@@ -101,15 +113,16 @@ export const WATCH_PIGEONS = WATCH_POSTS.flatMap(({ side, wallX }) =>
   [49, 94, 143].map((offset) => ({ side, x: wallX + side * offset })));
 export const WATCH_CAMP_GROUPS = [
   { name: 'West', side: -1, camps: [
-    { x: VIEW_WIDTH + 24, style: 'ridge' }, { x: VIEW_WIDTH + 117, style: 'lean-to' }
+    { x: CORE_MAP_OFFSET + VIEW_WIDTH + 24, style: 'ridge' }, { x: CORE_MAP_OFFSET + VIEW_WIDTH + 117, style: 'lean-to' }
   ] },
   { name: 'East', side: 1, camps: [
-    { x: 3 * VIEW_WIDTH + 224, style: 'patchwork' }, { x: 3 * VIEW_WIDTH + 308, style: 'sagging' }
+    { x: START_VIEW + VIEW_WIDTH + 224, style: 'patchwork' }, { x: START_VIEW + VIEW_WIDTH + 308, style: 'sagging' }
   ] }
 ];
 export const WATCH_CAMPS = WATCH_CAMP_GROUPS.flatMap(({ side, camps }) => camps.map((camp) => ({ ...camp, side })));
 export const WATCH_CAMP_HINT = 'Use either tent marker to walk to its two recruiting camps.';
-const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
+const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917,
+  1106, 1320, 1525, 1750, 1962, 2164, 2395, 2612, 2790]
   .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
 
 export function watchGround(x) {

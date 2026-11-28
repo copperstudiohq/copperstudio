@@ -507,7 +507,7 @@ dialog dd { margin: 2px 0 0; }
       <div><dt>Change the sky</dt><dd>Pick Day or Night to hold the sky, or Auto for a moving sun and moon. Rainfall has its own Off, Rain, and Storm controls.</dd></div>
       <div><dt>Place a Tri Portal</dt><dd>Choose Tri Portal under Scenery and place it on dry ground. It opens into a mouth and releases Tri Blobs at night. Use Eraser or Break to remove it.</dd></div>
       <div><dt>Place Tri Opus</dt><dd>Open Tri variants, choose Creatures, and select Tri Opus. Click or tap the quarry to spawn one.</dd></div>
-      <div><dt>Explore Mosswake</dt><dd>Use the map arrows, drag the map slider, or press A and D to move the view across all five areas.</dd></div>
+      <div><dt>Explore Mosswake</dt><dd>Use the map arrows, drag the map slider, or press A and D to explore fifteen areas, from grassy birch groves to paved country roads.</dd></div>
       <div><dt>Add life</dt><dd>Place copperbacks or Mosswake ducks, or plant Tri on dry ground. When Tri touches a pool, it turns the water into thick, flesh-colored ichor. Erase the clump to remove its growth and clear the pool.</dd></div>
       <div><dt>Choose a variant</dt><dd>Switch between Normal and Tri variants above Materials, Creatures, and Scenery. Place birches, huts, rows of connected houses, fences, or docks in either palette. Growing Tri converts normal scenery it reaches and produces Tri Blobs, Tri Lings, and floating Tri Brains.</dd></div>
       <div><dt>Summon bosses</dt><dd>Place the Copper Giant on dry ground, the Lake’s Corrupt Terror over water or ichor, and the Eye of the Sky in open air. A Tri clump can summon an Eye of the Sky after four minutes of active play.</dd></div>
@@ -576,16 +576,22 @@ dialog dd { margin: 2px 0 0; }
   </dialog>
   <script type="module">
 const VIEW_WIDTH = 384;
-const WORLD_AREAS = ['West Grove', 'Copper Rise', 'Mosswake Pond', 'Birch Flats', 'East Hollow'];
+const CORE_MAP_WIDTH = VIEW_WIDTH * 5;
+const CORE_MAP_OFFSET = CORE_MAP_WIDTH;
+const WORLD_AREAS = [
+  'West Portal Woods', 'Slate Bank', 'Waterlogged Grove', 'Ember Meadow', 'Old Tar Road',
+  'West Grove', 'Copper Rise', 'Mosswake Pond', 'Birch Flats', 'East Hollow',
+  'Raincut Trail', 'Fern Shelf', 'Copper Marsh', 'Lantern Way', 'East Portal Woods'
+];
 const WIDTH = VIEW_WIDTH * WORLD_AREAS.length;
-const START_VIEW = VIEW_WIDTH * 2;
+const START_VIEW = CORE_MAP_OFFSET + VIEW_WIDTH * 2;
 const HEIGHT = 198;
 const POND_LEVEL = 132;
 const TICKS_PER_SECOND = 36;
 const DAY_TICKS = 80 * TICKS_PER_SECOND;
 const NIGHT_TICKS = 36 * TICKS_PER_SECOND;
 const TRI_PORTAL_OPEN_TICKS = 40;
-const CREEK_HUTS = [122, START_VIEW + 306, 3 * VIEW_WIDTH + 208];
+const CREEK_HUTS = [122 + CORE_MAP_OFFSET, START_VIEW + 306, START_VIEW + VIEW_WIDTH + 208];
 
 const EMPTY = 0;
 const COPPER = 1;
@@ -650,13 +656,23 @@ function pixelNoise(x, y) {
 }
 
 const profiles = [
+  [[0, 112], [64, 112], [113, 118], [232, 118], [283, 112], [383, 112]],
+  [[0, 112], [77, 112], [114, 105], [237, 105], [275, 112], [383, 112]],
+  [[0, 112], [57, 112], [105, 127], [258, 127], [308, 112], [383, 112]],
+  [[0, 112], [59, 112], [94, 106], [284, 106], [326, 112], [383, 112]],
+  [[0, 112], [383, 112]],
   [[0, 112], [78, 112], [91, 116], [220, 116], [237, 112], [383, 112]],
   [[0, 112], [64, 112], [82, 103], [228, 103], [247, 112], [383, 112]],
   [[0, 112], [111, 112], [116, 114], [122, 121], [132, 136], [145, 143],
     [164, 151], [181, 155], [209, 155], [231, 152], [252, 145], [261, 140],
     [268, 132], [274, 123], [280, 112], [383, 112]],
   [[0, 112], [383, 112]],
-  [[0, 112], [99, 112], [133, 127], [229, 127], [260, 112], [383, 112]]
+  [[0, 112], [99, 112], [133, 127], [229, 127], [260, 112], [383, 112]],
+  [[0, 112], [383, 112]],
+  [[0, 112], [67, 112], [120, 103], [263, 103], [321, 112], [383, 112]],
+  [[0, 112], [75, 112], [109, 128], [260, 128], [304, 112], [383, 112]],
+  [[0, 112], [51, 112], [102, 108], [280, 108], [320, 112], [383, 112]],
+  [[0, 112], [104, 112], [140, 120], [226, 120], [269, 112], [383, 112]]
 ];
 
 function profileHeight(x) {
@@ -1437,12 +1453,24 @@ const PALETTES = {
 };
 const DECORATIONS = [
   ...CREEK_HUTS.map((x) => ({ x, type: 'hut' })),
-  { x: 253, type: 'posts' },
-  { x: VIEW_WIDTH + 164, type: 'houses' },
+  { x: CORE_MAP_OFFSET + 253, type: 'posts' },
+  { x: CORE_MAP_OFFSET + VIEW_WIDTH + 164, type: 'houses' },
   { x: START_VIEW + 62, type: 'houses' },
   { x: START_VIEW + 101, type: 'posts' }, { x: START_VIEW + 351, type: 'posts' },
-  { x: 4 * VIEW_WIDTH + 90, type: 'posts' }, { x: 4 * VIEW_WIDTH + 291, type: 'houses' }
+  { x: START_VIEW + VIEW_WIDTH * 2 + 90, type: 'posts' }, { x: START_VIEW + VIEW_WIDTH * 2 + 291, type: 'houses' },
+  { x: VIEW_WIDTH + 292, type: 'posts' }, { x: VIEW_WIDTH * 3 + 243, type: 'houses' },
+  { x: VIEW_WIDTH * 4 + 172, type: 'posts' }, { x: VIEW_WIDTH * 10 + 185, type: 'houses' },
+  { x: VIEW_WIDTH * 11 + 248, type: 'posts' }, { x: VIEW_WIDTH * 13 + 216, type: 'houses' }
 ];
+const ROAD_SECTIONS = [[1, 126, 229], [3, 123, 233], [4, 45, 263], [6, 143, 216],
+  [7, 18, 93], [8, 100, 267], [10, 62, 236], [11, 144, 248], [13, 132, 247]];
+const roadWidth = new Uint8Array(WIDTH);
+for (const [area, start, end] of ROAD_SECTIONS) {
+  const offset = area * VIEW_WIDTH;
+  for (let x = start; x < end; x++) {
+    roadWidth[offset + x] = Math.min(8, 1 + Math.floor(Math.min(x - start, end - x - 1) / 2));
+  }
+}
 const POND_DOCK = { type: 'dock', x: START_VIEW + 258, y: 128 };
 const TRI_IRIS = '#e89147';
 const rainRandom = makeRandom(23691);
@@ -1804,6 +1832,14 @@ function paintTerrain(ctx, frame, quarry, left, distantBirchesOnly, canopyShade)
 const GROUND_COLORS = {
   normal: [rgb(82, 105, 70), rgb(117, 134, 91), rgb(142, 155, 104)],
   tri: [rgb(203, 82, 148), rgb(234, 128, 174), rgb(240, 149, 191)],
+  road: {
+    asphalt: [rgb(58, 61, 65), rgb(65, 68, 72), rgb(74, 77, 80)],
+    shoulder: rgb(86, 89, 77), edge: rgb(147, 148, 135), stripe: rgb(199, 194, 172)
+  },
+  triRoad: {
+    asphalt: [rgb(78, 45, 66), rgb(91, 51, 76), rgb(108, 56, 88)],
+    shoulder: rgb(110, 63, 85), edge: rgb(160, 92, 126), stripe: rgb(214, 136, 172)
+  },
   fringe: [rgb(158, 58, 119), rgb(234, 113, 171), rgb(204, 82, 149), rgb(244, 151, 193), rgb(99, 179, 255)]
 };
 
@@ -1825,7 +1861,7 @@ function paintGroundDetails(frame, quarry, left) {
     const plantedGrass = quarry.at(x, top) === GRASS;
     const y = plantedGrass ? top : quarryHeight(x);
     const tuft = pixelNoise(x, 25);
-    if (tuft > 0.34 && (plantedGrass || (y < POND_LEVEL - 1 && quarry.at(x, y) === ROCK))
+    if (tuft > 0.34 && (plantedGrass || (!roadWidth[x] && y < POND_LEVEL - 1 && quarry.at(x, y) === ROCK))
         && quarry.at(x, y - 1) === EMPTY) {
       const converted = quarry.isTriAt(x, y) || quarry.placedTri[y * WIDTH + x];
       const colors = converted ? GROUND_COLORS.tri : GROUND_COLORS.normal;
@@ -1838,6 +1874,22 @@ function paintGroundDetails(frame, quarry, left) {
   for (let x = left; x < right; x++) {
     const y = quarry.surface[x];
     const material = quarry.at(x, y);
+    const width = roadWidth[x];
+    if (width && y === quarryHeight(x) && material === ROCK) {
+      const road = quarry.isTriAt(x, y) ? GROUND_COLORS.triRoad : GROUND_COLORS.road;
+      const back = Math.ceil(width / 2);
+      const front = width - back;
+      for (let row = -back; row < front; row++) {
+        if (quarry.at(x, y + row) !== (row < 0 ? EMPTY : ROCK)) continue;
+        const grain = pixelNoise(x, y + row);
+        let color = road.asphalt[grain < 0.16 ? 0 : grain > 0.89 ? 2 : 1];
+        if (row === -back || row === front - 1) color = road.shoulder;
+        else if (width >= 6 && row === front - 2 && grain > 0.07) color = road.edge;
+        else if (width >= 5 && row === -1 && x % 22 < 12 && grain > 0.1) color = road.stripe;
+        paint(color, x, y + row, 1, 1);
+      }
+      continue;
+    }
     if ((material !== ROCK && material !== GRASS)
         || (!quarry.isTriAt(x, y) && !quarry.placedTri[y * WIDTH + x])) continue;
     const grain = pixelNoise(x, y);
@@ -2878,8 +2930,8 @@ const WATCH_HEALTH = 10;
 const WATCH_PLAYER_HEALTH = 5;
 const WATCH_COIN_TOSS_TICKS = 14;
 const WATCH_HURT_COOLDOWN = TICKS_PER_SECOND;
-const WATCH_DAY = DAY_TICKS;
-const WATCH_NIGHT = NIGHT_TICKS;
+const WATCH_DAY = DAY_TICKS * 2;
+const WATCH_NIGHT = NIGHT_TICKS + 42 * TICKS_PER_SECOND;
 const WATCH_AIM_SEED = 0x43524545;
 const WATCH_ARROW_GRAVITY = 0.22;
 const WATCH_ARROW_LIFETIME = 180;
@@ -2940,10 +2992,22 @@ const WATCH_TREE_FALL_TICKS = 24;
 const WATCH_WOOD_PRICE = 2;
 const WATCH_TREE_RANGE = 13;
 const WATCH_CHOP_INTERVAL = 8;
-const WATCH_TREES = [86, 150, 211, 276, 340, 456, 574, 633, 693, 777, 868,
+const CORE_TREES = [86, 150, 211, 276, 340, 456, 574, 633, 693, 777, 868,
   1135, 1215, 1269, 1321, 1417, 1508, 1567, 1626, 1684, 1741, 1819].map((x, index) => ({
-  x, height: 58 + (index * 11 % 22), wood: 3 + index % 3
+  x: CORE_MAP_OFFSET + x, height: 58 + (index * 11 % 22), wood: 3 + index % 3
 }));
+const WEST_TREE_LAYOUT = [[86, 150, 211, 276, 340], [44, 103, 198, 269, 337], [54, 116, 184, 259, 332],
+  [72, 144, 247, 320], [58, 122, 226, 292, 364]];
+const EAST_TREE_LAYOUT = [[52, 132, 216, 293, 360], [63, 136, 220, 286, 344], [57, 114, 190, 277, 349],
+  [55, 130, 223, 305, 363], [47, 90, 148, 205, 283]];
+const outerTrees = (layout, start) => layout.flatMap((trees, area) => trees.map((localX, index) => ({
+  x: start + area * VIEW_WIDTH + localX,
+  height: 56 + (area * 7 + index * 11) % 18,
+  wood: 3 + (area + index) % 3
+})));
+const WATCH_TREES = [
+  ...outerTrees(WEST_TREE_LAYOUT, 0), ...CORE_TREES, ...outerTrees(EAST_TREE_LAYOUT, CORE_MAP_OFFSET + CORE_MAP_WIDTH)
+];
 const WATCH_MARKET_ITEMS = {
   sword: { vendor: 'tools', name: 'Sword', cost: 5, damage: 2, reach: 23, cooldown: 16 },
   'repair-kit': { vendor: 'tools', name: 'Repair Kit', cost: 4, description: 'Repair palisades for 1 copper.' },
@@ -2954,15 +3018,16 @@ const WATCH_PIGEONS = WATCH_POSTS.flatMap(({ side, wallX }) =>
   [49, 94, 143].map((offset) => ({ side, x: wallX + side * offset })));
 const WATCH_CAMP_GROUPS = [
   { name: 'West', side: -1, camps: [
-    { x: VIEW_WIDTH + 24, style: 'ridge' }, { x: VIEW_WIDTH + 117, style: 'lean-to' }
+    { x: CORE_MAP_OFFSET + VIEW_WIDTH + 24, style: 'ridge' }, { x: CORE_MAP_OFFSET + VIEW_WIDTH + 117, style: 'lean-to' }
   ] },
   { name: 'East', side: 1, camps: [
-    { x: 3 * VIEW_WIDTH + 224, style: 'patchwork' }, { x: 3 * VIEW_WIDTH + 308, style: 'sagging' }
+    { x: START_VIEW + VIEW_WIDTH + 224, style: 'patchwork' }, { x: START_VIEW + VIEW_WIDTH + 308, style: 'sagging' }
   ] }
 ];
 const WATCH_CAMPS = WATCH_CAMP_GROUPS.flatMap(({ side, camps }) => camps.map((camp) => ({ ...camp, side })));
 const WATCH_CAMP_HINT = 'Use either tent marker to walk to its two recruiting camps.';
-const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917]
+const WATCH_CACHES = [36, 82, 144, 208, 312, 446, 630, 740, 798, 857, 917,
+  1106, 1320, 1525, 1750, 1962, 2164, 2395, 2612, 2790]
   .flatMap((distance) => [WATCH_SIGNAL - distance, WATCH_SIGNAL + distance]);
 
 function watchGround(x) {
@@ -4246,6 +4311,52 @@ const WATCH_SAVE_VERSION = 1;
 const LEGACY_TOWER_ROOM = { left: 34, right: 350, door: 54 };
 const WATCH_SAVE_NAME_LIMIT = 40;
 
+function legacyMapX(x) {
+  if (!Number.isFinite(x) || x < 0 || x >= CORE_MAP_WIDTH) throw new Error('This save slot contains damaged game data.');
+  return x + CORE_MAP_OFFSET;
+}
+
+function relocateFields(item, ...fields) {
+  if (!item || typeof item !== 'object') return item;
+  const moved = { ...item };
+  for (const field of fields) {
+    if (item[field] !== undefined) moved[field] = legacyMapX(item[field]);
+  }
+  return moved;
+}
+
+const relocateList = (items, move) => Array.isArray(items) ? items.map(move) : items;
+const relocateActor = (item) => relocateFields(item, 'x');
+
+function relocateSprayer(sprayer) {
+  if (!sprayer || typeof sprayer !== 'object') return sprayer;
+  return { ...relocateActor(sprayer), spray: relocateFields(sprayer.spray, 'from') };
+}
+
+function migrateWatchMap(state) {
+  if (!state || typeof state !== 'object') return state;
+  const moved = {
+    ...state,
+    player: relocateActor(state.player),
+    builders: relocateList(state.builders, relocateActor),
+    posts: relocateList(state.posts, (post) => post && { ...post, guards: relocateList(post.guards, relocateActor) }),
+    raiders: relocateList(state.raiders, relocateActor),
+    flyers: relocateList(state.flyers, relocateActor),
+    shots: relocateList(state.shots, (shot) => relocateFields(shot, 'from', 'to', 'x')),
+    loot: relocateList(state.loot, (piece) => relocateFields(piece, 'x', 'tossFrom')),
+  };
+  if (Object.hasOwn(state, 'sprayer')) moved.sprayer = relocateSprayer(state.sprayer);
+  if (Object.hasOwn(state, 'sprayers')) moved.sprayers = relocateList(state.sprayers, relocateSprayer);
+  if (state.treeCuts && Object.getPrototypeOf(state.treeCuts) === Object.prototype) {
+    moved.treeCuts = Object.fromEntries(Object.entries(state.treeCuts).map(([key, cut]) => {
+      const x = Number(key);
+      if (!Number.isInteger(x) || String(x) !== key) throw new Error('This save slot contains damaged game data.');
+      return [legacyMapX(x), cut];
+    }));
+  }
+  return moved;
+}
+
 function readWatchRecord(storage, id) {
   const text = storage.getItem(WATCH_SAVE_PREFIX + id);
   if (text === null) throw new Error('This save slot is no longer available.');
@@ -4255,7 +4366,10 @@ function readWatchRecord(storage, id) {
   } catch {
     throw new Error('This save slot contains damaged game data.');
   }
-  if (record?.version !== WATCH_SAVE_VERSION) throw new Error('This save uses an unsupported format.');
+  if (record?.version !== WATCH_SAVE_VERSION || (record.mapWidth !== undefined && record.mapWidth !== WIDTH)) {
+    throw new Error('This save uses an unsupported format.');
+  }
+  if (record.mapWidth === undefined) record.state = migrateWatchMap(record.state);
   if (!validWatchSaveName(record.name) || !validWatchCount(record.savedAt) || !validWatchState(record.state)) {
     throw new Error('This save slot contains damaged game data.');
   }
@@ -4477,7 +4591,7 @@ function saveWatchSlot(storage, watch, name, id) {
   }
   if (id && storage.getItem(WATCH_SAVE_PREFIX + id) === null) throw new Error('This save slot is no longer available.');
   const savedId = id ?? crypto.randomUUID();
-  storage.setItem(WATCH_SAVE_PREFIX + savedId, JSON.stringify({ version: WATCH_SAVE_VERSION, name: title, savedAt: Date.now(), state }));
+  storage.setItem(WATCH_SAVE_PREFIX + savedId, JSON.stringify({ version: WATCH_SAVE_VERSION, mapWidth: WIDTH, name: title, savedAt: Date.now(), state }));
   return savedId;
 }
 
@@ -4669,7 +4783,8 @@ function drawPortalTreeVines(ctx, crown, seed) {
 }
 
 function drawWatchBirchCrown(ctx, x, top) {
-  const colors = (x < WATCH_BRIDGE.left - 220 && x > 385) || x > 1536 ? GOLD_BIRCH : GREEN_BIRCH;
+  const colors = (x < WATCH_BRIDGE.left - 220 && x > CORE_MAP_OFFSET + 385)
+    || x > CORE_MAP_OFFSET + 1536 ? GOLD_BIRCH : GREEN_BIRCH;
   for (const [index, [cx, cy, rx, ry]] of BIRCH_LEAF_CLUSTERS.entries()) {
     const leafX = cx + Math.round((pixelNoise(x, index) - 0.5) * 6);
     const leafY = top + cy + Math.round((pixelNoise(x, index + 9) - 0.5) * 6);
